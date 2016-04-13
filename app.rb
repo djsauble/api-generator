@@ -11,7 +11,7 @@ require 'sinatra-authentication'
 require 'json'
 
 # Definition for the database table
-require './models/database'
+require './models/db'
 
 # Connect to our MySQL database
 DataMapper.setup(:default, "#{ENV["CLEARDB_DATABASE_URL"]}")
@@ -29,8 +29,32 @@ get '/' do
   end
 
   # Get the number of databases for the current user
-  @count = Database.count(:user => current_user.id)
+  @count = Db.count(:user => current_user.id)
 
   # Render the view
   haml :index, :locals => {:count => @count}
+end
+
+# Provide input for new database connection
+get '/databases/add' do
+  login_required
+
+  # Render the view
+  haml :add
+end
+
+# Create a new database connection
+post '/databases/add' do
+  login_required
+
+  Db.create(
+    :user     => current_user.id,
+    :type     => params[:type],
+    :api      => params[:api],
+    :username => params[:username],
+    :password => params[:password]
+  )
+
+  # Redirect to the index view
+  redirect to('/')
 end

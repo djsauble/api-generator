@@ -1,4 +1,4 @@
-class Database
+class Db
   include DataMapper::Resource
 
   property :id, Serial

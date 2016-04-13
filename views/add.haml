@@ -1,0 +1,11 @@
+%form{:action => "/databases/add", :method => "post"}
+  %label{:for => "type"} Provider:
+  %select{:id => "type", :name => "type"}
+    %option{:value => "cloudant"} IBM Cloudant
+  %label{:for => "api"} URL:
+  %input{:id => "api", :name => "api", :placeholder => "e.g. https://djsauble.cloudant.com/"}
+  %label{:for => "username"} Username:
+  %input{:id => "username", :name => "username", :placeholder => "e.g. djsauble"}
+  %label{:for => "password"} Password:
+  %input{:id => "password", :name => "password", :type => "password"}
+  %input{:type => "submit", :value => "Add database"}
