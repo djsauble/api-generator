@@ -1,0 +1,8 @@
+!!!
+%html
+  %head
+    %title API Dashboard
+  %body
+    - if logged_in?
+      %a{:href => "/logout"} Log out
+    = yield
