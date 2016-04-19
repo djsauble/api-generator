@@ -37,8 +37,11 @@ get '/' do
   # Get all api keys for the current user
   @api_keys = ApiKey.all(:user => current_user.id)
 
+  # What is the base URL for this server?
+  @base = request.url
+
   # Render the view
-  haml :index, :locals => {:dbs => @dbs, :api_keys => @api_keys}
+  haml :index, :locals => {:dbs => @dbs, :api_keys => @api_keys, :base => @base}
 end
 
 # Provide input for new database connection

@@ -13,9 +13,29 @@
           %li #{table.name}
 %a{:href => "/databases/add"} Define a new database
 
-%h3 API Keys
+%h3 API keys
 %ul
 - api_keys.each do |api_key|
   %li
     #{api_key.api_key}
 %a{:href => "/api_keys/add"} Define a new API key
+
+%h3 REST endpoints
+
+%p To create a new item, take the appropriate URL below and PUT data to it. For example:
+
+%blockquote curl -X PUT -H "Content-Type: text/javascript" -d '{"a":"b"}' http://your-api.com/api/0?token=01234567890abcdef
+
+- dbs.each do |db|
+  %h4 #{db.api}
+
+  %table
+    %th
+    - db.tables.each do |table|
+      %td #{table.name}
+    - api_keys.each do |api_key|
+      %tr
+        %td #{api_key.api_key}
+        - db.tables.each do |table|
+          %td
+            #{base}api/#{table.id}?#{token=api_key.token}
