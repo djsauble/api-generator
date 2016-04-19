@@ -7,4 +7,6 @@ class Db
   property :api, String
   property :username, String
   property :password, String
+
+  has n, :tables
 end
