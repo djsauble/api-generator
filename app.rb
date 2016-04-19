@@ -119,7 +119,7 @@ post '/api_keys/add' do
 end
 
 # Create a new record (extension point)
-put '/:table_id/:object_id' do
+put '/api/:table_id' do
   @token  = params[:token]
 
   # Does the same user own the specified table and API key?
@@ -131,8 +131,16 @@ put '/:table_id/:object_id' do
     return
   end
 
-  # Instantiate the new row
+  # Calculate the SHA1 digest of the data
   request.body.rewind
   data = JSON.parse request.body.read
-  CouchRest.put("https://#{@db.username}:#{@db.password}@djsauble.cloudant.com/#{@table.name}/#{params[:object_id]}", data)
+  @sha1 = Digest::SHA1.hexdigest(data.to_s)
+
+  # Instantiate the new row
+  CouchRest.put(
+    "https://#{@db.username}:#{@db.password}@djsauble.cloudant.com/#{@table.name}/#{@sha1}",
+    'created_by' => @api_key.api_key,
+    'timestamp' => Time.now.getutc,
+    'data' => data
+  )
 end
