@@ -8,6 +8,7 @@ require 'dm-migrations'
 require 'dm-aggregates'
 require 'digest/sha1'
 require 'sinatra-authentication'
+require 'couchrest'
 require 'json'
 
 # Definition for tables in our database
@@ -48,6 +49,7 @@ end
 post '/databases/add' do
   login_required
 
+  # Record data about the new database
   Db.create(
     :user     => current_user.id,
     :type     => params[:type],
@@ -72,11 +74,18 @@ end
 post '/databases/:id/tables/add' do
   login_required
 
+  # Record data about the new table
   Table.create(
     :name    => params[:name],
     :columns => params[:columns],
     :db_id   => params[:id]
   )
+
+  # Fetch the username and password
+  @db = Db.get(params[:id])
+
+  # Instantiate the new table
+  CouchRest.put("https://#{@db.username}:#{@db.password}@djsauble.cloudant.com/#{params[:name]}")
 
   # Render the view
   redirect to('/')

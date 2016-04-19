@@ -5,11 +5,10 @@
 - dbs.each do |db|
   %li
     #{db.api}
+    %a{:href => "/databases/#{db.id}/tables/add"} Add table
     - if db.tables.count > 0
       %ul
         - db.tables.each do |table|
           %li #{table.name}
-        %li
-          %a{:href => "/databases/#{db.id}/tables/add"} Add table
 %p
   %a{:href => "/databases/add"} Define a new database
