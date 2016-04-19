@@ -117,3 +117,22 @@ post '/api_keys/add' do
   # Redirect to the index view
   redirect to('/')
 end
+
+# Create a new record (extension point)
+put '/:table_id/:object_id' do
+  @token  = params[:token]
+
+  # Does the same user own the specified table and API key?
+  @api_key = ApiKey.first(:token => @token)
+  @table = Table.get(params[:table_id])
+  @db = Db.get(@table.db_id)
+
+  if @api_key.user != @db.user
+    return
+  end
+
+  # Instantiate the new row
+  request.body.rewind
+  data = JSON.parse request.body.read
+  CouchRest.put("https://#{@db.username}:#{@db.password}@djsauble.cloudant.com/#{@table.name}/#{params[:object_id]}", data)
+end
