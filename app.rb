@@ -14,6 +14,7 @@ require 'json'
 # Definition for tables in our database
 require './models/db'
 require './models/table'
+require './models/api_key'
 
 # Connect to our MySQL database
 DataMapper.setup(:default, "#{ENV["CLEARDB_DATABASE_URL"]}")
@@ -33,8 +34,11 @@ get '/' do
   # Get the databases for the current user
   @dbs = Db.all(:user => current_user.id)
 
+  # Get all api keys for the current user
+  @api_keys = ApiKey.all(:user => current_user.id)
+
   # Render the view
-  haml :index, :locals => {:dbs => @dbs}
+  haml :index, :locals => {:dbs => @dbs, :api_keys => @api_keys}
 end
 
 # Provide input for new database connection
@@ -88,5 +92,28 @@ post '/databases/:id/tables/add' do
   CouchRest.put("https://#{@db.username}:#{@db.password}@djsauble.cloudant.com/#{params[:name]}")
 
   # Render the view
+  redirect to('/')
+end
+
+# Define a new user token
+get '/api_keys/add' do
+  login_required
+
+  # Render the view
+  haml :add_api_key
+end
+
+# Create a new user
+post '/api_keys/add' do
+  login_required
+
+  # Record data about the new user
+  ApiKey.create(
+    :user    => current_user.id,
+    :api_key => params[:api_key],
+    :token   => params[:token]
+  )
+
+  # Redirect to the index view
   redirect to('/')
 end

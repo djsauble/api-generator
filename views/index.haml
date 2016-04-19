@@ -1,6 +1,7 @@
 %p
   Welcome #{current_user.id}.
-%p
+
+%h3 Databases
 %ul
 - dbs.each do |db|
   %li
@@ -10,5 +11,11 @@
       %ul
         - db.tables.each do |table|
           %li #{table.name}
-%p
-  %a{:href => "/databases/add"} Define a new database
+%a{:href => "/databases/add"} Define a new database
+
+%h3 API Keys
+%ul
+- api_keys.each do |api_key|
+  %li
+    #{api_key.api_key}
+%a{:href => "/api_keys/add"} Define a new API key
