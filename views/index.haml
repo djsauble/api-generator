@@ -38,4 +38,4 @@
         %td #{api_key.api_key}
         - db.tables.each do |table|
           %td
-            #{base}api/#{table.id}?#{token=api_key.token}
+            #{base}api/#{table.id}?token=#{api_key.token}
