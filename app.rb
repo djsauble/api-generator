@@ -81,18 +81,29 @@ end
 post '/databases/:id/tables/add' do
   login_required
 
+  # Fetch the username and password
+  @db = Db.get(params[:id])
+
+  # Get the URI components
+  @strings = @db.api.split("://")
+  @strings[1].chomp!("/")
+
+  # Instantiate the new table
+  if @db.username != "" && @db.password != ""
+    @uri = "#{@strings[0]}://#{@db.username}:#{@db.password}@#{@strings[1]}/#{params[:name]}"
+    CouchRest.put(@uri)
+  else
+    # Anonymous access
+    @uri = "#{@strings[0]}://#{@strings[1]}/#{params[:name]}"
+    CouchRest.put(@uri)
+  end
+
   # Record data about the new table
   Table.create(
     :name    => params[:name],
     :columns => params[:columns],
     :db_id   => params[:id]
   )
-
-  # Fetch the username and password
-  @db = Db.get(params[:id])
-
-  # Instantiate the new table
-  CouchRest.put("https://#{@db.username}:#{@db.password}@djsauble.cloudant.com/#{params[:name]}")
 
   # Render the view
   redirect to('/')
