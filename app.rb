@@ -11,9 +11,8 @@ require 'sinatra-authentication'
 require 'couchrest'
 require 'json'
 
-# Definition for tables in our database
+# Definition for models in our database
 require './models/db'
-require './models/table'
 require './models/api_key'
 
 # Connect to our MySQL database
@@ -56,56 +55,34 @@ end
 post '/databases/add' do
   login_required
 
+  # Calculate a unique table name
+  @table_name = Digest::SHA1.hexdigest("#{current_user.id} #{Time.now.getutc}")
+
+  # Get the URI components
+  @strings = params[:api].split("://")
+  @strings[1].chomp!("/")
+
+  # Instantiate the new table
+  if params[:username] != "" && params[:password] != ""
+    @uri = "#{@strings[0]}://#{params[:username]}:#{params[:password]}@#{@strings[1]}/#{@table_name}"
+    CouchRest.put(@uri)
+  else
+    # Anonymous access
+    @uri = "#{@strings[0]}://#{@strings[1]}/#{@table_name}"
+    CouchRest.put(@uri)
+  end
+
   # Record data about the new database
   Db.create(
     :user     => current_user.id,
     :type     => params[:type],
     :api      => params[:api],
+    :table    => @table_name,
     :username => params[:username],
     :password => params[:password]
   )
 
   # Redirect to the index view
-  redirect to('/')
-end
-
-# Provide input for new table schema
-get '/databases/:id/tables/add' do
-  login_required
-
-  # Render the view
-  haml :add_table, :locals => {:database_id => params[:id]}
-end 
-
-# Create a new table
-post '/databases/:id/tables/add' do
-  login_required
-
-  # Fetch the username and password
-  @db = Db.get(params[:id])
-
-  # Get the URI components
-  @strings = @db.api.split("://")
-  @strings[1].chomp!("/")
-
-  # Instantiate the new table
-  if @db.username != "" && @db.password != ""
-    @uri = "#{@strings[0]}://#{@db.username}:#{@db.password}@#{@strings[1]}/#{params[:name]}"
-    CouchRest.put(@uri)
-  else
-    # Anonymous access
-    @uri = "#{@strings[0]}://#{@strings[1]}/#{params[:name]}"
-    CouchRest.put(@uri)
-  end
-
-  # Record data about the new table
-  Table.create(
-    :name    => params[:name],
-    :columns => params[:columns],
-    :db_id   => params[:id]
-  )
-
-  # Render the view
   redirect to('/')
 end
 
@@ -133,13 +110,12 @@ post '/api_keys/add' do
 end
 
 # Create a new record (extension point)
-put '/api/:table_id' do
+put '/api/:database_id' do
   @token  = params[:token]
 
   # Does the same user own the specified table and API key?
   @api_key = ApiKey.first(:token => @token)
-  @table = Table.get(params[:table_id])
-  @db = Db.get(@table.db_id)
+  @db = Db.get(params[:database_id])
 
   if @api_key.user != @db.user
     return
@@ -150,9 +126,22 @@ put '/api/:table_id' do
   data = JSON.parse request.body.read
   @sha1 = Digest::SHA1.hexdigest(data.to_s)
 
+  # Get the URI components
+  @strings = @db.api.split("://")
+  @strings[1].chomp!("/")
+
+  # Instantiate the new row
+  @uri = ""
+  if @db.username != "" && @db.password != ""
+    @uri = "#{@strings[0]}://#{@db.username}:#{@db.password}@#{@strings[1]}/#{@db.table}/#{@sha1}"
+  else
+    # Anonymous access
+    @uri = "#{@strings[0]}://#{@strings[1]}/#{@db.table}/#{@sha1}"
+  end
+
   # Instantiate the new row
   CouchRest.put(
-    "https://#{@db.username}:#{@db.password}@djsauble.cloudant.com/#{@table.name}/#{@sha1}",
+    @uri,
     'created_by' => @api_key.api_key,
     'timestamp' => Time.now.getutc,
     'data' => data

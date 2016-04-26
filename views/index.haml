@@ -2,16 +2,10 @@
   Welcome #{current_user.id}.
 
 %h3 Databases
-%ul
-- dbs.each do |db|
-  %li
-    #{db.api}
-    %a{:href => "/databases/#{db.id}/tables/add"} Add table
-    - if db.tables.count > 0
-      %ul
-        - db.tables.each do |table|
-          %li #{table.name}
-%a{:href => "/databases/add"} Define a new database
+- if dbs.count > 0
+  #{dbs[0].api.chomp('/')}/#{dbs[0].table}
+- else
+  %a{:href => "/databases/add"} Define a database
 
 %h3 API keys
 %ul
@@ -26,16 +20,7 @@
 
 %blockquote curl -X PUT -H "Content-Type: text/javascript" -d '{"a":"b"}' http://your-api.com/api/0?token=01234567890abcdef
 
-- dbs.each do |db|
-  %h4 Routes for #{db.api}
-
-  %table
-    %th
-    - db.tables.each do |table|
-      %td #{table.name}
-    - api_keys.each do |api_key|
-      %tr
-        %td #{api_key.api_key}
-        - db.tables.each do |table|
-          %td
-            #{base}api/#{table.id}?token=#{api_key.token}
+- if dbs.count > 0
+  - api_keys.each do |api_key|
+    %h4 Routes for #{api_key.api_key}
+    %p PUT #{base}api/#{dbs[0].id}?token=#{api_key.token}
