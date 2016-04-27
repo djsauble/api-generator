@@ -23,4 +23,4 @@
 - if dbs.count > 0
   - api_keys.each do |api_key|
     %h4 Routes for #{api_key.api_key}
-    %p PUT #{base}api/#{dbs[0].id}?token=#{api_key.token}
+    %p PUT #{base}api/#{dbs[0].id}?user=#{api_key.api_key}&amp;token=#{api_key.token}

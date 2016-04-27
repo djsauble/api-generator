@@ -111,13 +111,16 @@ end
 
 # Create a new record (extension point)
 put '/api/:database_id' do
+  @user   = params[:user]
   @token  = params[:token]
 
-  # Does the same user own the specified table and API key?
-  @api_key = ApiKey.first(:token => @token)
+  # Does the given user own the specified table and API key?
+  @api_key = ApiKey.first(:api_key => @user, :token => @token)
   @db = Db.get(params[:database_id])
 
-  if @api_key.user != @db.user
+  puts @db
+  puts @api_key
+  if @db == nil || @api_key == nil || @api_key.user != @db.user
     return
   end
 
