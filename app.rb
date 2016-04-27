@@ -118,8 +118,6 @@ put '/api/:database_id' do
   @api_key = ApiKey.first(:api_key => @user, :token => @token)
   @db = Db.get(params[:database_id])
 
-  puts @db
-  puts @api_key
   if @db == nil || @api_key == nil || @api_key.user != @db.user
     return
   end
