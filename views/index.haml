@@ -2,23 +2,29 @@
   Welcome #{current_user.id}.
 
 %h3 Databases
+%p This is where your data is stored
 - if dbs.count > 0
   #{dbs[0].api.chomp('/')}/#{dbs[0].table}
+  %br
+  %a{:href => "/databases/#{dbs[0].id}/delete"} Disconnect database
 - else
   %a{:href => "/databases/add"} Define a database
 
 %h3 API keys
+%p These grant permissions to access your data
 %ul
 - api_keys.each do |api_key|
   %li
     #{api_key.api_key}
+    %a{:href => "/api_keys/#{api_key.id}/delete"} Delete
 %a{:href => "/api_keys/add"} Define a new API key
 
 %h3 REST endpoints
+%p These are what you use in your app
 
 %p To create a new item, take the appropriate URL below and PUT data to it. For example:
 
-%blockquote curl -X PUT -H "Content-Type: text/javascript" -d '{"a":"b"}' http://your-api.com/api/0?token=01234567890abcdef
+%blockquote curl -X PUT -H "Content-Type: text/javascript" -d '{"a":"b"}' http://your-api.com/api/0?user=djsauble&amp;token=01234567890abcdef
 
 - if dbs.count > 0
   - api_keys.each do |api_key|

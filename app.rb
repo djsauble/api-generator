@@ -63,12 +63,12 @@ post '/databases/add' do
   @strings[1].chomp!("/")
 
   # Instantiate the new table
-  if params[:username] != "" && params[:password] != ""
-    @uri = "#{@strings[0]}://#{params[:username]}:#{params[:password]}@#{@strings[1]}/#{@table_name}"
-    CouchRest.put(@uri)
-  else
+  if params[:anonymous] == "anonymous"
     # Anonymous access
     @uri = "#{@strings[0]}://#{@strings[1]}/#{@table_name}"
+    CouchRest.put(@uri)
+  else
+    @uri = "#{@strings[0]}://#{params[:username]}:#{params[:password]}@#{@strings[1]}/#{@table_name}"
     CouchRest.put(@uri)
   end
 
@@ -81,6 +81,20 @@ post '/databases/add' do
     :username => params[:username],
     :password => params[:password]
   )
+
+  # Redirect to the index view
+  redirect to('/')
+end
+
+# Delete an existing database connection
+get '/databases/:database_id/delete' do
+  login_required
+
+  @db = Db.get(params[:database_id])
+
+  if @db
+    @db.destroy
+  end
 
   # Redirect to the index view
   redirect to('/')
@@ -104,6 +118,20 @@ post '/api_keys/add' do
     :api_key => params[:api_key],
     :token   => params[:token]
   )
+
+  # Redirect to the index view
+  redirect to('/')
+end
+
+# Delete a user key
+get '/api_keys/:api_key/delete' do
+  login_required
+
+  @apikey = ApiKey.get(params[:api_key])
+
+  if @apikey
+    @apikey.destroy
+  end
 
   # Redirect to the index view
   redirect to('/')
