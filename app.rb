@@ -8,7 +8,7 @@ require 'dm-migrations'
 require 'dm-aggregates'
 require 'digest/sha1'
 require 'sinatra-authentication'
-require 'couchrest'
+require 'rest-client'
 require 'json'
 
 # Definition for models in our database
@@ -168,11 +168,16 @@ put '/api/:database_id' do
     @uri = "#{@strings[0]}://#{@strings[1]}/#{@db.table}/#{@sha1}"
   end
 
-  # Instantiate the new row
-  CouchRest.put(
+  # Instantiate a new document
+  @doc = JSON.parse(RestClient.put(
     @uri,
-    'created_by' => @api_key.api_key,
-    'timestamp' => Time.now.getutc,
-    'data' => data
+    '{"created_by":"' + @api_key.api_key + '","timestamp":"' + Time.now.getutc.to_s + '"}'
+  ))
+
+  # Add an attachment with the run data
+  RestClient.put(
+    "#{@uri}/data.json",
+    JSON.pretty_generate(data),
+    {"Content-Type" => "text/json", "If-Match" => @doc["rev"]}
   )
 end

@@ -2,10 +2,6 @@ GEM
   remote: https://rubygems.org/
   specs:
     addressable (2.4.0)
-    couchrest (1.2.1)
-      mime-types (>= 1.15)
-      multi_json (~> 1.7, ~> 1.0)
-      rest-client (~> 1.8.0)
     daemons (1.2.3)
     data_objects (0.10.17)
       addressable (~> 2.1)
@@ -36,7 +32,6 @@ GEM
       domain_name (~> 0.5)
     json (1.8.3)
     mime-types (2.99.1)
-    multi_json (1.11.2)
     netrc (0.11.0)
     rack (1.6.4)
     rack-flash (0.1.2)
@@ -77,13 +72,13 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  couchrest (= 1.2.1)
   dm-aggregates (= 1.2.0)
   dm-core (= 1.2.1)
   dm-migrations (= 1.2.0)
   dm-mysql-adapter (= 1.2.0)
   haml (= 4.0.7)
   json (= 1.8.3)
+  rest-client (= 1.8.0)
   sinatra (= 1.4.7)
   sinatra-authentication (= 0.4.1)
   thin (= 1.6.4)
