@@ -90,11 +90,14 @@ form a {
 
 .header {
   background-color: #444444;
-  padding: 0.25em 1em 0.25em 1em;
+  padding: 0.5em 2em 0.5em 2em;
+}
+
+.header > * {
   font-size: 0.8em;
 }
 
-.header *:nth-child(1) {
+.header > *:nth-child(1) {
   flex: 1;
 }
 
@@ -104,7 +107,10 @@ form a {
 
 .footer {
   background-color: #2f2fb7;
-  padding: 0.5em 1em 0.5em 1em;
+  padding: 0.5em 2em 0.5em 2em;
+}
+
+.footer > * {
   font-size: 0.8em;
 }
 
@@ -114,7 +120,7 @@ form a {
 
 .hero {
   background-color: #963896;
-  padding: 1em;
+  padding: 1em 2em 1em 2em;
   align-items: baseline;
 }
 
