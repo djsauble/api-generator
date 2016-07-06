@@ -43,14 +43,6 @@ get '/' do
   haml :index, :layout => :app, :locals => {:db => @db, :api_key => @api_key, :base => @base}
 end
 
-# Provide input for new database connection
-get '/databases/add' do
-  login_required
-
-  # Render the view
-  haml :add_database
-end
-
 # Create a new database connection
 post '/databases/add' do
   login_required
@@ -98,14 +90,6 @@ get '/databases/:database_id/delete' do
 
   # Redirect to the index view
   redirect to('/')
-end
-
-# Define a new user token
-get '/api_keys/add' do
-  login_required
-
-  # Render the view
-  haml :add_api_key
 end
 
 # Create a new user
