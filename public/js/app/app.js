@@ -13,7 +13,6 @@ $(function() {
 
   // Kick the app
   Forrest.init({
-    host: 'http://127.0.0.1:5984',
-    db: 'be7b25ca3682ef8a15682f791c6110648152d7e4'
+    api: CLOUDANT_DATA_URL // Global variable defined on the page itself
   });
 });

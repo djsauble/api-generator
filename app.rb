@@ -32,93 +32,78 @@ get '/' do
 
   # Get the databases for the current user
   @db = Db.first(:user => current_user.id)
+  if !@db
+    @db = createDatabase()
+  end
 
   # Get all api keys for the current user
   @api_key = ApiKey.first(:user => current_user.id)
+  if !@api_key
+    @api_key = createApiKey()
+  end
 
   # What is the base URL for this server?
   @base = request.url
 
+  # Construct the database URL (including credentials if needed)
+  if @db.username
+    @strings = @db.api.split("://")
+    @db_url = "#{@strings[0]}://#{@db.username}:#{@db.password}@#{@strings[1]}/#{@db.table}"
+  else
+    @db_url = "#{@db.api}/#{@db.table}"
+  end
+
   # Render the view
-  haml :index, :layout => :app, :locals => {:db => @db, :api_key => @api_key, :base => @base}
+  haml :index, :locals => {:db => @db, :api_key => @api_key, :base => @base, :db_url => @db_url}
 end
 
-# Create a new database connection
-post '/databases/add' do
-  login_required
+# Create a new database
+def createDatabase
 
-  # Calculate a unique table name
-  @table_name = Digest::SHA1.hexdigest("#{current_user.id} #{Time.now.getutc}")
+  # Calculate a unique database name
+  @table_name = SecureRandom.urlsafe_base64(nil, false).downcase
 
   # Get the URI components
-  @strings = params[:api].split("://")
+  @anonymous = "" # Hardcoded for now, should move to environment variable
+  @username = "djsauble"
+  @password = "VrjzNAjHvDNEhZQcHJbKtCZcm9CRdMKXtiRb2PBhuKveiktswj"
+  @api = "https://djsauble.cloudant.com" # Hardcoded for now, should move to environment variable
+  @strings = @api.split("://")
   @strings[1].chomp!("/")
 
   # Instantiate the new table
-  if params[:anonymous] == "anonymous"
+  if @anonymous == "anonymous"
     # Anonymous access
     @uri = "#{@strings[0]}://#{@strings[1]}/#{@table_name}"
-    CouchRest.put(@uri)
+    RestClient.put(@uri, {"Content-Type" => "text/json"})
   else
-    @uri = "#{@strings[0]}://#{params[:username]}:#{params[:password]}@#{@strings[1]}/#{@table_name}"
-    CouchRest.put(@uri)
+    @uri = "#{@strings[0]}://#{@username}:#{@password}@#{@strings[1]}/#{@table_name}"
+    RestClient.put(@uri, {"Content-Type" => "text/json"})
   end
 
   # Record data about the new database
-  Db.create(
+  return Db.create(
     :user     => current_user.id,
-    :type     => params[:type],
-    :api      => params[:api],
+    :api      => @api,
     :table    => @table_name,
-    :username => params[:username],
-    :password => params[:password]
+    :username => @username,
+    :password => @password
   )
-
-  # Redirect to the index view
-  redirect to('/')
-end
-
-# Delete an existing database connection
-get '/databases/:database_id/delete' do
-  login_required
-
-  @db = Db.get(params[:database_id])
-
-  if @db
-    @db.destroy
-  end
-
-  # Redirect to the index view
-  redirect to('/')
 end
 
 # Create a new user
-post '/api_keys/add' do
-  login_required
+def createApiKey
+
+  # Calculate a unique api key and a unique token
+  @api_key = SecureRandom.urlsafe_base64(nil, false)
+  @token = SecureRandom.urlsafe_base64(nil, false)
 
   # Record data about the new user
-  ApiKey.create(
+  return ApiKey.create(
     :user    => current_user.id,
-    :api_key => params[:api_key],
-    :token   => params[:token]
+    :api_key => @api_key,
+    :token   => @token
   )
-
-  # Redirect to the index view
-  redirect to('/')
-end
-
-# Delete a user key
-get '/api_keys/:api_key/delete' do
-  login_required
-
-  @apikey = ApiKey.get(params[:api_key])
-
-  if @apikey
-    @apikey.destroy
-  end
-
-  # Redirect to the index view
-  redirect to('/')
 end
 
 # Create a new record (extension point)

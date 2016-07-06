@@ -26,6 +26,25 @@
 %div{:class => [:footer, :dark]}
   %span
     GET your data at
-    %a{:href => "#{base}api/#{db.id}?user=#{api_key.api_key}&amp;token=#{api_key.token}"} #{base}api/#{db.id}?user=#{api_key.api_key}&amp;token=#{api_key.token}
-<!-- Cloudant URL -->
-<!-- #{db.api.chomp('/')}/#{db.table} -->
+    %a{:href => "#{base}api/#{db.id}?user=#{api_key.api_key}&token=#{api_key.token}"} #{base}api/#{db.id}?user=#{api_key.api_key}&amp;token=#{api_key.token}
+
+<!-- Data URL -->
+%script
+  CLOUDANT_DATA_URL = "#{db_url}";
+
+<!-- Dependencies -->
+%script{:src => "https://maps.googleapis.com/maps/api/js?key=AIzaSyDrMrHDCL33b4PkB0p5SZlCR7mwc7Yp7SA&libraries=geometry"}
+%script{:src => "js/dist/jquery-1.12.4.js"}
+%script{:src => "js/dist/underscore.js"}
+%script{:src => "js/dist/backbone.js"}
+%script{:src => "js/dist/pouchdb-5.4.0.js"}
+%script{:src => "js/dist/backbone-pouch.js"}
+%script{:src => "js/dist/regression.min.js"}
+
+<!-- Application -->
+%script{:src => "js/app/helpers.js"}
+%script{:src => "js/app/data.js"}
+%script{:src => "js/app/hero.js"}
+%script{:src => "js/app/master.js"}
+%script{:src => "js/app/detail.js"}
+%script{:src => "js/app/app.js"}

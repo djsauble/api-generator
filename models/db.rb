@@ -3,7 +3,6 @@ class Db
 
   property :id, Serial
   property :user, String
-  property :type, String
   property :api, String
   property :table, String
   property :username, String
