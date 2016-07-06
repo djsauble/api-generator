@@ -60,19 +60,18 @@ end
 # Create a new database
 def createDatabase
 
-  # Calculate a unique database name
-  @table_name = SecureRandom.hex().downcase
+  # Calculate a unique database name (must start with a letter)
+  @table_name = "z#{SecureRandom.hex().downcase}"
 
   # Get the URI components
-  @anonymous = "" # Hardcoded for now, should move to environment variable
-  @username = "djsauble"
-  @password = "VrjzNAjHvDNEhZQcHJbKtCZcm9CRdMKXtiRb2PBhuKveiktswj"
-  @api = "https://djsauble.cloudant.com" # Hardcoded for now, should move to environment variable
+  @username = "#{ENV["COUCHDB_DATABASE_USERNAME"]}"
+  @password = "#{ENV["COUCHDB_DATABASE_PASSWORD"]}"
+  @api = "#{ENV["COUCHDB_DATABASE_URL"]}"
   @strings = @api.split("://")
   @strings[1].chomp!("/")
 
   # Instantiate the new table
-  if @anonymous == "anonymous"
+  if @username == ""
     # Anonymous access
     @uri = "#{@strings[0]}://#{@strings[1]}/#{@table_name}"
     RestClient.put(@uri, {"Content-Type" => "text/json"})
