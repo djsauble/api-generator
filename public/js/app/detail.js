@@ -96,7 +96,8 @@ $(function(exports) {
           // Show the map
           this.mapReference = new google.maps.Map(document.getElementById("output"), {
             disableDefaultUI: true,
-            draggable: false
+            draggable: false,
+            scrollwheel: false
           });
 
           // Animate the latest route

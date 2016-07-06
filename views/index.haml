@@ -26,6 +26,6 @@
 %div{:class => [:footer, :dark]}
   %span
     GET your data at
-    %a{:href => "#{base}api/#{dbs[0].id}?user=#{api_keys[0].api_key}&amp;token=#{api_keys[0].token}"} #{base}api/#{dbs[0].id}?user=#{api_keys[0].api_key}&amp;token=#{api_keys[0].token}
+    %a{:href => "#{base}api/#{db.id}?user=#{api_key.api_key}&amp;token=#{api_key.token}"} #{base}api/#{db.id}?user=#{api_key.api_key}&amp;token=#{api_key.token}
 <!-- Cloudant URL -->
-<!-- #{dbs[0].api.chomp('/')}/#{dbs[0].table} -->
+<!-- #{db.api.chomp('/')}/#{db.table} -->

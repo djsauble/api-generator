@@ -31,16 +31,16 @@ get '/' do
   end
 
   # Get the databases for the current user
-  @dbs = Db.all(:user => current_user.id)
+  @db = Db.first(:user => current_user.id)
 
   # Get all api keys for the current user
-  @api_keys = ApiKey.all(:user => current_user.id)
+  @api_key = ApiKey.first(:user => current_user.id)
 
   # What is the base URL for this server?
   @base = request.url
 
   # Render the view
-  haml :index, :layout => :app, :locals => {:dbs => @dbs, :api_keys => @api_keys, :base => @base}
+  haml :index, :layout => :app, :locals => {:db => @db, :api_key => @api_key, :base => @base}
 end
 
 # Provide input for new database connection
