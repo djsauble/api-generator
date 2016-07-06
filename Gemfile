@@ -1,6 +1,8 @@
 # A sample Gemfile
 source "https://rubygems.org"
 
+ruby "2.3.1"
+
 gem "sinatra", "1.4.7"
 gem "haml", "4.0.7"
 gem "thin", "1.6.4"
