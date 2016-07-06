@@ -61,7 +61,7 @@ end
 def createDatabase
 
   # Calculate a unique database name
-  @table_name = SecureRandom.urlsafe_base64(nil, false).downcase
+  @table_name = SecureRandom.hex().downcase
 
   # Get the URI components
   @anonymous = "" # Hardcoded for now, should move to environment variable
@@ -95,8 +95,8 @@ end
 def createApiKey
 
   # Calculate a unique api key and a unique token
-  @api_key = SecureRandom.urlsafe_base64(nil, false)
-  @token = SecureRandom.urlsafe_base64(nil, false)
+  @api_key = SecureRandom.hex()
+  @token = SecureRandom.hex()
 
   # Record data about the new user
   return ApiKey.create(
