@@ -8,6 +8,7 @@ $(function(exports) {
           this.goal_this_week = this.$(".goal");
           this.trend_this_week = this.$(".trend");
           this.trend_description = this.$(".trend_desc");
+          this.goal_amount = this.$(".goal_amount");
           this.goal_date = this.$(".goal_date");
           this.chart = this.$(".graph");
 
@@ -30,6 +31,8 @@ $(function(exports) {
               percentChange = 0,
               goalThisWeek = 0,
               actualTrend,
+              weeksUntilGoal,
+              goalAmount = 40,
               maxTrend,
               monthNames = [
                 "January",
@@ -137,21 +140,24 @@ $(function(exports) {
           }
           runsByWeek.unshift(obj);
 
-          // Calculate the trend over the last four weeks
+          // Calculate the trend over the last eight weeks
           var i = 0;
           actualTrend = regression('polynomial', runsByWeek.map(function(w) {
             return [i++, w.distance];
           }), 2).equation;
 
           // Extrapolate (no more than a year) into the future to determine 
-          // when we will achieve our goal (placeholder of 40 miles/week)
+          // when we will achieve our goal
           weeksUntilGoal = 0;
           for (var i = 8; i < 60; ++i) {
-            if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= 40) {
+            if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= goalAmount) {
               break;
             }
             ++weeksUntilGoal;
           }
+
+          // Display the goal
+          this.goal_amount.html(goalAmount);
 
           // Display the last day of the given week
           weekIterator = new Date(startOfThisWeek + (dayInMs * 6));
