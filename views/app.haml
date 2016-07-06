@@ -1,0 +1,29 @@
+!!!
+%html
+  %head
+    %title API Dashboard
+    %link{:href => "css/styles.css", :type => "text/css", :rel => "Stylesheet"}
+  %body
+    - if logged_in?
+      %div{:class => [:header, :dark, :row]}
+        %span Welcome, runner!
+        %a{:href => "/logout"} Logout
+
+    = yield
+
+    <!-- Dependencies -->
+    %script{:src => "https://maps.googleapis.com/maps/api/js?key=AIzaSyDrMrHDCL33b4PkB0p5SZlCR7mwc7Yp7SA&libraries=geometry"}
+    %script{:src => "js/dist/jquery-1.12.4.js"}
+    %script{:src => "js/dist/underscore.js"}
+    %script{:src => "js/dist/backbone.js"}
+    %script{:src => "js/dist/pouchdb-5.4.0.js"}
+    %script{:src => "js/dist/backbone-pouch.js"}
+    %script{:src => "js/dist/regression.min.js"}
+
+    <!-- Application -->
+    %script{:src => "js/app/helpers.js"}
+    %script{:src => "js/app/data.js"}
+    %script{:src => "js/app/hero.js"}
+    %script{:src => "js/app/master.js"}
+    %script{:src => "js/app/detail.js"}
+    %script{:src => "js/app/app.js"}

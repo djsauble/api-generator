@@ -40,7 +40,7 @@ get '/' do
   @base = request.url
 
   # Render the view
-  haml :index, :locals => {:dbs => @dbs, :api_keys => @api_keys, :base => @base}
+  haml :index, :layout => :app, :locals => {:dbs => @dbs, :api_keys => @api_keys, :base => @base}
 end
 
 # Provide input for new database connection

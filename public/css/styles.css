@@ -1,0 +1,189 @@
+body {
+  margin: 2em;
+  font-family: "Helvetica";
+  font-weight: 100;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+}
+
+h1 {
+  font-size: 3em;
+}
+
+big {
+  font-size: 2em;
+}
+
+form {
+  background-color: rgba(240, 240, 240, 0.8);
+  border-radius: 1em;
+  padding: 1em;
+}
+
+a {
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* If displayed on a dark background, change text colors accordingly */
+
+.dark {
+  color: #ffffff;
+}
+
+.dark a {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.dark a:hover {
+  color: #ffffff;
+}
+
+/* Right-align the input boxes */
+
+form label.row {
+  justify-content: space-between;
+}
+
+form a {
+  font-size: 11px;
+}
+
+/**
+ * Center a box over the top of the screen
+ */
+
+.modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/**
+ * A row of spaced elements
+ */
+
+.row {
+  display: flex;
+  align-items: flex-start;
+}
+
+.row > * {
+  margin-left: 1em;
+}
+
+.row > *:first-child {
+  margin-left: 0;
+}
+
+/**
+ * Header which displays logout information
+ */
+
+.header {
+  background-color: #444444;
+  padding: 0.25em 1em 0.25em 1em;
+  font-size: 0.8em;
+}
+
+.header *:nth-child(1) {
+  flex: 1;
+}
+
+/**
+ * Footer which displays API information
+ */
+
+.footer {
+  background-color: #2f2fb7;
+  padding: 0.5em 1em 0.5em 1em;
+  font-size: 0.8em;
+}
+
+/**
+ * Block of highlighted information
+ */
+
+.hero {
+  background-color: #963896;
+  padding: 1em;
+  align-items: baseline;
+}
+
+/**
+ * Master/detail panels
+ */
+.master-detail {
+  flex: 1;
+}
+
+.master {
+  overflow: scroll;
+  height: 100%;
+}
+
+.master ul {
+  list-style: none;
+  padding: 0;
+  margin: 1em;
+}
+
+.master li {
+  margin-bottom: 1em;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 1em;
+  border-bottom: 1px solid #efefef;
+}
+
+.master li:first-child {
+  background-color: #efef99;
+}
+
+.master li:last-child {
+  border-bottom: none;
+}
+
+.master li *:last-child {
+  margin-left: 1em;
+}
+
+.detail {
+  flex: 1;
+  height: 100%;
+}
+
+#output {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/**
+ * Trending graph
+ */
+
+.graph {
+  align-items: flex-end;
+  height: 2em;
+}
+
+.bar {
+  background-color: rgba(255, 255, 255, 0.6);
+  width: 1em;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.progress {
+  background-color: #ffffff;
+}

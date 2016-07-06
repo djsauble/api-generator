@@ -2,7 +2,10 @@
 %html
   %head
     %title API Dashboard
+    %link{:href => "css/styles.css", :type => "text/css", :rel => "Stylesheet"}
   %body
     - if logged_in?
-      %a{:href => "/logout"} Log out
+      %div{:class => [:header, :dark, :row]}
+        %span Welcome, runner!
+        %a{:href => "/logout"} Logout
     = yield

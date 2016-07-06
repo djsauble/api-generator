@@ -1,32 +1,30 @@
-%p
-  Welcome #{current_user.id}.
-
-%h3 Databases
-%p This is where your data is stored
-- if dbs.count > 0
-  #{dbs[0].api.chomp('/')}/#{dbs[0].table}
-  %br
-  %a{:href => "/databases/#{dbs[0].id}/delete"} Disconnect database
-- else
-  %a{:href => "/databases/add"} Define a database
-
-%h3 API keys
-%p These grant permissions to access your data
-%ul
-- api_keys.each do |api_key|
-  %li
-    #{api_key.api_key}
-    %a{:href => "/api_keys/#{api_key.id}/delete"} Delete
-%a{:href => "/api_keys/add"} Define a new API key
-
-%h3 REST endpoints
-%p These are what you use in your app
-
-%p To create a new item, take the appropriate URL below and PUT data to it. For example:
-
-%blockquote curl -X PUT -H "Content-Type: text/javascript" -d '{"a":"b"}' http://your-api.com/api/0?user=djsauble&amp;token=01234567890abcdef
-
-- if dbs.count > 0
-  - api_keys.each do |api_key|
-    %h4 Routes for #{api_key.api_key}
-    %p PUT #{base}api/#{dbs[0].id}?user=#{api_key.api_key}&amp;token=#{api_key.token}
+%div{:class => [:hero, :dark, :row]}
+  %p
+    %big{:class => :miles} 0
+    of
+    %span{:class => :goal} 0
+    miles this week.
+  %p
+    %big{:class => :trend} 0
+    %span{:class => :trend_desc} more miles than last week.
+  %p{:style => "flex: 1"}
+    %big On track
+    to hit goal by August 8.
+  %div{:class => [:graph, :row]}
+%div{:class => ["master-detail", :row]}
+  .master
+    .empty
+      %p You haven&rsquo;t gone for a run yet.
+      %button Get the app
+    %ul.list
+  .detail
+    .empty
+      %p Once you go for a run, refresh to see details here.
+      %button See a sample
+    #output
+%div{:class => [:footer, :dark]}
+  %span
+    GET your data at
+    %a{:href => "#{base}api/#{dbs[0].id}?user=#{api_keys[0].api_key}&amp;token=#{api_keys[0].token}"} #{base}api/#{dbs[0].id}?user=#{api_keys[0].api_key}&amp;token=#{api_keys[0].token}
+<!-- Cloudant URL -->
+<!-- #{dbs[0].api.chomp('/')}/#{dbs[0].table} -->
