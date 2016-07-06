@@ -8,6 +8,7 @@ $(function(exports) {
           this.goal_this_week = this.$(".goal");
           this.trend_this_week = this.$(".trend");
           this.trend_description = this.$(".trend_desc");
+          this.goal_date = this.$(".goal_date");
           this.chart = this.$(".graph");
 
           this.listenToOnce(Forrest.runs, "processed", this.render);
@@ -27,9 +28,23 @@ $(function(exports) {
               distanceThisWeek = 0,
               distanceLastWeek = 0,
               percentChange = 0,
-              remainingGoalThisWeek = 0,
+              goalThisWeek = 0,
               actualTrend,
-              maxTrend;
+              maxTrend,
+              monthNames = [
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December"
+              ];
 
           // Start of today (normalized to midnight)
           startOfToday = new Date(now);
@@ -63,16 +78,19 @@ $(function(exports) {
           distanceThisWeek = Math.round(distanceThisWeek * 10) / 10;
           distanceLastWeek = Math.round(distanceLastWeek * 10) / 10;
 
+          // Calculate goal for the week
+          goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10;
+
+          // Display distance data
+          this.miles_this_week.html(distanceThisWeek);
+
+          // Display goal data for the week
+          this.goal_this_week.html(goalThisWeek);
+
           // Calculate trending data
           percentChange = Math.round(
             ((distanceThisWeek / distanceLastWeek) - 1) * 100
           );
-
-          // Calculate goals
-          remainingGoalThisWeek = Math.round(10 * ((1.1 * distanceLastWeek) - distanceThisWeek)) / 10;
-
-          // Display distance data
-          this.miles_this_week.html(distanceThisWeek);
 
           // Display trending data
           if (percentChange >= 0) {
@@ -84,15 +102,7 @@ $(function(exports) {
             this.trend_description.html("fewer miles than last week.");
           }
 
-          // Display goal data for the week
-          if (remainingGoalThisWeek > 0) {
-            this.goal_this_week.html(remainingGoalThisWeek);
-          }
-          else {
-            this.goal_this_week.html("0");
-          }
-
-          // Compile run data for the last five weeks
+          // Compile run data for the last eight weeks
           weekIterator = new Date(startOfLastWeek);
           var obj = {
             weekOf: weekIterator,
@@ -107,8 +117,8 @@ $(function(exports) {
               continue;
             }
 
-            // Skip runs older than four weeks ago
-            if (t < startOfLastWeek - (weekInMs * 3)) {
+            // Skip runs older than eight weeks ago
+            if (t < startOfLastWeek - (weekInMs * 7)) {
               break;
             }
 
@@ -126,12 +136,37 @@ $(function(exports) {
             obj.distance += run.getMileage();
           }
           runsByWeek.unshift(obj);
+
+          // Calculate the trend over the last four weeks
+          var i = 0;
+          actualTrend = regression('polynomial', runsByWeek.map(function(w) {
+            return [i++, w.distance];
+          }), 2).equation;
+
+          // Extrapolate (no more than a year) into the future to determine 
+          // when we will achieve our goal (placeholder of 40 miles/week)
+          weeksUntilGoal = 0;
+          for (var i = 8; i < 60; ++i) {
+            if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= 40) {
+              break;
+            }
+            ++weeksUntilGoal;
+          }
+
+          // Display the last day of the given week
+          weekIterator = new Date(startOfThisWeek + (dayInMs * 6));
+          for (var i = 0; i < weeksUntilGoal; ++i) {
+            weekIterator = new Date(weekIterator.getTime() + weekInMs);
+          }
+          this.goal_date.html(monthNames[weekIterator.getMonth()] + " " + weekIterator.getDate());
+
+          // Add the goal for this week
           runsByWeek.push({
             weekOf: startOfThisWeek,
             distance: runsByWeek[runsByWeek.length - 1].distance * 1.1
           });
 
-          // Display run data for the last five weeks
+          // Display run data for the last eight weeks
           maxDistance = _.max(
             runsByWeek.map(function(w) {
               return w.distance;
@@ -145,13 +180,6 @@ $(function(exports) {
             chartHtml += "</div>";
           }
           this.chart.html(chartHtml);
-
-          // Calculate trend lines
-          var i = 0;
-          actualTrend = regression('linear', runsByWeek.map(function(w) {
-            return [i++, w.distance];
-          })).equation;
-          maxTrend = [0.1, actualTrend[1]];
         }
       });
 
