@@ -4,6 +4,11 @@ $(function(exports) {
         el: $(".hero"),
 
         initialize: function() {
+          /* Constants */
+          this.DAY_IN_MS = 1000 * 60 * 60 * 24;
+          this.WEEK_IN_MS = this.DAY_IN_MS * 7;
+
+          /* DOM hooks */
           this.miles_this_week = this.$(".miles");
           this.goal_this_week = this.$(".goal");
           this.trend_this_week = this.$(".trend");
@@ -12,88 +17,180 @@ $(function(exports) {
           this.goal_date = this.$(".goal_date");
           this.chart = this.$(".graph");
 
+          /**
+           * Helper methods
+           */
+
+          // Get a date representing midnight today
+          this.midnightToday = function() {
+            var startOfToday = new Date();
+
+            startOfToday.setHours(0);
+            startOfToday.setMinutes(0);
+            startOfToday.setSeconds(0);
+            startOfToday.setMilliseconds(0);
+
+            return startOfToday;
+          };
+
+          // Get the distance run in the given interval (to present, if only one argument given)
+          this.getDistance = function(start, end) {
+            var distance = 0,
+                run, t;
+
+            for (var i = Forrest.runs.length - 1; i >= 0; --i) {
+              run = Forrest.runs.at(i);
+              t = run.get('timestamp');
+
+              // Interval check
+              if (end) {
+                if (t >= start && t < end) {
+                  distance += run.getMileage();
+                }
+              }
+              else {
+                if (t >= start) {
+                  distance += run.getMileage();
+                }
+              }
+
+              // Break early if possible
+              if (t < start) {
+                break;
+              }
+            }
+
+            return Math.round(distance * 10) / 10;
+          };
+
+          // Compile run data for a previous number of weeks
+          this.compileWeeklyRuns = function(startOfThisWeek, numberOfWeeks) {
+            var weekIterator = new Date(startOfThisWeek.getTime() - this.WEEK_IN_MS),
+                runsByWeek = [],
+                obj = {
+                  weekOf: weekIterator,
+                  distance: 0
+                },
+                run,
+                t;
+
+            for (var i = Forrest.runs.length - 1; i >= 0; --i) {
+              run = Forrest.runs.at(i);
+              t = run.get('timestamp');
+
+              // Skip runs from this week
+              if (t >= startOfThisWeek) {
+                continue;
+              }
+
+              // Skip runs older than the cutoff
+              if (t < startOfThisWeek - (this.WEEK_IN_MS * numberOfWeeks)) {
+                break;
+              }
+
+              // Account for weeks with no runs at all
+              while (t < weekIterator) {
+                weekIterator = new Date(weekIterator.getTime() - this.WEEK_IN_MS);
+                runsByWeek.unshift(obj);
+                obj = {
+                  weekOf: weekIterator,
+                  distance: 0
+                };
+              }
+
+              // Add distance to the week object
+              obj.distance += run.getMileage();
+            }
+            runsByWeek.unshift(obj);
+
+            return runsByWeek;
+          };
+
+          // Display the last day of the given week
+          this.renderGoalDate = function(goalAmount, runsByWeek, startOfThisWeek) {
+            var actualTrend,
+                weeksUntilGoal,
+                weekIterator,
+                monthNames = [
+                  "January",
+                  "February",
+                  "March",
+                  "April",
+                  "May",
+                  "June",
+                  "July",
+                  "August",
+                  "September",
+                  "October",
+                  "November",
+                  "December"
+                ],
+                i;
+
+            // Calculate the trend over the last eight weeks
+            i = 0;
+            actualTrend = regression('polynomial', runsByWeek.map(function(w) {
+              return [i++, w.distance];
+            }), 2).equation;
+
+            // Extrapolate (no more than a year) into the future to determine 
+            // when we will achieve our goal
+            weeksUntilGoal = 0;
+            for (var i = 8; i < 60; ++i) {
+              if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= goalAmount) {
+                break;
+              }
+              ++weeksUntilGoal;
+            }
+
+            // Display the last day of the given week
+            weekIterator = new Date(startOfThisWeek + (this.DAY_IN_MS * 6));
+            for (var i = 0; i < weeksUntilGoal; ++i) {
+              weekIterator = new Date(weekIterator.getTime() + this.WEEK_IN_MS);
+            }
+            return monthNames[weekIterator.getMonth()] + " " + weekIterator.getDate();
+          };
+
+          // Display run data for the last eight weeks
+          this.renderChart = function(runsByWeek, distanceThisWeek) {
+            var chartHtml = "";
+
+            maxDistance = _.max(
+              runsByWeek.map(function(w) {
+                return w.distance;
+              })
+            );
+            for (var i = 0; i < runsByWeek.length; ++i) {
+              chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].distance / maxDistance * 100) + "%;'>"
+              if (i == runsByWeek.length - 1) {
+                chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].distance * 100) + "%;'></div>";
+              }
+              chartHtml += "</div>";
+            }
+
+            return chartHtml;
+          };
+
+          /* Wait for data to load before rendering */
           this.listenToOnce(Forrest.runs, "processed", this.render);
         },
 
         render: function() {
-          var dayInMs = 1000 * 60 * 60 * 24,
-              weekInMs = dayInMs * 7,
-              now = new Date(),
-              weekIterator,
-              startOfToday,
-              startOfThisWeek,
-              startOfLastWeek, 
+          var startOfToday = this.midnightToday(),
+              startOfThisWeek = new Date(startOfToday - (this.DAY_IN_MS * startOfToday.getDay())),
+              startOfLastWeek = new Date(startOfThisWeek - this.WEEK_IN_MS), 
               runsByWeek = [],
-              maxDistance = 0,
-              chartHtml = "",
-              distanceThisWeek = 0,
-              distanceLastWeek = 0,
-              percentChange = 0,
-              goalThisWeek = 0,
-              actualTrend,
-              weeksUntilGoal,
-              goalAmount = 40,
-              maxTrend,
-              monthNames = [
-                "January",
-                "February",
-                "March",
-                "April",
-                "May",
-                "June",
-                "July",
-                "August",
-                "September",
-                "October",
-                "November",
-                "December"
-              ];
-
-          // Start of today (normalized to midnight)
-          startOfToday = new Date(now);
-          startOfToday.setHours(0);
-          startOfToday.setMinutes(0);
-          startOfToday.setSeconds(0);
-          startOfToday.setMilliseconds(0);
-
-          // Start of this week (normalized to midnight)
-          startOfThisWeek = new Date(startOfToday - (dayInMs * startOfToday.getDay()));
-
-          // Start of last week
-          startOfLastWeek = new Date(startOfThisWeek - weekInMs);
-
-          // Compile data for different time ranges
-          Forrest.runs.each(function(e) {
-            var t = e.get('timestamp');
-
-            // This week
-            if (t >= startOfThisWeek) {
-              distanceThisWeek += e.getMileage();
-            }
-
-            // Last week
-            if (t >= startOfLastWeek && t < startOfThisWeek) {
-              distanceLastWeek += e.getMileage();
-            }
-          });
-
-          // Normalize distances to single decimal precision
-          distanceThisWeek = Math.round(distanceThisWeek * 10) / 10;
-          distanceLastWeek = Math.round(distanceLastWeek * 10) / 10;
-
-          // Calculate goal for the week
-          goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10;
+              distanceThisWeek = this.getDistance(startOfThisWeek),
+              distanceLastWeek = this.getDistance(startOfLastWeek, startOfThisWeek),
+              percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
+              goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10,
+              goalAmount = 40;
 
           // Display distance data
           this.miles_this_week.html(distanceThisWeek);
 
           // Display goal data for the week
           this.goal_this_week.html(goalThisWeek);
-
-          // Calculate trending data
-          percentChange = Math.round(
-            ((distanceThisWeek / distanceLastWeek) - 1) * 100
-          );
 
           // Display trending data
           if (percentChange >= 0) {
@@ -106,65 +203,13 @@ $(function(exports) {
           }
 
           // Compile run data for the last eight weeks
-          weekIterator = new Date(startOfLastWeek);
-          var obj = {
-            weekOf: weekIterator,
-            distance: 0
-          };
-          for (var i = Forrest.runs.length - 1; i >= 0; --i) {
-            var run = Forrest.runs.at(i),
-                t = run.get('timestamp');
+          runsByWeek = this.compileWeeklyRuns(startOfThisWeek, 8);
 
-            // Skip runs from this week
-            if (t >= startOfThisWeek) {
-              continue;
-            }
-
-            // Skip runs older than eight weeks ago
-            if (t < startOfLastWeek - (weekInMs * 7)) {
-              break;
-            }
-
-            // Account for weeks with no runs at all
-            while (t < weekIterator) {
-              weekIterator = new Date(weekIterator.getTime() - weekInMs);
-              runsByWeek.unshift(obj);
-              obj = {
-                weekOf: weekIterator,
-                distance: 0
-              };
-            }
-
-            // Add distance to the week object
-            obj.distance += run.getMileage();
-          }
-          runsByWeek.unshift(obj);
-
-          // Calculate the trend over the last eight weeks
-          var i = 0;
-          actualTrend = regression('polynomial', runsByWeek.map(function(w) {
-            return [i++, w.distance];
-          }), 2).equation;
-
-          // Extrapolate (no more than a year) into the future to determine 
-          // when we will achieve our goal
-          weeksUntilGoal = 0;
-          for (var i = 8; i < 60; ++i) {
-            if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= goalAmount) {
-              break;
-            }
-            ++weeksUntilGoal;
-          }
+          // Display the last day of the given week
+          this.goal_date.html(this.renderGoalDate(goalAmount, runsByWeek, startOfThisWeek));
 
           // Display the goal
           this.goal_amount.html(goalAmount);
-
-          // Display the last day of the given week
-          weekIterator = new Date(startOfThisWeek + (dayInMs * 6));
-          for (var i = 0; i < weeksUntilGoal; ++i) {
-            weekIterator = new Date(weekIterator.getTime() + weekInMs);
-          }
-          this.goal_date.html(monthNames[weekIterator.getMonth()] + " " + weekIterator.getDate());
 
           // Add the goal for this week
           runsByWeek.push({
@@ -173,19 +218,7 @@ $(function(exports) {
           });
 
           // Display run data for the last eight weeks
-          maxDistance = _.max(
-            runsByWeek.map(function(w) {
-              return w.distance;
-            })
-          );
-          for (var i = 0; i < runsByWeek.length; ++i) {
-            chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].distance / maxDistance * 100) + "%;'>"
-            if (i == runsByWeek.length - 1) {
-              chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].distance * 100) + "%;'></div>";
-            }
-            chartHtml += "</div>";
-          }
-          this.chart.html(chartHtml);
+          this.chart.html(this.renderChart(runsByWeek, distanceThisWeek));
         }
       });
 
