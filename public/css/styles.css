@@ -127,7 +127,7 @@ form a {
 /**
  * Master/detail panels
  */
-.master-detail {
+.master_detail {
   flex: 1;
 }
 
@@ -150,7 +150,7 @@ form a {
   border-bottom: 1px solid #efefef;
 }
 
-.master li:first-child {
+.master li.selected {
   background-color: #efef99;
 }
 

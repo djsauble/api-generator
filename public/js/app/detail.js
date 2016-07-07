@@ -4,8 +4,6 @@ $(function(exports) {
         el: $(".detail"),
 
         initialize: function() {
-          this.empty_state = this.$(".empty");
-          this.map = this.$("#output");
 
           /**
            * Instance data
@@ -85,35 +83,41 @@ $(function(exports) {
            * Events
            */
 
-          // Wait for data to load before rendering
-          this.listenToOnce(Forrest.runs, "processed", this.render);
-
           // Resize the map whenever the window resizes
           var me = this;
           $(window).bind("resize", function() {
             google.maps.event.trigger(me.mapReference, "resize");
             me.mapReference.fitBounds(me.bounds);
           });
+
+          // Re-render the map when the model changes
+          this.listenTo(this.model, "change", function() {
+            console.log("Show a different model");
+          });
         },
 
         render: function() {
-          var me = this,
-              listHtml = "";
-
-          // Hide the empty state
-          this.empty_state.hide();
-          this.map.show();
-
           // Show the map
-          this.mapReference = new google.maps.Map(document.getElementById("output"), {
-            disableDefaultUI: true,
-            draggable: false,
-            scrollwheel: false
-          });
+          if (!this.mapReference) {
+            this.mapReference = new google.maps.Map(document.getElementById("output"), {
+              disableDefaultUI: true,
+              draggable: false,
+              scrollwheel: false
+            });
+          }
+
+          // Display the model
+          this.displayRun(this.model);
+
+          return this;
+        },
+
+        displayRun: function(model) {
+          var me = this;
 
           // Animate the latest route
           this.stopAnimations();
-          Forrest.localDB.get(Forrest.runs.at(Forrest.runs.length - 1).get('_id'), {attachments: true}).then(function(doc) {
+          Forrest.localDB.get(this.model.get('_id'), {attachments: true}).then(function(doc) {
             var data = getRun(doc);
             var filtered = defaultFilter(data);
             var coords = getCoordinates(filtered);
@@ -153,7 +157,7 @@ $(function(exports) {
       });
 
   exports[ns] = _.extend(exports[ns] || {}, {
-    detailView: new View
+    DetailView: View
   });
 
 }(typeof exports === 'undefined' ? window : exports));

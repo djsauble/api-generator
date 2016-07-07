@@ -12,16 +12,10 @@
     miles per week by
     %span{:class => :goal_date} January 1
   %div{:class => [:graph, :row]}
-%div{:class => ["master-detail", :row]}
+%div{:class => [:master_detail, :row]}
   .master
-    .empty
-      %p You haven&rsquo;t gone for a run yet.
-      %button Get the app
     %ul.list
   .detail
-    .empty
-      %p Once you go for a run, refresh to see details here.
-      %button See a sample
     #output
 %div{:class => [:footer, :dark]}
   %span
@@ -45,6 +39,7 @@
 %script{:src => "js/app/helpers.js"}
 %script{:src => "js/app/data.js"}
 %script{:src => "js/app/hero.js"}
+%script{:src => "js/app/run.js"}
 %script{:src => "js/app/master.js"}
 %script{:src => "js/app/detail.js"}
 %script{:src => "js/app/app.js"}
