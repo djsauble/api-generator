@@ -109,7 +109,9 @@ $(function(exports) {
           // Display the last day of the given week
           this.renderGoalDate = function(goalAmount, runsByWeek, startOfThisWeek) {
             var actualTrend,
+                rateOfChange,
                 weeksUntilGoal,
+                distance,
                 weekIterator,
                 monthNames = [
                   "January",
@@ -127,28 +129,38 @@ $(function(exports) {
                 ],
                 i;
 
-            // Calculate the trend over the last eight weeks
+            // Calculate a linear regression of the last several weeks
             i = 0;
-            actualTrend = regression('polynomial', runsByWeek.map(function(w) {
+            actualTrend = regression('linear', runsByWeek.map(function(w) {
               return [i++, w.distance];
-            }), 2).equation;
+            })).equation;
+            rateOfChange = ((actualTrend[0] + actualTrend[1]) / actualTrend[1]);
+            console.log("Rate of change: " + ((rateOfChange - 1) * 100) + "%");
 
-            // Extrapolate (no more than a year) into the future to determine 
-            // when we will achieve our goal
-            weeksUntilGoal = 0;
-            for (var i = 8; i < 60; ++i) {
-              if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= goalAmount) {
-                break;
+            // If rate of change is negative, we'll never achieve our goal
+            if (rateOfChange < 0) {
+              return "&mdash;";
+            }
+            else {
+              // Extrapolate (no more than a year) into the future to determine
+              // when we will achieve our goal
+              weeksUntilGoal = 0;
+              distance = (actualTrend[0] * runsByWeek.length) + actualTrend[1];
+              for (var i = runsByWeek.length; i < 52 + runsByWeek.length; ++i) {
+                var distance = distance * rateOfChange;
+                if (distance >= goalAmount) {
+                  break;
+                }
+                ++weeksUntilGoal;
               }
-              ++weeksUntilGoal;
-            }
 
-            // Display the last day of the given week
-            weekIterator = new Date(startOfThisWeek + (this.DAY_IN_MS * 6));
-            for (var i = 0; i < weeksUntilGoal; ++i) {
-              weekIterator = new Date(weekIterator.getTime() + this.WEEK_IN_MS);
+              // Display the last day of the given week
+              weekIterator = new Date(startOfThisWeek + (this.DAY_IN_MS * 6));
+              for (var i = 0; i < weeksUntilGoal; ++i) {
+                weekIterator = new Date(weekIterator.getTime() + this.WEEK_IN_MS);
+              }
+              return monthNames[weekIterator.getMonth()] + " " + weekIterator.getDate();
             }
-            return monthNames[weekIterator.getMonth()] + " " + weekIterator.getDate();
           };
 
           // Display run data for the last eight weeks
@@ -184,7 +196,8 @@ $(function(exports) {
               distanceLastWeek = this.getDistance(startOfLastWeek, startOfThisWeek),
               percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
               goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10,
-              goalAmount = 40;
+              goalAmount = 40,
+              trendingWeeks = 7;
 
           // Display distance data
           this.miles_this_week.html(distanceThisWeek);
@@ -203,7 +216,7 @@ $(function(exports) {
           }
 
           // Compile run data for the last eight weeks
-          runsByWeek = this.compileWeeklyRuns(startOfThisWeek, 8);
+          runsByWeek = this.compileWeeklyRuns(startOfThisWeek, trendingWeeks);
 
           // Display the last day of the given week
           this.goal_date.html(this.renderGoalDate(goalAmount, runsByWeek, startOfThisWeek));
