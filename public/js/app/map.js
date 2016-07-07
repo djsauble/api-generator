@@ -1,7 +1,7 @@
 $(function(exports) {
   var ns = "Forrest",
       View = Backbone.View.extend({
-        el: $(".detail"),
+        className: "map",
 
         initialize: function() {
 
@@ -89,30 +89,26 @@ $(function(exports) {
             google.maps.event.trigger(me.mapReference, "resize");
             me.mapReference.fitBounds(me.bounds);
           });
-
-          // Re-render the map when the model changes
-          this.listenTo(this.model, "change", function() {
-            console.log("Show a different model");
-          });
         },
 
         render: function() {
           // Show the map
           if (!this.mapReference) {
-            this.mapReference = new google.maps.Map(document.getElementById("output"), {
+            this.mapReference = new google.maps.Map(this.el, {
               disableDefaultUI: true,
               draggable: false,
               scrollwheel: false
             });
           }
 
-          // Display the model
-          this.displayRun(this.model);
+          if (this.model) {
+            this.displayRun();
+          }
 
           return this;
         },
 
-        displayRun: function(model) {
+        displayRun: function() {
           var me = this;
 
           // Animate the latest route
@@ -157,7 +153,7 @@ $(function(exports) {
       });
 
   exports[ns] = _.extend(exports[ns] || {}, {
-    DetailView: View
+    MapView: View
   });
 
 }(typeof exports === 'undefined' ? window : exports));

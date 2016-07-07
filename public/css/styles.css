@@ -127,22 +127,19 @@ form a {
 /**
  * Master/detail panels
  */
-.master_detail {
+.viewer {
   flex: 1;
 }
 
-.master {
+ul.list {
   overflow: scroll;
   height: 100%;
-}
-
-.master ul {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.master li {
+ul.list li {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -150,27 +147,22 @@ form a {
   border-bottom: 1px solid #efefef;
 }
 
-.master li.selected {
+ul.list li.selected {
   background-color: #efef99;
 }
 
-.master li:last-child {
+ul.list li:last-child {
   border-bottom: none;
 }
 
-.master li *:last-child {
+ul.list li *:last-child {
   margin-left: 1em;
 }
 
-.detail {
+.map {
   flex: 1;
   height: 100%;
   margin: 0;
-}
-
-#output {
-  width: 100%;
-  height: 100%;
   position: relative;
 }
 
