@@ -129,13 +129,48 @@ $(function(exports) {
                 ],
                 i;
 
+            /*********************************************************
+             * DEBUG SECTION: Test veracity of polynomial regression *
+             *********************************************************/
+
+            // Calculate the trend over the last eight weeks
+            i = 0;
+            actualTrend = regression('polynomial', runsByWeek.map(function(w) {
+              return [i++, w.distance];
+            }), 2).equation;
+
+            // Extrapolate (no more than a year) into the future to determine 
+            // when we will achieve our goal
+            weeksUntilGoal = 0;
+            for (var i = 8; i < 60; ++i) {
+              if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= goalAmount) {
+                break;
+              }
+              ++weeksUntilGoal;
+            }
+
+            // Display the last day of the given week
+            weekIterator = new Date(startOfThisWeek + (this.DAY_IN_MS * 6));
+            for (var i = 0; i < weeksUntilGoal; ++i) {
+              weekIterator = new Date(weekIterator.getTime() + this.WEEK_IN_MS);
+            }
+            if (weeksUntilGoal >= 52) {
+              console.log("Polynomial regression prediction: n/a");
+            }
+            else {
+              console.log("Polynomial regression prediction: " + monthNames[weekIterator.getMonth()] + " " + weekIterator.getDate());
+            }
+
+            /*********************
+             * END DEBUG SECTION *
+             *********************/
+
             // Calculate a linear regression of the last several weeks
             i = 0;
             actualTrend = regression('linear', runsByWeek.map(function(w) {
               return [i++, w.distance];
             })).equation;
             rateOfChange = ((actualTrend[0] + actualTrend[1]) / actualTrend[1]);
-            console.log("Rate of change: " + ((rateOfChange - 1) * 100) + "%");
 
             // If rate of change is negative, we'll never achieve our goal
             if (rateOfChange < 0) {
