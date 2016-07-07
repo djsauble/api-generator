@@ -4,10 +4,6 @@ $(function(exports) {
         el: $(".hero"),
 
         initialize: function() {
-          /* Constants */
-          this.DAY_IN_MS = 1000 * 60 * 60 * 24;
-          this.WEEK_IN_MS = this.DAY_IN_MS * 7;
-
           /* DOM hooks */
           this.miles_this_week = this.$(".miles");
           this.goal_this_week = this.$(".goal");
@@ -20,18 +16,6 @@ $(function(exports) {
           /**
            * Helper methods
            */
-
-          // Get a date representing midnight today
-          this.midnightToday = function() {
-            var startOfToday = new Date();
-
-            startOfToday.setHours(0);
-            startOfToday.setMinutes(0);
-            startOfToday.setSeconds(0);
-            startOfToday.setMilliseconds(0);
-
-            return startOfToday;
-          };
 
           // Get the distance run in the given interval (to present, if only one argument given)
           this.getDistance = function(start, end) {
@@ -65,7 +49,7 @@ $(function(exports) {
 
           // Compile run data for a previous number of weeks
           this.compileWeeklyRuns = function(startOfThisWeek, numberOfWeeks) {
-            var weekIterator = new Date(startOfThisWeek.getTime() - this.WEEK_IN_MS),
+            var weekIterator = new Date(startOfThisWeek.getTime() - WEEK_IN_MS),
                 runsByWeek = [],
                 obj = {
                   weekOf: weekIterator,
@@ -84,13 +68,13 @@ $(function(exports) {
               }
 
               // Skip runs older than the cutoff
-              if (t < startOfThisWeek - (this.WEEK_IN_MS * numberOfWeeks)) {
+              if (t < startOfThisWeek - (WEEK_IN_MS * numberOfWeeks)) {
                 break;
               }
 
               // Account for weeks with no runs at all
               while (t < weekIterator) {
-                weekIterator = new Date(weekIterator.getTime() - this.WEEK_IN_MS);
+                weekIterator = new Date(weekIterator.getTime() - WEEK_IN_MS);
                 runsByWeek.unshift(obj);
                 obj = {
                   weekOf: weekIterator,
@@ -113,20 +97,6 @@ $(function(exports) {
                 weeksUntilGoal,
                 distance,
                 weekIterator,
-                monthNames = [
-                  "January",
-                  "February",
-                  "March",
-                  "April",
-                  "May",
-                  "June",
-                  "July",
-                  "August",
-                  "September",
-                  "October",
-                  "November",
-                  "December"
-                ],
                 i;
 
             /*********************************************************
@@ -150,15 +120,15 @@ $(function(exports) {
             }
 
             // Display the last day of the given week
-            weekIterator = new Date(startOfThisWeek + (this.DAY_IN_MS * 6));
+            weekIterator = new Date(startOfThisWeek + (DAY_IN_MS * 6));
             for (var i = 0; i < weeksUntilGoal; ++i) {
-              weekIterator = new Date(weekIterator.getTime() + this.WEEK_IN_MS);
+              weekIterator = new Date(weekIterator.getTime() + WEEK_IN_MS);
             }
             if (weeksUntilGoal >= 52) {
               console.log("Polynomial regression prediction: n/a");
             }
             else {
-              console.log("Polynomial regression prediction: " + monthNames[weekIterator.getMonth()] + " " + weekIterator.getDate());
+              console.log("Polynomial regression prediction: " + getMonthName(weekIterator.getMonth()) + " " + weekIterator.getDate());
             }
 
             /*********************
@@ -190,11 +160,11 @@ $(function(exports) {
               }
 
               // Display the last day of the given week
-              weekIterator = new Date(startOfThisWeek + (this.DAY_IN_MS * 6));
+              weekIterator = new Date(startOfThisWeek + (DAY_IN_MS * 6));
               for (var i = 0; i < weeksUntilGoal; ++i) {
-                weekIterator = new Date(weekIterator.getTime() + this.WEEK_IN_MS);
+                weekIterator = new Date(weekIterator.getTime() + WEEK_IN_MS);
               }
-              return monthNames[weekIterator.getMonth()] + " " + weekIterator.getDate();
+              return getMonthName(weekIterator.getMonth()) + " " + weekIterator.getDate();
             }
           };
 
@@ -223,9 +193,9 @@ $(function(exports) {
         },
 
         render: function() {
-          var startOfToday = this.midnightToday(),
-              startOfThisWeek = new Date(startOfToday - (this.DAY_IN_MS * startOfToday.getDay())),
-              startOfLastWeek = new Date(startOfThisWeek - this.WEEK_IN_MS), 
+          var startOfToday = getMidnight(new Date()),
+              startOfThisWeek = new Date(startOfToday - (DAY_IN_MS * startOfToday.getDay())),
+              startOfLastWeek = new Date(startOfThisWeek - WEEK_IN_MS), 
               runsByWeek = [],
               distanceThisWeek = this.getDistance(startOfThisWeek),
               distanceLastWeek = this.getDistance(startOfLastWeek, startOfThisWeek),

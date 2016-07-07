@@ -1,3 +1,7 @@
+/**
+ * Geolocation functions
+ */
+
 // Get the run data from the given document (convert from base-64 to JSON)
 function getRun(doc) {
   return JSON.parse(
@@ -71,4 +75,59 @@ function computeDistance(coords) {
     distance += google.maps.geometry.spherical.computeDistanceBetween(coords[i], coords[i+1]);
   }
   return distance;
+}
+
+/**
+ * Date functions
+ */
+
+// Constants
+DAY_IN_MS = 1000 * 60 * 60 * 24;
+WEEK_IN_MS = DAY_IN_MS * 7;
+
+// Get the month name
+function getMonthName(index) {
+  var monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+  ];
+
+  return monthNames[index];
+}
+
+// Get the day of the week name
+function getDayName(index) {
+  var dayNames = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday"
+  ];
+
+  return dayNames[index];
+}
+
+// Get midnight of the given date
+function getMidnight(date) {
+  var startOfDay = new Date(date.getTime());
+
+  startOfDay.setHours(0);
+  startOfDay.setMinutes(0);
+  startOfDay.setSeconds(0);
+  startOfDay.setMilliseconds(0);
+
+  return startOfDay;
 }
