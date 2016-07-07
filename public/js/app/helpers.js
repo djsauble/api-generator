@@ -11,7 +11,7 @@ function getRun(doc) {
 function defaultFilter(data) {
   var accurate = [],
       filtered = [],
-      maxDistance = 30; // Meters
+      maxDistance = 20; // Meters
 
   // Filter out inaccurate points
   data.forEach(function(e) {
