@@ -12,7 +12,7 @@ $(function(exports) {
            */
           this.overlays = [];
           this.timers = [];
-          this.currentRun = null;
+          this.bounds = null;
 
           /**
            * Helper methods
@@ -46,15 +46,15 @@ $(function(exports) {
             return coords;
           };
 
-          // Set the map to the given path boundaries
-          this.setBoundaries = function(coords) {
+          // Get the boundaries of the map
+          this.getBoundaries = function(coords) {
             var bounds = new google.maps.LatLngBounds();
 
             for (var i in coords) {
               bounds.extend(coords[i]);
             }
 
-            this.mapReference.fitBounds(bounds);
+            return bounds;
           };
 
           // Animate a function
@@ -81,8 +81,19 @@ $(function(exports) {
             this.timers = [];
           };
 
+          /**
+           * Events
+           */
+
           // Wait for data to load before rendering
           this.listenToOnce(Forrest.runs, "processed", this.render);
+
+          // Resize the map whenever the window resizes
+          var me = this;
+          $(window).bind("resize", function() {
+            google.maps.event.trigger(me.mapReference, "resize");
+            me.mapReference.fitBounds(me.bounds);
+          });
         },
 
         render: function() {
@@ -108,7 +119,8 @@ $(function(exports) {
             var coords = getCoordinates(filtered);
 
             // Set the map boundaries
-            me.setBoundaries(coords);
+            me.bounds = me.getBoundaries(coords);
+            me.mapReference.fitBounds(me.bounds);
 
             // Animate the route
             var draw = [];
