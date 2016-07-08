@@ -37,15 +37,21 @@ $(function(exports) {
           });
           this.$el.append(this.detail.render().el);
 
-          this.displayRun(this.master.runs[0]);
+          if (this.master.runs.length > 0) {
+            this.displayRun(this.master.runs[0]);
+          }
 
           return this;
         },
 
         remove: function() {
           this.undelegateEvents();
-          this.detail.remove();
-          this.master.remove();
+          if (this.detail) {
+            this.detail.remove();
+          }
+          if (this.master) {
+            this.master.remove();
+          }
         }
       });
 

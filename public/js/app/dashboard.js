@@ -28,9 +28,15 @@ $(function(exports) {
 
         remove: function() {
           this.undelegateEvents();
-          this.hero.remove();
-          this.viewer.remove();
-          this.footer.remove();
+          if (this.hero) {
+            this.hero.remove();
+          }
+          if (this.viewer) {
+            this.viewer.remove();
+          }
+          if (this.footer) {
+            this.footer.remove();
+          }
         }
       });
 

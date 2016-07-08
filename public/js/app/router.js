@@ -17,8 +17,12 @@ $(function(exports) {
             // Remove the loading indicator
             $(".loading").remove();
 
-            // Render the current view, if one has been set
-            if (this.currentView) {
+            if (Forrest.runs.length == 0) {
+              // Prompt people to install the app, if they haven't already
+              this.navigate("app", {trigger: true});
+            }
+            else if (this.currentView) {
+              // Render the current view, if one has been set
               this.el.html(this.currentView.render().el);
             }
           });
