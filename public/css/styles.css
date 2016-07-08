@@ -80,7 +80,7 @@ form a {
 
 .row {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .row > * {
@@ -98,6 +98,7 @@ form a {
 .header {
   background-color: #444444;
   padding: 0.5em 2em 0.5em 2em;
+  flex-shrink: 0;
 }
 
 .header > * {
@@ -105,7 +106,7 @@ form a {
 }
 
 .header > *:nth-child(1) {
-  flex: 1;
+  flex: 1 1 auto;
 }
 
 /**
@@ -113,7 +114,6 @@ form a {
  */
 
 .main {
-  flex: 1;
 }
 
 /**
@@ -137,18 +137,18 @@ form a {
   background-color: #963896;
   padding: 1em 2em 1em 2em;
   align-items: baseline;
+  flex-shrink: 0;
 }
 
 /**
  * Master/detail panels
  */
 .viewer {
-  flex: 1;
+  flex: 1 1 auto;
 }
 
 ul.list {
   overflow: scroll;
-  height: 100%;
   list-style: none;
   padding: 0;
   margin: 0;
@@ -175,8 +175,7 @@ ul.list li *:last-child {
 }
 
 .map {
-  flex: 1;
-  height: 100%;
+  flex: 1 1 auto;
   margin: 0;
   position: relative;
 }
