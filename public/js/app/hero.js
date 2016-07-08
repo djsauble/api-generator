@@ -1,7 +1,7 @@
 $(function(exports) {
   var ns = "Forrest",
       View = Backbone.View.extend({
-        el: $(".hero"),
+        className: "hero dark row",
 
         initialize: function() {
           /* DOM hooks */
@@ -202,32 +202,27 @@ $(function(exports) {
               percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
               goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10,
               goalAmount = 40,
-              trendingWeeks = 7;
-
-          // Display distance data
-          this.miles_this_week.html(distanceThisWeek);
-
-          // Display goal data for the week
-          this.goal_this_week.html(goalThisWeek);
+              trendingWeeks = 7,
+              trendPercentString,
+              trendDescriptionString,
+              goalDateString,
+              chartHtml;
 
           // Display trending data
           if (percentChange >= 0) {
-            this.trend_this_week.html(percentChange + "%");
-            this.trend_description.html("more miles than last week.");
+            trendPercentString = percentChange + "%";
+            trendDescriptionString = "more miles than last week.";
           }
           else if (percentChange < 0) {
-            this.trend_this_week.html(Math.abs(percentChange) + "%");
-            this.trend_description.html("fewer miles than last week.");
+            trendPercentString = Math.abs(percentChange) + "%";
+            trendDescriptionString = "fewer miles than last week.";
           }
 
           // Compile run data for the last eight weeks
           runsByWeek = this.compileWeeklyRuns(startOfThisWeek, trendingWeeks);
 
           // Display the last day of the given week
-          this.goal_date.html(this.renderGoalDate(goalAmount, runsByWeek, startOfThisWeek));
-
-          // Display the goal
-          this.goal_amount.html(goalAmount);
+          goalDateString = this.renderGoalDate(goalAmount, runsByWeek, startOfThisWeek);
 
           // Add the goal for this week
           runsByWeek.push({
@@ -236,12 +231,33 @@ $(function(exports) {
           });
 
           // Display run data for the last eight weeks
-          this.chart.html(this.renderChart(runsByWeek, distanceThisWeek));
+          chartHtml = this.renderChart(runsByWeek, distanceThisWeek);
+
+          // Render stuff
+          this.$el.html(
+            "<p><big>" +
+            distanceThisWeek +
+            "</big> of " +
+            goalThisWeek +
+            " miles this week.</p><p><big>" +
+            trendPercentString +
+            "</big> " +
+            trendDescriptionString +
+            "</p><p style='flex: 1;'><big>" +
+            goalAmount +
+            "</big> miles per week by " +
+            goalDateString +
+            "</p><div class='graph row'>" +
+            chartHtml +
+            "</div>"
+          );
+          
+          return this;
         }
       });
 
   exports[ns] = _.extend(exports[ns] || {}, {
-    heroView: new View
+    HeroView: View
   });
 
 }(typeof exports === 'undefined' ? window : exports));

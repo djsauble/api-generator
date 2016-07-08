@@ -1,26 +1,9 @@
-%div{:class => [:hero, :dark, :row]}
-  %p
-    %big{:class => :miles} 0
-    of
-    %span{:class => :goal} 0
-    miles this week.
-  %p
-    %big{:class => :trend} 0
-    %span{:class => :trend_desc} more miles than last week.
-  %p{:style => "flex: 1"}
-    %big{:class => :goal_amount} 0
-    miles per week by
-    %span{:class => :goal_date} January 1
-  %div{:class => [:graph, :row]}
-%div{:class => [:viewer, :row]}
-%div{:class => [:footer, :dark]}
-  %span
-    PUT your data to
-    %a{:href => "#{base}api/#{db.id}?user=#{api_key.api_key}&token=#{api_key.token}"} #{base}api/#{db.id}?user=#{api_key.api_key}&amp;token=#{api_key.token}
+%div{:class => [:main, :column]}
 
 <!-- Data URL -->
 %script
   CLOUDANT_DATA_URL = "#{db_url}";
+  APPLICATION_DATA_URL = "#{base}api/#{db.id}?user=#{api_key.api_key}&token=#{api_key.token}";
 
 <!-- Dependencies -->
 %script{:src => "https://maps.googleapis.com/maps/api/js?key=AIzaSyDrMrHDCL33b4PkB0p5SZlCR7mwc7Yp7SA&libraries=geometry"}
@@ -34,9 +17,11 @@
 <!-- Application -->
 %script{:src => "js/app/helpers.js"}
 %script{:src => "js/app/data.js"}
+%script{:src => "js/app/footer.js"}
 %script{:src => "js/app/hero.js"}
 %script{:src => "js/app/run.js"}
 %script{:src => "js/app/list.js"}
 %script{:src => "js/app/map.js"}
 %script{:src => "js/app/viewer.js"}
+%script{:src => "js/app/main.js"}
 %script{:src => "js/app/app.js"}

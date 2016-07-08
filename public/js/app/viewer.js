@@ -1,10 +1,10 @@
 $(function(exports) {
   var ns = "Forrest",
       View = Backbone.View.extend({
-        el: $(".viewer"),
+        className: "viewer row",
 
         initialize: function() {
-          // Instance variables
+          // Child components
           this.detail = null;
           this.master = null;
 
@@ -18,9 +18,6 @@ $(function(exports) {
             this.detail.model = view.model;
             this.detail.render();
           };
-
-          // Events
-          this.listenToOnce(Forrest.runs, "processed", this.render);
         },
 
         render: function() {
@@ -47,7 +44,7 @@ $(function(exports) {
       });
 
   exports[ns] = _.extend(exports[ns] || {}, {
-    viewer: new View
+    ViewerView: View
   });
 
 }(typeof exports === 'undefined' ? window : exports));
