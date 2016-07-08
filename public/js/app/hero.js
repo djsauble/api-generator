@@ -4,14 +4,6 @@ $(function(exports) {
         className: "hero dark row",
 
         initialize: function() {
-          /* DOM hooks */
-          this.miles_this_week = this.$(".miles");
-          this.goal_this_week = this.$(".goal");
-          this.trend_this_week = this.$(".trend");
-          this.trend_description = this.$(".trend_desc");
-          this.goal_amount = this.$(".goal_amount");
-          this.goal_date = this.$(".goal_date");
-          this.chart = this.$(".graph");
 
           /**
            * Helper methods
