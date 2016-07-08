@@ -5,8 +5,8 @@ $(function(exports) {
 
         initialize: function() {
           // Child components
-          this.detail = null;
-          this.master = null;
+          this.map = null;
+          this.list = null;
 
           // Helper methods
           this.displayRun = function(view) {
@@ -15,30 +15,30 @@ $(function(exports) {
             view.$el.addClass("selected");
 
             // Display the run
-            this.detail.model = view.model;
-            this.detail.render();
+            this.map.model = view.model;
+            this.map.render();
           };
         },
 
         render: function() {
           // Show the list of runs
-          this.master = new Forrest.ListView({
+          this.list = new Forrest.ListView({
             attributes: {
               parent: this
             }
           });
-          this.$el.append(this.master.render().el);
+          this.$el.append(this.list.render().el);
 
           // Show the map
-          this.detail = new Forrest.MapView({
+          this.map = new Forrest.MapView({
             attributes: {
               parent: this
             }
           });
-          this.$el.append(this.detail.render().el);
+          this.$el.append(this.map.render().el);
 
-          if (this.master.runs.length > 0) {
-            this.displayRun(this.master.runs[0]);
+          if (this.list.runs.length > 0) {
+            this.displayRun(this.list.runs[0]);
           }
 
           return this;
@@ -46,11 +46,11 @@ $(function(exports) {
 
         remove: function() {
           this.undelegateEvents();
-          if (this.detail) {
-            this.detail.remove();
+          if (this.map) {
+            this.map.remove();
           }
-          if (this.master) {
-            this.master.remove();
+          if (this.list) {
+            this.list.remove();
           }
         }
       });
