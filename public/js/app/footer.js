@@ -8,7 +8,7 @@ $(function(exports) {
             "<span> PUT your data to <a href='" +
             APPLICATION_DATA_URL +
             "'>" +
-            escape(APPLICATION_DATA_URL) +
+            APPLICATION_DATA_URL.replace(/&/g, "&amp;") +
             "</a></span>"
           );
 
