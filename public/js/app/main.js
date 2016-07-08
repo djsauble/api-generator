@@ -9,11 +9,17 @@ $(function(exports) {
           this.viewer = null;
           this.footer = null;
 
+          // DOM elements
+          this.loading = this.$(".loading");
+
           // Events
           this.listenToOnce(Forrest.runs, "processed", this.render);
         },
 
         render: function() {
+          // Hide the loading indicator
+          this.loading.hide();
+
           // Show the hero component
           this.hero = new Forrest.HeroView();
           this.$el.append(this.hero.render().el);

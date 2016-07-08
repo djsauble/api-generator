@@ -66,6 +66,30 @@ form a {
 }
 
 /**
+ * Loading indicator
+ */
+
+.loading {
+  flex: 1 1 auto;
+}
+
+.loading img {
+  width: 1em;
+  height: 1em;
+  position: relative;
+  top: 0.1em;
+  margin-right: 0.25em;
+}
+
+.loading span {
+  display: inline-block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/**
  * A column of elements
  */
 
