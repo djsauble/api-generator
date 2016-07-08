@@ -11,6 +11,9 @@ $(function() {
     }
   });
 
+  // Start listening for routes
+  Backbone.history.start();
+
   // Kick the app
   Forrest.init({
     api: CLOUDANT_DATA_URL // Global variable defined on the page itself

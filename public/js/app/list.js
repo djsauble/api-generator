@@ -5,7 +5,7 @@ $(function(exports) {
         className: "list",
 
         initialize: function() {
-          // Instance variables
+          // Children
           this.runs = [];
         },
 
@@ -25,6 +25,13 @@ $(function(exports) {
           }
 
           return this;
+        },
+
+        remove: function() {
+          this.undelegateEvents();
+          this.runs.forEach(function(r) {
+            r.remove();
+          });
         }
       });
 

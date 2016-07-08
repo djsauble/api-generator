@@ -79,16 +79,18 @@ $(function(exports) {
             this.timers = [];
           };
 
+          var me = this;
+          this.fitMap = function() {
+            google.maps.event.trigger(me.mapReference, "resize");
+            me.mapReference.fitBounds(me.bounds);
+          },
+
           /**
            * Events
            */
 
           // Resize the map whenever the window resizes
-          var me = this;
-          $(window).bind("resize", function() {
-            google.maps.event.trigger(me.mapReference, "resize");
-            me.mapReference.fitBounds(me.bounds);
-          });
+          $(window).bind("resize", this.fitMap);
         },
 
         render: function() {
@@ -108,6 +110,12 @@ $(function(exports) {
           return this;
         },
 
+        remove: function() {
+          this.undelegateEvents();
+          $(window).unbind("resize", this.fitMap);
+          this.mapReference = null;
+        },
+
         displayRun: function() {
           var me = this;
 
@@ -120,7 +128,7 @@ $(function(exports) {
 
             // Set the map boundaries
             me.bounds = me.getBoundaries(coords);
-            me.mapReference.fitBounds(me.bounds);
+            me.fitMap();
 
             // Animate the route
             var draw = [];

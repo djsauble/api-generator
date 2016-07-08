@@ -40,6 +40,12 @@ $(function(exports) {
           this.displayRun(this.master.runs[0]);
 
           return this;
+        },
+
+        remove: function() {
+          this.undelegateEvents();
+          this.detail.remove();
+          this.master.remove();
         }
       });
 
