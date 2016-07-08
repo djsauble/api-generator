@@ -7,7 +7,10 @@ $(function(exports) {
         },
 
         render: function() {
-          this.$el.append("<div class='loading'><span>Get the app!</span></div>");
+          var htmlString = "";
+
+          this.$el.html("<div class='modal'><img src='images/Download_on_the_App_Store_Badge_US-UK_135x40.svg' alt='Download on the App Store'/></div>");
+
           return this;
         }
       });
