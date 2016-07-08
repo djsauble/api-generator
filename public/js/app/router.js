@@ -19,7 +19,8 @@ $(function(exports) {
 
             if (Forrest.runs.length == 0) {
               // Prompt people to install the app, if they haven't already
-              this.navigate("app", {trigger: true});
+              this.navigate("app");
+              this.switchView(Forrest.AppView);
             }
             else if (this.currentView) {
               // Render the current view, if one has been set
