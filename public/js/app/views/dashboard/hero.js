@@ -235,7 +235,7 @@ $(function(exports) {
             trendPercentString +
             "</big> " +
             trendDescriptionString +
-            "</p><p style='flex: 1;'><big>" +
+            "</p><p class='expand'><big>" +
             goalAmount +
             "</big> miles per week by " +
             goalDateString +

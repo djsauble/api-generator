@@ -22,6 +22,9 @@ DataMapper.auto_upgrade!
 # Configure the session cookie
 use Rack::Session::Cookie, :secret => "#{ENV["CACHE_SECRET"]}"
 
+# Override default auth views
+set :sinatra_authentication_view_path, Pathname(__FILE__).dirname.expand_path + "views/auth/"
+
 get '/' do
   login_required
 

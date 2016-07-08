@@ -6,6 +6,6 @@
   %body{:class => [:column]}
     - if logged_in?
       %div{:class => [:header, :dark, :row]}
-        %span Welcome, runner!
+        %span.expand Welcome, runner!
         %a{:href => "/logout"} Logout
     = yield

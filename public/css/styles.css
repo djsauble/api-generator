@@ -6,6 +6,7 @@ body {
   width: 100%;
   margin: 0;
   position: absolute;
+  color: #333333;
 }
 
 h1 {
@@ -18,7 +19,6 @@ big {
 
 form {
   background-color: rgba(240, 240, 240, 0.8);
-  border-radius: 1em;
   padding: 1em;
 }
 
@@ -44,10 +44,25 @@ a:hover {
   color: #ffffff;
 }
 
+/* If displayed on a light background, change text colors accordingly */
+
+.light {
+  color: #333333;
+}
+
+.light a {
+  color: rgba(51, 51, 51, 0.8);
+}
+
+.light a:hover {
+  color: #333333;
+}
+
 /* Right-align the input boxes */
 
-form label.row {
+form .field {
   justify-content: space-between;
+  margin-bottom: 1em;
 }
 
 form a {
@@ -105,6 +120,14 @@ form a {
 }
 
 /**
+ * Make an element expand to take up any slack in a flexbox
+ */
+
+.expand {
+  flex: 1 1 auto;
+}
+
+/**
  * Header which displays logout information
  */
 
@@ -116,18 +139,6 @@ form a {
 
 .header > * {
   font-size: 0.8em;
-}
-
-.header > *:nth-child(1) {
-  flex: 1 1 auto;
-}
-
-/**
- * The container for the application
- */
-
-.main {
-  flex: 1 1 auto;
 }
 
 /**
@@ -150,15 +161,7 @@ form a {
 .hero {
   background-color: #963896;
   padding: 1em 2em 1em 2em;
-  align-items: baseline;
   flex-shrink: 0;
-}
-
-/**
- * Master/detail panels
- */
-.viewer {
-  flex: 1 1 auto;
 }
 
 ul.list {
@@ -201,6 +204,8 @@ ul.list li *:last-child {
 .graph {
   align-items: flex-end;
   height: 2em;
+  margin-top: 1em;
+  margin-bottom: 1em;
 }
 
 .bar {
@@ -212,4 +217,16 @@ ul.list li *:last-child {
 
 .progress {
   background-color: #ffffff;
+}
+
+/**
+ * Page specific styles
+ */
+
+.landing_page .hero h1 {
+  margin: 0.2em 0 0 0;
+}
+
+.landing_page .hero h3 {
+  margin-bottom: 0;
 }

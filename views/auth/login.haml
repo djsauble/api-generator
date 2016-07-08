@@ -1,0 +1,71 @@
+.landing_page
+  .hero.row.dark
+    .column.expand
+      %h1 Forrest Cruise
+      %h3 Goal tracking for the casual runner with ambitious plans
+    %form.light{:action => "/login", :method => "post"}
+      .field.row
+        %label{:for => "user_email'"} Email
+        %input{:id => "user_email", :name => "email", :size => 30, :type => "text"}
+      .field.row
+        %label{:for => "user_password"} Password
+        %input{:id => "user_password", :name => "password", :size => 30, :type => "password"}
+      .buttons
+        %input{:value => "Login", :type => "submit"}
+        %a{:href => "/signup"}
+          Create an account
+
+  %p
+    80% of runners are injured every year. One of the best ways to avoid injury
+    is to follow the 10% rule and increase your mileage slowly over time.
+    Forrest Cruise is specifically designed to help you track progress against
+    your goals, predict when you'll achieve them, and help you build your base
+    mileage slowly, over time.
+
+  %p
+    %em.timeframe Next five minutes
+    First, set a goal in terms of mileage and pace. For example, it's common to
+    run 40 miles per week in preparation for a marathon. You might also want to
+    run that marathon at a certain pace, so note that too.
+
+  %p
+    %em.timeframe Week 1
+    Download the app and go running as you usually do. The first week, we'll
+    measure your mileage and use that as the starting point.
+
+  %p
+    %em.timeframe Week 2
+    After the first week, we'll suggest a weekly goal that's 10% more
+    than what just ran. As you run, the progress bar will gradually fill.
+
+  %p
+    %em.timeframe Week 3
+    At this point, relax and continue building your base. Since you won't hit
+    10% every week, we'll begin to show a chart with your mileage over the
+    last seven weeks. You can gauge your overall progress at a glance.
+
+  %p
+    %em.timeframe Week 4
+    By now, we have a pretty good idea of how your training is going. We'll
+    begin to show a prediction of when you might expect to hit your goal.
+
+  %p
+    %em.timeframe Goal week (mileage)
+    When you achieve the mileage part of your goal, we'll transition to a focus
+    on pace. All the data we show will shift accordingly.
+
+  %p
+    %em.timeframe Goal week (pace)
+    When you achieve the pace part of your goal, we'll send the "all clear"
+    signal and let you continue tracking progress until your race day.
+
+  %p
+    %em.timeframe Race day
+    The culmination of your training is the day of the race. Once you record the
+    route, we'll show a complete graph of the entire training process. Take what
+    you learn to set your next goal.
+
+  %p
+    %em.timeframe Future
+    At any time, you can view your history of runs and goals. Your data is yours
+    forever, so feel free to download a copy at any time.

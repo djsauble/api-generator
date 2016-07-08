@@ -1,7 +1,7 @@
 $(function(exports) {
   var ns = "Forrest",
       View = Backbone.View.extend({
-        className: "viewer row",
+        className: "viewer row expand",
 
         initialize: function() {
           // Child components
