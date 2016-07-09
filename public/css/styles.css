@@ -102,6 +102,16 @@ form a {
   flex-direction: column;
 }
 
+/* HACK to prevent elements with tall descendants from overflowing on Firefox */
+.column {
+  min-height: 0;
+}
+
+.column > * {
+  min-height: 0;
+}
+
+
 /**
  * A row of spaced elements
  */
