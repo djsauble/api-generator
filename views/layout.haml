@@ -7,5 +7,7 @@
     - if logged_in?
       %div{:class => [:header, :dark, :row]}
         %span.expand Welcome, runner!
+        %a{:href => "#app"} Get app
+        %a{:href => "#goal"} Change goal
         %a{:href => "/logout"} Logout
     = yield

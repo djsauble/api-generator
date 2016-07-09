@@ -7,7 +7,7 @@ $(function(exports) {
         },
 
         render: function() {
-          this.$el.append("<div class='loading'><span>Set a goal!</span></div>");
+          this.$el.append("<div class='modal'><div>Set a goal! <a href='#'>All done.</a></div></div>");
           return this;
         }
       });
