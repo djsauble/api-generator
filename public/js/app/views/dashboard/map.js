@@ -99,7 +99,8 @@ $(function(exports) {
             this.mapReference = new google.maps.Map(this.el, {
               disableDefaultUI: true,
               draggable: false,
-              scrollwheel: false
+              scrollwheel: false,
+              disableDoubleClickZoom: true
             });
           }
 
