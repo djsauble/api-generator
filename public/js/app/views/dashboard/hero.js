@@ -112,7 +112,7 @@ $(function(exports) {
             }
 
             // Display the last day of the given week
-            weekIterator = new Date(startOfThisWeek + (DAY_IN_MS * 6));
+            weekIterator = new Date(startOfThisWeek.getTime() + (DAY_IN_MS * 6));
             for (var i = 0; i < weeksUntilGoal; ++i) {
               weekIterator = new Date(weekIterator.getTime() + WEEK_IN_MS);
             }
@@ -142,7 +142,7 @@ $(function(exports) {
               // Extrapolate (no more than a year) into the future to determine
               // when we will achieve our goal
               weeksUntilGoal = 0;
-              distance = (actualTrend[0] * runsByWeek.length) + actualTrend[1];
+              distance = runsByWeek[runsByWeek.length - 1].distance;
               for (var i = runsByWeek.length; i < 52 + runsByWeek.length; ++i) {
                 var distance = distance * rateOfChange;
                 if (distance >= goalAmount) {
@@ -152,7 +152,7 @@ $(function(exports) {
               }
 
               // Display the last day of the given week
-              weekIterator = new Date(startOfThisWeek + (DAY_IN_MS * 6));
+              weekIterator = new Date(startOfThisWeek.getTime() + (DAY_IN_MS * 6));
               for (var i = 0; i < weeksUntilGoal; ++i) {
                 weekIterator = new Date(weekIterator.getTime() + WEEK_IN_MS);
               }
@@ -186,8 +186,8 @@ $(function(exports) {
 
         render: function() {
           var startOfToday = getMidnight(new Date()),
-              startOfThisWeek = new Date(startOfToday - (DAY_IN_MS * startOfToday.getDay())),
-              startOfLastWeek = new Date(startOfThisWeek - WEEK_IN_MS), 
+              startOfThisWeek = new Date(startOfToday.getTime() - (DAY_IN_MS * startOfToday.getDay())),
+              startOfLastWeek = new Date(startOfThisWeek.getTime() - WEEK_IN_MS), 
               runsByWeek = [],
               distanceThisWeek = this.getDistance(startOfThisWeek),
               distanceLastWeek = this.getDistance(startOfLastWeek, startOfThisWeek),
