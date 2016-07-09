@@ -90,8 +90,8 @@
     var runs = exports[ns].runs;
 
     exports[ns] = _.extend(exports[ns] || {}, {
-      remoteDB: new PouchDB(options.api),
-      localDB: new PouchDB(options.api.split('/').pop())
+      remoteDB: new PouchDB(options.api, {size: 50}),
+      localDB: new PouchDB(options.api.split('/').pop(), {size: 50})
     });
 
     // Rework the default syncing behavior for compatibility with PouchDB 
