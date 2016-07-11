@@ -193,6 +193,7 @@ $(function(exports) {
               distanceLastWeek = this.getDistance(startOfLastWeek, startOfThisWeek),
               percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
               goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10,
+              remainingThisWeek = goalThisWeek - distanceThisWeek,
               goalAmount = 40,
               trendingWeeks = 7,
               trendPercentString,
@@ -201,13 +202,13 @@ $(function(exports) {
               chartHtml;
 
           // Display trending data
-          if (percentChange >= 0) {
-            trendPercentString = percentChange + "%";
-            trendDescriptionString = "more miles than last week.";
+          if (percentChange < 10) {
+            trendPercentString = remainingThisWeek;
+            trendDescriptionString = "miles to go this week.";
           }
-          else if (percentChange < 0) {
-            trendPercentString = Math.abs(percentChange) + "%";
-            trendDescriptionString = "fewer miles than last week.";
+          else {
+            trendPercentString = "10%";
+            trendDescriptionString = "more miles than last week.";
           }
 
           // Compile run data for the last eight weeks
