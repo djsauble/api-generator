@@ -193,7 +193,7 @@ $(function(exports) {
               distanceLastWeek = this.getDistance(startOfLastWeek, startOfThisWeek),
               percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
               goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10,
-              remainingThisWeek = goalThisWeek - distanceThisWeek,
+              remainingThisWeek = Math.round(10 * (goalThisWeek - distanceThisWeek)) / 10,
               goalAmount = 40,
               trendingWeeks = 7,
               trendPercentString,
