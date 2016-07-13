@@ -143,7 +143,13 @@ end
 
 # Create a new record (extension point)
 put '/api/:database_id' do
-  return if !tokenOwnsDatabase(params[:user], params[:token], params[:database_id])
+  # Does the given user own the specified table and API key?
+  @api_key = ApiKey.first(:api_key => params[:user], :token => params[:token])
+  @db = Db.get(params[:database_id])
+
+  if @db == nil || @api_key == nil || @api_key.user != @db.user
+    return
+  end
 
   # Calculate the SHA1 digest of the data
   request.body.rewind
@@ -178,13 +184,4 @@ put '/api/:database_id' do
 end
 
 def tokenOwnsDatabase(user, token, database)
-  # Does the given user own the specified table and API key?
-  @api_key = ApiKey.first(:api_key => @user, :token => @token)
-  @db = Db.get(database)
-
-  if @db == nil || @api_key == nil || @api_key.user != @db.user
-    return false
-  end
-
-  return true
 end
