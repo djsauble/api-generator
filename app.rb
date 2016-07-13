@@ -182,6 +182,3 @@ put '/api/:database_id' do
     {"Content-Type" => "text/json", "If-Match" => @doc["rev"]}
   )
 end
-
-def tokenOwnsDatabase(user, token, database)
-end
