@@ -14,6 +14,7 @@ require 'json'
 # Definition for models in our database
 require './models/db'
 require './models/api_key'
+require './models/sms'
 
 # Connect to our MySQL database
 DataMapper.setup(:default, "#{ENV["CLEARDB_DATABASE_URL"]}")
@@ -108,18 +109,41 @@ def createApiKey
   )
 end
 
+# Turn on SMS notifications for the current user
+put '/api/sms/on' do
+  puts "Turn it on!"
+
+  @api_key = ApiKey.first(:api_key => params[:user], :token => params[:token])
+
+  # Destroy any existing SMS setting
+  @sms = Sms.first(:user => @api_key.user)
+  if @sms
+    @sms.destroy
+  end
+
+  # Create a new SMS entry
+  Sms.create(
+    :user  => @api_key.user,
+    :phone => params[:phone]
+  )
+end
+
+# Turn off SMS notifications for the current user
+put '/api/sms/off' do
+  puts "Turn it off!"
+
+  @api_key = ApiKey.first(:api_key => params[:user], :token => params[:token])
+
+  # Destroy any existing SMS setting
+  @sms = Sms.first(:user => @api_key.user)
+  if @sms
+    @sms.destroy
+  end
+end
+
 # Create a new record (extension point)
 put '/api/:database_id' do
-  @user   = params[:user]
-  @token  = params[:token]
-
-  # Does the given user own the specified table and API key?
-  @api_key = ApiKey.first(:api_key => @user, :token => @token)
-  @db = Db.get(params[:database_id])
-
-  if @db == nil || @api_key == nil || @api_key.user != @db.user
-    return
-  end
+  return if !tokenOwnsDatabase(params[:user], params[:token], params[:database_id])
 
   # Calculate the SHA1 digest of the data
   request.body.rewind
@@ -151,4 +175,16 @@ put '/api/:database_id' do
     JSON.pretty_generate(data),
     {"Content-Type" => "text/json", "If-Match" => @doc["rev"]}
   )
+end
+
+def tokenOwnsDatabase(user, token, database)
+  # Does the given user own the specified table and API key?
+  @api_key = ApiKey.first(:api_key => @user, :token => @token)
+  @db = Db.get(database)
+
+  if @db == nil || @api_key == nil || @api_key.user != @db.user
+    return false
+  end
+
+  return true
 end

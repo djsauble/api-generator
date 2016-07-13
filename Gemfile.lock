@@ -38,6 +38,7 @@ GEM
       rack
     rack-protection (1.5.3)
       rack
+    rake (10.1.0)
     rest-client (1.8.0)
       http-cookie (>= 1.0.2, < 2.0)
       mime-types (>= 1.16, < 3.0)
@@ -78,7 +79,14 @@ DEPENDENCIES
   dm-mysql-adapter (= 1.2.0)
   haml (= 4.0.7)
   json (= 1.8.3)
+  rake (= 10.1.0)
   rest-client (= 1.8.0)
   sinatra (= 1.4.7)
   sinatra-authentication (= 0.4.1)
   thin (= 1.6.4)
+
+RUBY VERSION
+   ruby 2.3.1p112
+
+BUNDLED WITH
+   1.12.5

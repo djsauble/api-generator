@@ -3,6 +3,7 @@ source "https://rubygems.org"
 
 ruby "2.3.1"
 
+gem "rake", "10.1.0"
 gem "sinatra", "1.4.7"
 gem "haml", "4.0.7"
 gem "thin", "1.6.4"
