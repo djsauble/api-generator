@@ -4,31 +4,13 @@
       %img.spinner{:src => "images/loader.gif"}
       Loading run data&hellip;
 
-<!-- Data URL -->
+<!-- Global data -->
 %script
   CLOUDANT_DATA_URL = "#{db_url}";
   APPLICATION_DATA_URL = "#{base}api/#{db.id}?user=#{api_key.api_key}&token=#{api_key.token}";
 
-<!-- Dependencies -->
+<!-- Non-NPM dependencies -->
 %script{:src => "https://maps.googleapis.com/maps/api/js?key=AIzaSyDrMrHDCL33b4PkB0p5SZlCR7mwc7Yp7SA&libraries=geometry"}
-%script{:src => "js/dist/jquery-1.12.4.js"}
-%script{:src => "js/dist/underscore.js"}
-%script{:src => "js/dist/backbone.js"}
-%script{:src => "js/dist/pouchdb-5.4.0.js"}
-%script{:src => "js/dist/backbone-pouch.js"}
-%script{:src => "js/dist/regression.min.js"}
 
 <!-- Application -->
-%script{:src => "js/app/views/dashboard/footer.js"}
-%script{:src => "js/app/views/dashboard/hero.js"}
-%script{:src => "js/app/views/dashboard/run.js"}
-%script{:src => "js/app/views/dashboard/list.js"}
-%script{:src => "js/app/views/dashboard/map.js"}
-%script{:src => "js/app/views/dashboard/viewer.js"}
-%script{:src => "js/app/views/dashboard/dashboard.js"}
-%script{:src => "js/app/views/app/app.js"}
-%script{:src => "js/app/views/goal/goal.js"}
-%script{:src => "js/app/helpers.js"}
-%script{:src => "js/app/data.js"}
-%script{:src => "js/app/router.js"}
-%script{:src => "js/app/app.js"}
+%script{:src => "js/bundle.js"}
