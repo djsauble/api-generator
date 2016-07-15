@@ -1,10 +1,10 @@
-= Build
+# Build
 
     $ cd $APP_ROOT/app
     $ npm install
     $ watchify app.js -o ../public/js/bundle.js
 
-= Run
+# Run
 
     $ cd $APP_ROOT
     $ ruby app.rb
