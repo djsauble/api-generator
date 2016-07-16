@@ -4,9 +4,6 @@ var $ = require("jquery");
 var Runs = require("./models/runs");
 var Router = require("./router");
 
-// Load modules
-Geo = require("geolocation-distances");
-
 $(function() {
   // Initialize the app
   var runs = new Runs({
@@ -32,11 +29,7 @@ $(function() {
   });
 });
 
-},{"./models/runs":4,"./router":28,"backbone":7,"geolocation-distances":11,"jquery":14}],2:[function(require,module,exports){
-/**
- * Geolocation functions
- */
-
+},{"./models/runs":4,"./router":29,"backbone":7,"jquery":15}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (doc) {
@@ -44,7 +37,11 @@ var Helpers = {
        atob(
          doc._attachments["data.json"]["data"]
        )
-     );
+     ).map(function (p) {
+       p.latitude = parseFloat(p.latitude);
+       p.longitude = parseFloat(p.longitude);
+       return p;
+     });
   },
 
   // Smooth the run (e.g. ignore bouncing GPS tracks)
@@ -96,15 +93,15 @@ var Helpers = {
 
     for (var i in data) {
       coords.push(new google.maps.LatLng({
-        lat: parseFloat(data[i]["latitude"]),
-        lng: parseFloat(data[i]["longitude"])
+        lat: data[i].latitude,
+        lng: data[i].longitude
       }));
     }
 
     return coords;
   },
 
-  // Get the distance represented by a set of coordinates (miles)
+  // Get the distance represented by a set of coordinates (meters)
   computeDistance: function (coords) {
     var distance = 0;
     for (var i = 0; i < coords.length - 1; ++i) {
@@ -120,41 +117,6 @@ var Helpers = {
   // Constants
   DAY_IN_MS: 1000 * 60 * 60 * 24,
   WEEK_IN_MS: 1000 * 60 * 60 * 24 * 7,
-
-  // Get the month name
-  getMonthName: function (index) {
-    var monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December"
-    ];
-
-    return monthNames[index];
-  },
-
-  // Get the day of the week name
-  getDayName: function (index) {
-    var dayNames = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday"
-    ];
-
-    return dayNames[index];
-  },
 
   // Get midnight of the given date
   getMidnight: function (date) {
@@ -291,7 +253,7 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":7,"backbone-pouch":6,"pouchdb":21,"underscore":26}],5:[function(require,module,exports){
+},{"../helpers":2,"./run":3,"backbone":7,"backbone-pouch":6,"pouchdb":22,"underscore":27}],5:[function(require,module,exports){
 'use strict';
 
 module.exports = argsArray;
@@ -563,7 +525,7 @@ function argsArray(fun) {
   };
 }(this));
 
-},{"underscore":26}],7:[function(require,module,exports){
+},{"underscore":27}],7:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -2487,7 +2449,24 @@ function argsArray(fun) {
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":14,"underscore":26}],8:[function(require,module,exports){
+},{"jquery":15,"underscore":27}],8:[function(require,module,exports){
+"use strict";
+
+module.exports = {
+  __locale: "en",
+  days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  abbreviated_days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  abbreviated_months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  am: 'AM',
+  pm: 'PM'
+};
+
+},{}],9:[function(require,module,exports){
+"use strict";
+module.exports = require('./en');
+
+},{"./en":8}],10:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -2657,7 +2636,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":9}],9:[function(require,module,exports){
+},{"./debug":11}],11:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -2856,7 +2835,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":17}],10:[function(require,module,exports){
+},{"ms":18}],12:[function(require,module,exports){
 (function (root, factory) {
   /* istanbul ignore next */
   if (typeof define === 'function' && define.amd) {
@@ -3074,111 +3053,7 @@ function coerce(val) {
   return PromisePool
 })
 
-},{}],11:[function(require,module,exports){
-/**
- * @author Vidul Nikolaev Petrov
- * @summary A singleton exposing common geolocation methods related to distances.
- */
-var Constant = {
-    get radius() {
-        return 6371; // the Earth radius
-    },
-    get deg2rad() {
-        return .017453292519943295; // (angle / 180) * Math.PI
-    },
-    get rad2deg() {
-        return 57.29577951308232; // angle / Math.PI * 180
-    },
-};
-
-var Geo = {
-    radius: Constant.radius,
-
-    /**
-     * Find distance between two geolocations.
-     *
-     * @method getDistance
-     * @param {Object} location1 - the 1st geolocation
-     * @param {Object} location2 - the 2nd geolocation
-     * @return {Number} kilometers
-     */
-    getDistance: function (location1, location2) {
-        var lat1 = this.deg2rad(location1.latitude),
-            lng1 = this.deg2rad(location1.longitude),
-            lat2 = this.deg2rad(location2.latitude),
-            lng2 = this.deg2rad(location2.longitude),
-            distance = Math.acos(Math.sin(lat1) * Math.sin(lat2) +
-                Math.cos(lat1) * Math.cos(lat2) * Math.cos(lng1 - lng2));
-
-        // distance in human-readable format:
-        return this.radius * distance;
-    },
-
-    /**
-     * Find lat/lng min/max within given distance.
-     *
-     * @method getNearLocationsBorder
-     * @param {Object} center - the center object with lat/lng
-     * @param {Number} distance - distance in kilometers
-     * @return {Object} min/max latitude and min/max longitude
-     */
-    getNearLocationsBorder: function (center, distance) {
-        var maxlat = center.latitude + this.rad2deg(distance / this.radius),
-            minlat = center.latitude - this.rad2deg(distance / this.radius),
-            // longitude boundaries (longitude gets smaller when latitude increases)
-            maxlng = center.longitude + this.rad2deg(distance / this.radius /
-                Math.cos(this.deg2rad(center.latitude))),
-            minlng = center.longitude - this.rad2deg(distance / this.radius /
-                Math.cos(this.deg2rad(center.latitude)));
-
-        return {
-            latitude: {
-                min: minlat,
-                max: maxlat,
-            },
-            longitude: {
-                min: minlng,
-                max: maxlng,
-            }
-        };
-    },
-
-    /**
-     * Filter lat/lng by getDistance,
-     * so that only the cirle area matches stay.
-     *
-     * @method getNearLocations
-     * @param {Object} center - the center object with lat/lng
-     * @param {data[]} results - all lat/lng within the square
-     * @param {Number} distance - distance in kilometers
-     * @return {Object[]}
-     */
-    getNearLocations: function (center, data, distance) {
-        var result = [];
-
-        for (var i = 0; i < data.length; i++) {
-            var this_distance = this.getDistance(center, data[i]);
-
-            if (this_distance <= distance) {
-                result.push(data[i]);
-            }
-        }
-
-        return result;
-    },
-
-    deg2rad: function (angle) {
-        return angle * Constant.deg2rad;
-    },
-
-    rad2deg: function (angle) {
-        return angle * Constant.rad2deg;
-    },
-};
-
-module.exports = Object.create(Geo);
-
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 (function (global){
 'use strict';
 var Mutation = global.MutationObserver || global.WebKitMutationObserver;
@@ -3251,7 +3126,7 @@ function immediate(task) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -3276,7 +3151,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],14:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -13352,7 +13227,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 (function() { 
 
   var slice   = Array.prototype.slice,
@@ -13381,7 +13256,7 @@ return jQuery;
   this.extend = extend;
 
 }).call(this);
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 'use strict';
 var immediate = require('immediate');
 
@@ -13636,7 +13511,7 @@ function race(iterable) {
   }
 }
 
-},{"immediate":12}],17:[function(require,module,exports){
+},{"immediate":13}],18:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -13763,7 +13638,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],18:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 'use strict';
 
 var MIN_MAGNITUDE = -324; // verified by -Number.MIN_VALUE
@@ -14118,7 +13993,7 @@ function numToIndexableString(num) {
   return result;
 }
 
-},{"./utils":19}],19:[function(require,module,exports){
+},{"./utils":20}],20:[function(require,module,exports){
 'use strict';
 
 function pad(str, padWith, upToLength) {
@@ -14189,7 +14064,7 @@ exports.intToDecimalForm = function (int) {
 
   return result;
 };
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict';
 exports.Map = LazyMap; // TODO: use ES6 map
 exports.Set = LazySet; // TODO: use ES6 set
@@ -14260,7 +14135,7 @@ LazySet.prototype.delete = function (key) {
   return this.store.delete(key);
 };
 
-},{}],21:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 (function (process,global){
 'use strict';
 
@@ -24951,9 +24826,9 @@ PouchDB.plugin(IDBPouch)
 
 module.exports = PouchDB;
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":39,"argsarray":5,"debug":8,"es6-promise-pool":10,"events":38,"inherits":13,"js-extend":15,"lie":16,"pouchdb-collate":18,"pouchdb-collections":20,"scope-eval":24,"spark-md5":25,"vuvuzela":27}],22:[function(require,module,exports){
+},{"_process":40,"argsarray":5,"debug":10,"es6-promise-pool":12,"events":39,"inherits":14,"js-extend":16,"lie":17,"pouchdb-collate":19,"pouchdb-collections":21,"scope-eval":25,"spark-md5":26,"vuvuzela":28}],23:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":23}],23:[function(require,module,exports){
+},{"./src/regression":24}],24:[function(require,module,exports){
 /**
 * @license
 *
@@ -25203,7 +25078,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],24:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 // Generated by CoffeeScript 1.9.2
 (function() {
   var hasProp = {}.hasOwnProperty,
@@ -25227,7 +25102,7 @@ if (typeof exports !== 'undefined') {
 
 }).call(this);
 
-},{}],25:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 (function (factory) {
     if (typeof exports === 'object') {
         // Node/CommonJS
@@ -25932,7 +25807,7 @@ if (typeof exports !== 'undefined') {
     return SparkMD5;
 }));
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -27482,7 +27357,7 @@ if (typeof exports !== 'undefined') {
   }
 }.call(this));
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 'use strict';
 
 /**
@@ -27657,7 +27532,7 @@ exports.parse = function (str) {
   }
 };
 
-},{}],28:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -27726,7 +27601,7 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/app/app":29,"./views/dashboard/dashboard":30,"./views/goal/goal":37,"backbone":7,"jquery":14}],29:[function(require,module,exports){
+},{"./views/app/app":30,"./views/dashboard/dashboard":31,"./views/goal/goal":38,"backbone":7,"jquery":15}],30:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -27746,7 +27621,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":7}],30:[function(require,module,exports){
+},{"backbone":7}],31:[function(require,module,exports){
 var Backbone = require('backbone');
 var HeroView = require('./hero');
 var ViewerView = require('./viewer');
@@ -27791,7 +27666,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./footer":31,"./hero":32,"./viewer":36,"backbone":7}],31:[function(require,module,exports){
+},{"./footer":32,"./hero":33,"./viewer":37,"backbone":7}],32:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -27812,11 +27687,12 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":7}],32:[function(require,module,exports){
+},{"backbone":7}],33:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var regression = require('regression');
+var DateNames = require('date-names');
 
 var View = Backbone.View.extend({
   className: "hero dark row",
@@ -27938,7 +27814,7 @@ var View = Backbone.View.extend({
         console.log("Polynomial regression prediction: n/a");
       }
       else {
-        console.log("Polynomial regression prediction: " + Helpers.getMonthName(weekIterator.getMonth()) + " " + weekIterator.getDate());
+        console.log("Polynomial regression prediction: " + DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate());
       }
 
       /*********************
@@ -27974,7 +27850,7 @@ var View = Backbone.View.extend({
         for (var i = 0; i < weeksUntilGoal; ++i) {
           weekIterator = new Date(weekIterator.getTime() + Helpers.WEEK_IN_MS);
         }
-        return Helpers.getMonthName(weekIterator.getMonth()) + " " + weekIterator.getDate();
+        return DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate();
       }
     };
 
@@ -28069,7 +27945,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":7,"regression":22,"underscore":26}],33:[function(require,module,exports){
+},{"../../helpers":2,"backbone":7,"date-names":9,"regression":23,"underscore":27}],34:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -28113,7 +27989,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":35,"backbone":7}],34:[function(require,module,exports){
+},{"./run":36,"backbone":7}],35:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -28282,9 +28158,10 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":7,"jquery":14}],35:[function(require,module,exports){
+},{"../../helpers":2,"backbone":7,"jquery":15}],36:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
+var DateNames = require('date-names');
 
 var View = Backbone.View.extend({
   tagName: "li",
@@ -28310,8 +28187,8 @@ var View = Backbone.View.extend({
         thisYear = now.getYear() + 1900,
         todayString = "Today",
         yesterdayString = "Yesterday",
-        shortString = Helpers.getDayName(dayOfWeek),
-        longerString = Helpers.getMonthName(month) + " " + dayOfMonth,
+        shortString = DateNames.days[dayOfWeek],
+        longerString = DateNames.months[month] + " " + dayOfMonth,
         longestString = longerString + ", " + year,
         mileage = this.model.getMileage(),
         date;
@@ -28341,7 +28218,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":7}],36:[function(require,module,exports){
+},{"../../helpers":2,"backbone":7,"date-names":9}],37:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -28402,7 +28279,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":33,"./map":34,"backbone":7,"underscore":26}],37:[function(require,module,exports){
+},{"./list":34,"./map":35,"backbone":7,"underscore":27}],38:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -28434,7 +28311,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":7}],38:[function(require,module,exports){
+},{"backbone":7}],39:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -28738,7 +28615,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};

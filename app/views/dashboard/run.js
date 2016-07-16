@@ -1,5 +1,6 @@
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
+var DateNames = require('date-names');
 
 var View = Backbone.View.extend({
   tagName: "li",
@@ -25,8 +26,8 @@ var View = Backbone.View.extend({
         thisYear = now.getYear() + 1900,
         todayString = "Today",
         yesterdayString = "Yesterday",
-        shortString = Helpers.getDayName(dayOfWeek),
-        longerString = Helpers.getMonthName(month) + " " + dayOfMonth,
+        shortString = DateNames.days[dayOfWeek],
+        longerString = DateNames.months[month] + " " + dayOfMonth,
         longestString = longerString + ", " + year,
         mileage = this.model.getMileage(),
         date;

@@ -2,6 +2,7 @@ var _ = require('underscore');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var regression = require('regression');
+var DateNames = require('date-names');
 
 var View = Backbone.View.extend({
   className: "hero dark row",
@@ -123,7 +124,7 @@ var View = Backbone.View.extend({
         console.log("Polynomial regression prediction: n/a");
       }
       else {
-        console.log("Polynomial regression prediction: " + Helpers.getMonthName(weekIterator.getMonth()) + " " + weekIterator.getDate());
+        console.log("Polynomial regression prediction: " + DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate());
       }
 
       /*********************
@@ -159,7 +160,7 @@ var View = Backbone.View.extend({
         for (var i = 0; i < weeksUntilGoal; ++i) {
           weekIterator = new Date(weekIterator.getTime() + Helpers.WEEK_IN_MS);
         }
-        return Helpers.getMonthName(weekIterator.getMonth()) + " " + weekIterator.getDate();
+        return DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate();
       }
     };
 

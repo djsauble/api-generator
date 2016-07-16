@@ -3,9 +3,6 @@ var $ = require("jquery");
 var Runs = require("./models/runs");
 var Router = require("./router");
 
-// Load modules
-Geo = require("geolocation-distances");
-
 $(function() {
   // Initialize the app
   var runs = new Runs({

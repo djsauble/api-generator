@@ -1,7 +1,3 @@
-/**
- * Geolocation functions
- */
-
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (doc) {
@@ -9,7 +5,11 @@ var Helpers = {
        atob(
          doc._attachments["data.json"]["data"]
        )
-     );
+     ).map(function (p) {
+       p.latitude = parseFloat(p.latitude);
+       p.longitude = parseFloat(p.longitude);
+       return p;
+     });
   },
 
   // Smooth the run (e.g. ignore bouncing GPS tracks)
@@ -61,15 +61,15 @@ var Helpers = {
 
     for (var i in data) {
       coords.push(new google.maps.LatLng({
-        lat: parseFloat(data[i]["latitude"]),
-        lng: parseFloat(data[i]["longitude"])
+        lat: data[i].latitude,
+        lng: data[i].longitude
       }));
     }
 
     return coords;
   },
 
-  // Get the distance represented by a set of coordinates (miles)
+  // Get the distance represented by a set of coordinates (meters)
   computeDistance: function (coords) {
     var distance = 0;
     for (var i = 0; i < coords.length - 1; ++i) {
@@ -85,41 +85,6 @@ var Helpers = {
   // Constants
   DAY_IN_MS: 1000 * 60 * 60 * 24,
   WEEK_IN_MS: 1000 * 60 * 60 * 24 * 7,
-
-  // Get the month name
-  getMonthName: function (index) {
-    var monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December"
-    ];
-
-    return monthNames[index];
-  },
-
-  // Get the day of the week name
-  getDayName: function (index) {
-    var dayNames = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday"
-    ];
-
-    return dayNames[index];
-  },
 
   // Get midnight of the given date
   getMidnight: function (date) {

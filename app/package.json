@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "create REST endpoints to receive geolocation data and rudimentary visualization of that data",
   "dependencies": {
-    "geolocation-distances": "2.0.2",
+    "date-names": "0.1.6",
     "regression": "1.2.1",
     "jquery": "3.1.0",
     "pouchdb": "5.4.5",
