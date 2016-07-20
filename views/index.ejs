@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Forrest Cruise</title>
+    <link href='css/styles.css' type='text/css' rel='Stylesheet'/>
+  </head>
+  <body class='column'>
+    <div class='header dark row'>
+      <span class='expand'>Welcome, <%= locals.user.name; %>!</span>
+      <a href='#app'>Get app</a>
+      <a href='#goal'>Change goal</a>
+      <a href='/logout'>Logout</a>
+    </div>
+    <div class='main column expand'>
+      <div class='modal'>
+        <span><img class='spinner' src='images/loader.gif'/> Loading&hellip;</span>
+      </div>
+    </div>
+    
+    <!-- Global data -->
+    <script type='text/javascript'>
+      CLOUDANT_DATA_URL = '<%- `${locals.host}/${locals.user.run_database}` %>';
+      APPLICATION_DATA_URL = '<%- `${locals.requestURL}/api/${locals.user.run_database}?user=${locals.user._id}&token=${locals.user.user_token}` %>';
+    </script>
+
+    <!-- Non-NPM dependencies -->
+    <script src='https://maps.googleapis.com/maps/api/js?key=AIzaSyDrMrHDCL33b4PkB0p5SZlCR7mwc7Yp7SA&libraries=geometry' type='text/javascript'></script>
+
+    <!-- Application -->
+    <script src='js/bundle.js' type='text/javascript'></script>
+  </body>
+</html>

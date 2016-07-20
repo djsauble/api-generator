@@ -29,7 +29,7 @@ $(function() {
   });
 });
 
-},{"./models/runs":4,"./router":29,"backbone":7,"jquery":15}],2:[function(require,module,exports){
+},{"./models/runs":4,"./router":5,"backbone":17,"jquery":25}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (doc) {
@@ -154,7 +154,7 @@ var Run = Backbone.Model.extend({
 
 module.exports = Run;
 
-},{"backbone":7}],4:[function(require,module,exports){
+},{"backbone":17}],4:[function(require,module,exports){
 var _ = require('underscore');
 var PouchDB = require('pouchdb');
 var Backbone = require('backbone');
@@ -253,7 +253,786 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":7,"backbone-pouch":6,"pouchdb":22,"underscore":27}],5:[function(require,module,exports){
+},{"../helpers":2,"./run":3,"backbone":17,"backbone-pouch":16,"pouchdb":32,"underscore":37}],5:[function(require,module,exports){
+var $ = require('jquery');
+var Backbone = require('backbone');
+var DashboardView = require('./views/dashboard/dashboard');
+var AppView = require('./views/app/app');
+var GoalView = require('./views/goal/goal');
+
+var Router = Backbone.Router.extend({
+  initialize: function(options) {
+    // Instance variables
+    this.currentView = null;
+    this.loadingData = true;
+    this.options = options;
+
+    // Container for the app
+    this.el = $(".main");
+
+    this.listenToOnce(options.data, "processed", function() {
+      // Let the app know that data is available for display
+      this.loadingData = false;
+
+      // Remove the loading indicator
+      $(".loading").remove();
+
+      if (options.data.length == 0) {
+        // Prompt people to install the app, if they haven't already
+        this.navigate("app");
+        this.switchView(AppView);
+      }
+      else if (this.currentView) {
+        // Render the current view, if one has been set
+        this.el.html(this.currentView.render().el);
+      }
+    });
+  },
+
+  routes: {
+    "": "dashboard", // '/'
+    "app": "app",    // '/app'
+    "goal": "goal"   // '/goal'
+  },
+
+  switchView: function(view) {
+    if (this.currentView) {
+      this.currentView.remove();
+      this.currentView.unbind();
+      this.currentView = null;
+    }
+    this.currentView = new view(this.options);
+    if (!this.loadingData) {
+      this.el.html(this.currentView.render().el);
+    }
+  },
+
+  dashboard: function() {
+    this.switchView(DashboardView);
+  },
+
+  app: function() {
+    this.switchView(AppView);
+  },
+
+  goal: function() {
+    this.switchView(GoalView);
+  }
+});
+
+module.exports = Router;
+
+},{"./views/app/app":6,"./views/dashboard/dashboard":7,"./views/goal/goal":14,"backbone":17,"jquery":25}],6:[function(require,module,exports){
+var Backbone = require('backbone');
+
+var View = Backbone.View.extend({
+  className: "screen column",
+
+  initialize: function() {
+  },
+
+  render: function() {
+    var htmlString = "";
+
+    this.$el.html("<div class='modal'><div><img src='images/Download_on_the_App_Store_Badge_US-UK_135x40.svg' alt='Download on the App Store'/><br/><a href='#'>Back to my dashboard</a></div></div>");
+
+    return this;
+  }
+});
+
+module.exports = View;
+
+},{"backbone":17}],7:[function(require,module,exports){
+var Backbone = require('backbone');
+var HeroView = require('./hero');
+var ViewerView = require('./viewer');
+var FooterView = require('./footer');
+
+var View = Backbone.View.extend({
+  className: "screen column",
+
+  initialize: function(options) {
+    // Child components
+    this.hero = new HeroView(options);
+    this.viewer = new ViewerView(options);
+    this.footer = new FooterView(options);
+  },
+
+  render: function() {
+    // Show the hero component
+    this.$el.append(this.hero.render().el);
+
+    // Show the viewer component
+    this.$el.append(this.viewer.render().el);
+
+    // Show the footer component
+    this.$el.append(this.footer.render().el);
+
+    return this;
+  },
+
+  remove: function() {
+    this.undelegateEvents();
+    if (this.hero) {
+      this.hero.remove();
+    }
+    if (this.viewer) {
+      this.viewer.remove();
+    }
+    if (this.footer) {
+      this.footer.remove();
+    }
+  }
+});
+
+module.exports = View;
+
+},{"./footer":8,"./hero":9,"./viewer":13,"backbone":17}],8:[function(require,module,exports){
+var Backbone = require('backbone');
+
+var View = Backbone.View.extend({
+  className: "footer dark",
+
+  render: function() {
+    this.$el.html(
+      "<span> PUT your data to <a href='" +
+      APPLICATION_DATA_URL +
+      "'>" +
+      APPLICATION_DATA_URL.replace(/&/g, "&amp;") +
+      "</a></span>"
+    );
+
+    return this;
+  }
+});
+
+module.exports = View;
+
+},{"backbone":17}],9:[function(require,module,exports){
+var _ = require('underscore');
+var Backbone = require('backbone');
+var Helpers = require('../../helpers');
+var regression = require('regression');
+var DateNames = require('date-names');
+
+var View = Backbone.View.extend({
+  className: "hero dark row",
+
+  initialize: function(options) {
+
+    /**
+     * Helper methods
+     */
+
+    // Get the distance run in the given interval (to present, if only one argument given)
+    this.getDistance = function(start, end) {
+      var distance = 0,
+          run, t;
+
+      for (var i = options.data.length - 1; i >= 0; --i) {
+        run = options.data.at(i);
+        t = run.get('timestamp');
+
+        // Interval check
+        if (end) {
+          if (t >= start && t < end) {
+            distance += run.getMileage();
+          }
+        }
+        else {
+          if (t >= start) {
+            distance += run.getMileage();
+          }
+        }
+
+        // Break early if possible
+        if (t < start) {
+          break;
+        }
+      }
+
+      return Math.round(distance * 10) / 10;
+    };
+
+    // Compile run data for a previous number of weeks
+    this.compileWeeklyRuns = function(startOfThisWeek, numberOfWeeks) {
+      var weekIterator = new Date(startOfThisWeek.getTime() - Helpers.WEEK_IN_MS),
+          runsByWeek = [],
+          obj = {
+            weekOf: weekIterator,
+            distance: 0
+          },
+          run,
+          t;
+
+      for (var i = options.data.length - 1; i >= 0; --i) {
+        run = options.data.at(i);
+        t = run.get('timestamp');
+
+        // Skip runs from this week
+        if (t >= startOfThisWeek) {
+          continue;
+        }
+
+        // Skip runs older than the cutoff
+        if (t < startOfThisWeek - (Helpers.WEEK_IN_MS * numberOfWeeks)) {
+          break;
+        }
+
+        // Account for weeks with no runs at all
+        while (t < weekIterator) {
+          weekIterator = new Date(weekIterator.getTime() - Helpers.WEEK_IN_MS);
+          runsByWeek.unshift(obj);
+          obj = {
+            weekOf: weekIterator,
+            distance: 0
+          };
+        }
+
+        // Add distance to the week object
+        obj.distance += run.getMileage();
+      }
+      runsByWeek.unshift(obj);
+
+      return runsByWeek;
+    };
+
+    // Display the last day of the given week
+    this.renderGoalDate = function(goalAmount, runsByWeek, startOfThisWeek) {
+      var actualTrend,
+          rateOfChange,
+          weeksUntilGoal,
+          distance,
+          weekIterator,
+          i;
+
+      /*********************************************************
+       * DEBUG SECTION: Test veracity of polynomial regression *
+       *********************************************************/
+
+      // Calculate the trend over the last eight weeks
+      i = 0;
+      actualTrend = regression('polynomial', runsByWeek.map(function(w) {
+        return [i++, w.distance];
+      }), 2).equation;
+
+      // Extrapolate (no more than a year) into the future to determine 
+      // when we will achieve our goal
+      weeksUntilGoal = 0;
+      for (var i = 8; i < 60; ++i) {
+        if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= goalAmount) {
+          break;
+        }
+        ++weeksUntilGoal;
+      }
+
+      // Display the last day of the given week
+      weekIterator = new Date(startOfThisWeek.getTime() + (Helpers.DAY_IN_MS * 6));
+      for (var i = 0; i < weeksUntilGoal; ++i) {
+        weekIterator = new Date(weekIterator.getTime() + Helpers.WEEK_IN_MS);
+      }
+      if (weeksUntilGoal >= 52) {
+        console.log("Polynomial regression prediction: n/a");
+      }
+      else {
+        console.log("Polynomial regression prediction: " + DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate());
+      }
+
+      /*********************
+       * END DEBUG SECTION *
+       *********************/
+
+      // Calculate a linear regression of the last several weeks
+      i = 0;
+      actualTrend = regression('linear', runsByWeek.map(function(w) {
+        return [i++, w.distance];
+      })).equation;
+      rateOfChange = ((actualTrend[0] + actualTrend[1]) / actualTrend[1]);
+
+      // If rate of change is negative, we'll never achieve our goal
+      if (rateOfChange < 0) {
+        return "&mdash;";
+      }
+      else {
+        // Extrapolate (no more than a year) into the future to determine
+        // when we will achieve our goal
+        weeksUntilGoal = 0;
+        distance = runsByWeek[runsByWeek.length - 1].distance;
+        for (var i = runsByWeek.length; i < 52 + runsByWeek.length; ++i) {
+          var distance = distance * rateOfChange;
+          if (distance >= goalAmount) {
+            break;
+          }
+          ++weeksUntilGoal;
+        }
+
+        // Display the last day of the given week
+        weekIterator = new Date(startOfThisWeek.getTime() + (Helpers.DAY_IN_MS * 6));
+        for (var i = 0; i < weeksUntilGoal; ++i) {
+          weekIterator = new Date(weekIterator.getTime() + Helpers.WEEK_IN_MS);
+        }
+        return DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate();
+      }
+    };
+
+    // Display run data for the last eight weeks
+    this.renderChart = function(runsByWeek, distanceThisWeek) {
+      var chartHtml = "";
+
+      maxDistance = _.max(
+        runsByWeek.map(function(w) {
+          return w.distance;
+        })
+      );
+      for (var i = 0; i < runsByWeek.length; ++i) {
+        chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].distance / maxDistance * 100) + "%;'>"
+        if (i == runsByWeek.length - 1) {
+          chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].distance * 100) + "%;'></div>";
+        }
+        chartHtml += "</div>";
+      }
+
+      return chartHtml;
+    };
+
+    /* Render this again when any distances change */
+    this.listenTo(options.data, "change:distance", this.render);
+  },
+
+  render: function() {
+    var startOfToday = Helpers.getMidnight(new Date()),
+        startOfThisWeek = new Date(startOfToday.getTime() - (Helpers.DAY_IN_MS * startOfToday.getDay())),
+        startOfLastWeek = new Date(startOfThisWeek.getTime() - Helpers.WEEK_IN_MS), 
+        runsByWeek = [],
+        distanceThisWeek = this.getDistance(startOfThisWeek),
+        distanceLastWeek = this.getDistance(startOfLastWeek, startOfThisWeek),
+        percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
+        goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10,
+        remainingThisWeek = Math.round(10 * (goalThisWeek - distanceThisWeek)) / 10,
+        goalAmount = 40,
+        trendingWeeks = 7,
+        trendPercentString,
+        trendDescriptionString,
+        goalDateString,
+        chartHtml;
+
+    // Display trending data
+    if (percentChange < 10) {
+      trendPercentString = remainingThisWeek;
+      trendDescriptionString = "miles to go this week.";
+    }
+    else {
+      trendPercentString = percentChange + "%";
+      trendDescriptionString = "more miles than last week.";
+    }
+
+    // Compile run data for the last eight weeks
+    runsByWeek = this.compileWeeklyRuns(startOfThisWeek, trendingWeeks);
+
+    // Display the last day of the given week
+    goalDateString = this.renderGoalDate(goalAmount, runsByWeek, startOfThisWeek);
+
+    // Add the goal for this week
+    runsByWeek.push({
+      weekOf: startOfThisWeek,
+      distance: runsByWeek[runsByWeek.length - 1].distance * 1.1
+    });
+
+    // Display run data for the last eight weeks
+    chartHtml = this.renderChart(runsByWeek, distanceThisWeek);
+
+    // Render stuff
+    this.$el.html(
+      "<p><big>" +
+      distanceThisWeek +
+      "</big> of " +
+      goalThisWeek +
+      " miles this week.</p><p><big>" +
+      trendPercentString +
+      "</big> " +
+      trendDescriptionString +
+      "</p><p class='expand'><big>" +
+      goalAmount +
+      "</big> miles per week by " +
+      goalDateString +
+      "</p><div class='graph row'>" +
+      chartHtml +
+      "</div>"
+    );
+    
+    return this;
+  }
+});
+
+module.exports = View;
+
+},{"../../helpers":2,"backbone":17,"date-names":19,"regression":33,"underscore":37}],10:[function(require,module,exports){
+var Backbone = require('backbone');
+var RunView = require('./run');
+
+var View = Backbone.View.extend({
+  tagName: "ul",
+  className: "list",
+
+  initialize: function(options) {
+    // Instance variables
+    this.options = options;
+
+    // Children
+    this.runs = [];
+  },
+
+  render: function() {
+    // Tabulate the list of runs
+    for (var i = this.options.data.length - 1; i >= 0; --i) {
+      var run = this.options.data.at(i),
+          view = new RunView({
+            model: run,
+            attributes: {
+              parent: this.attributes.parent
+            }
+          });
+
+      this.$el.append(view.render().el);
+      this.runs.push(view);
+    }
+
+    return this;
+  },
+
+  remove: function() {
+    this.undelegateEvents();
+    this.runs.forEach(function(r) {
+      r.remove();
+    });
+  }
+});
+
+module.exports = View;
+
+},{"./run":12,"backbone":17}],11:[function(require,module,exports){
+var $ = require('jquery');
+var Backbone = require('backbone');
+var Helpers = require('../../helpers');
+
+var View = Backbone.View.extend({
+  className: "map",
+
+  initialize: function(options) {
+
+    /**
+     * Instance data
+     */
+    this.options = options;
+    this.overlays = [];
+    this.timers = [];
+    this.bounds = null;
+
+    /**
+     * Helper methods
+     */
+
+    // Add an overlay to the map
+    this.addOverlay = function(overlay) {
+      overlay.setMap(this.mapReference);
+      this.overlays.push(overlay);
+    };
+
+    // Remove all overlays from the map
+    this.removeAllOverlays = function() {
+      for (var i in this.overlays) {
+        this.overlays[i].setMap(null);
+      }
+      this.overlays = [];
+    };
+
+    // Get an array of coordinates
+    this.getCoordinates = function(data) {
+      var coords = [];
+
+      for (var i in data) {
+        coords.push(new google.maps.LatLng({
+          lat: parseFloat(data[i]["latitude"]),
+          lng: parseFloat(data[i]["longitude"])
+        }));
+      }
+
+      return coords;
+    };
+
+    // Get the boundaries of the map
+    this.getBoundaries = function(coords) {
+      var bounds = new google.maps.LatLngBounds();
+
+      for (var i in coords) {
+        bounds.extend(coords[i]);
+      }
+
+      return bounds;
+    };
+
+    // Animate a function
+    this.startAnimation = function(expression, interval) {
+      var timerId = setInterval(expression, interval);
+      this.timers.push(timerId);
+      return timerId;
+    };
+
+    // Stop a specific animation
+    this.stopAnimation = function(id) {
+      var index = this.timers.indexOf(id);
+      if (index >= 0) {
+        clearInterval(this.timers[index]);
+      }
+      this.timers.splice(index, 1);
+    };
+
+    // Stop animations
+    this.stopAnimations = function() {
+      for (var i in this.timers) {
+        clearInterval(this.timers[i]);
+      }
+      this.timers = [];
+    };
+
+    var me = this;
+    this.fitMap = function() {
+      google.maps.event.trigger(me.mapReference, "resize");
+      me.mapReference.fitBounds(me.bounds);
+    },
+
+    /**
+     * Events
+     */
+
+    // Resize the map whenever the window resizes
+    $(window).bind("resize", this.fitMap);
+  },
+
+  render: function() {
+    // Show the map
+    if (!this.mapReference) {
+      this.mapReference = new google.maps.Map(this.el, {
+        disableDefaultUI: true,
+        draggable: false,
+        scrollwheel: false,
+        disableDoubleClickZoom: true
+      });
+    }
+
+    if (this.model) {
+      this.displayRun();
+    }
+
+    return this;
+  },
+
+  remove: function() {
+    this.undelegateEvents();
+    $(window).unbind("resize", this.fitMap);
+    this.mapReference = null;
+  },
+
+  displayRun: function() {
+    var me = this;
+
+    // Animate the latest route
+    this.stopAnimations();
+    this.options.data.localDB.get(this.model.get('_id'), {attachments: true}).then(function(doc) {
+      var data = Helpers.getRun(doc);
+      var filtered = Helpers.defaultFilter(data);
+      var coords = Helpers.getCoordinates(filtered);
+
+      // Set the map boundaries
+      me.bounds = me.getBoundaries(coords);
+      me.fitMap();
+
+      // Animate the route
+      var draw = [];
+      var timer = me.startAnimation(function() {
+        if (coords.length == 0) {
+          me.stopAnimation(timer);
+          return;
+        }
+
+        // Add a point to the draw array
+        draw.push(coords.shift());
+
+        // Clear any existing overlays
+        me.removeAllOverlays();
+
+        // Construct the path
+        var path = new google.maps.Polyline({
+          path: draw,
+          geodesic: true,
+          strokeColor: "#ff0000",
+          strokeOpacity: 0.6,
+          strokeWeight: 2
+        });
+
+        // Draw the route thus far
+        me.addOverlay(path);
+      }, 5);
+    });
+  }
+});
+
+module.exports = View;
+
+},{"../../helpers":2,"backbone":17,"jquery":25}],12:[function(require,module,exports){
+var Backbone = require('backbone');
+var Helpers = require('../../helpers');
+var DateNames = require('date-names');
+
+var View = Backbone.View.extend({
+  tagName: "li",
+
+  events: {
+    "click": "clicked"
+  },
+
+  clicked: function() {
+    this.attributes.parent.displayRun(this);
+  },
+
+  render: function() {
+    var ts = this.model.get('timestamp'),
+        now = new Date(),
+        startOfToday = Helpers.getMidnight(now),
+        startOfYesterday = new Date(startOfToday - Helpers.DAY_IN_MS),
+        startOfThisWeek = new Date(startOfToday - (Helpers.DAY_IN_MS * startOfToday.getDay())),
+        dayOfWeek = ts.getDay(),
+        dayOfMonth = ts.getDate(),
+        month = ts.getMonth(),
+        year = ts.getYear() + 1900,
+        thisYear = now.getYear() + 1900,
+        todayString = "Today",
+        yesterdayString = "Yesterday",
+        shortString = DateNames.days[dayOfWeek],
+        longerString = DateNames.months[month] + " " + dayOfMonth,
+        longestString = longerString + ", " + year,
+        mileage = this.model.getMileage(),
+        date;
+
+    // Pick the right date format
+    if (ts.getTime() >= startOfToday.getTime()) {
+      date = todayString;
+    }
+    else if (ts.getTime() >= startOfYesterday.getTime()) {
+      date = yesterdayString;
+    }
+    else if (ts.getTime() >= startOfThisWeek.getTime()) {
+      date = shortString;
+    }
+    else if (year == thisYear) {
+      date = longerString;
+    }
+    else {
+      date = longestString;
+    }
+
+    this.$el.html("<a href='#'>" + date + "</a><small>" + mileage + " mi</small>");
+
+    return this;
+  }
+});
+
+module.exports = View;
+
+},{"../../helpers":2,"backbone":17,"date-names":19}],13:[function(require,module,exports){
+var _ = require('underscore');
+var Backbone = require('backbone');
+var ListView = require('./list');
+var MapView = require('./map');
+
+var View = Backbone.View.extend({
+  className: "viewer row expand",
+
+  initialize: function(options) {
+    // Child components
+    this.map = new MapView(_.extend(_.clone(options), {
+      attributes: {
+        parent: this
+      }
+    }));
+    this.list = new ListView(_.extend(_.clone(options), {
+      attributes: {
+        parent: this
+      }
+    }));
+
+    // Helper methods
+    this.displayRun = function(view) {
+      // Set the selected class
+      this.$(".selected").removeClass("selected");
+      view.$el.addClass("selected");
+
+      // Display the run
+      this.map.model = view.model;
+      this.map.render();
+    };
+  },
+
+  render: function() {
+    // Show the list of runs
+    this.$el.append(this.list.render().el);
+
+    // Show the map
+    this.$el.append(this.map.render().el);
+
+    if (this.list.runs.length > 0) {
+      this.displayRun(this.list.runs[0]);
+    }
+
+    return this;
+  },
+
+  remove: function() {
+    this.undelegateEvents();
+    if (this.map) {
+      this.map.remove();
+    }
+    if (this.list) {
+      this.list.remove();
+    }
+  }
+});
+
+module.exports = View;
+
+},{"./list":10,"./map":11,"backbone":17,"underscore":37}],14:[function(require,module,exports){
+var Backbone = require('backbone');
+
+var View = Backbone.View.extend({
+  className: "screen column",
+
+  render: function() {
+    var htmlString = "<div class='modal'>" +
+                     "<form>" +
+                     "<div class='field row'>" +
+                     "<label for='miles_per_week'>Miles per week</label>" +
+                     "<input id='miles_per_week' name='miles_per_mile' type='number'/>" +
+                     "</div>" +
+                     "<div class='field row'>" +
+                     "<label for='minutes_per_mile'>Minutes per mile</label>" +
+                     "<input id='minutes_per_mile' name='minutes_per_mile' type='number'/>" +
+                     "</div>" +
+                     "<buttons>" +
+                     "<button class='set_goal'>Set goal</button> " +
+                     "<a href='#'>Nevermind, go back</a>" +
+                     "</buttons>" +
+                     "</form>" +
+                     "</div>";
+
+    this.$el.append(htmlString);
+
+    return this;
+  }
+});
+
+module.exports = View;
+
+},{"backbone":17}],15:[function(require,module,exports){
 'use strict';
 
 module.exports = argsArray;
@@ -273,7 +1052,7 @@ function argsArray(fun) {
     }
   };
 }
-},{}],6:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 /*
  * backbone-pouch
  * http://jo.github.io/backbone-pouch/
@@ -525,7 +1304,7 @@ function argsArray(fun) {
   };
 }(this));
 
-},{"underscore":27}],7:[function(require,module,exports){
+},{"underscore":37}],17:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -2449,7 +3228,7 @@ function argsArray(fun) {
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":15,"underscore":27}],8:[function(require,module,exports){
+},{"jquery":25,"underscore":37}],18:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -2462,11 +3241,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],9:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":8}],10:[function(require,module,exports){
+},{"./en":18}],20:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -2636,7 +3415,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":11}],11:[function(require,module,exports){
+},{"./debug":21}],21:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -2835,7 +3614,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":18}],12:[function(require,module,exports){
+},{"ms":28}],22:[function(require,module,exports){
 (function (root, factory) {
   /* istanbul ignore next */
   if (typeof define === 'function' && define.amd) {
@@ -3053,7 +3832,7 @@ function coerce(val) {
   return PromisePool
 })
 
-},{}],13:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 (function (global){
 'use strict';
 var Mutation = global.MutationObserver || global.WebKitMutationObserver;
@@ -3126,7 +3905,7 @@ function immediate(task) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],14:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -3151,7 +3930,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],15:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -13227,7 +14006,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],16:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 (function() { 
 
   var slice   = Array.prototype.slice,
@@ -13256,7 +14035,7 @@ return jQuery;
   this.extend = extend;
 
 }).call(this);
-},{}],17:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 'use strict';
 var immediate = require('immediate');
 
@@ -13511,7 +14290,7 @@ function race(iterable) {
   }
 }
 
-},{"immediate":13}],18:[function(require,module,exports){
+},{"immediate":23}],28:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -13638,7 +14417,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],19:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 'use strict';
 
 var MIN_MAGNITUDE = -324; // verified by -Number.MIN_VALUE
@@ -13993,7 +14772,7 @@ function numToIndexableString(num) {
   return result;
 }
 
-},{"./utils":20}],20:[function(require,module,exports){
+},{"./utils":30}],30:[function(require,module,exports){
 'use strict';
 
 function pad(str, padWith, upToLength) {
@@ -14064,7 +14843,7 @@ exports.intToDecimalForm = function (int) {
 
   return result;
 };
-},{}],21:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 'use strict';
 exports.Map = LazyMap; // TODO: use ES6 map
 exports.Set = LazySet; // TODO: use ES6 set
@@ -14135,7 +14914,7 @@ LazySet.prototype.delete = function (key) {
   return this.store.delete(key);
 };
 
-},{}],22:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 (function (process,global){
 'use strict';
 
@@ -24826,9 +25605,9 @@ PouchDB.plugin(IDBPouch)
 
 module.exports = PouchDB;
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":40,"argsarray":5,"debug":10,"es6-promise-pool":12,"events":39,"inherits":14,"js-extend":16,"lie":17,"pouchdb-collate":19,"pouchdb-collections":21,"scope-eval":25,"spark-md5":26,"vuvuzela":28}],23:[function(require,module,exports){
+},{"_process":40,"argsarray":15,"debug":20,"es6-promise-pool":22,"events":39,"inherits":24,"js-extend":26,"lie":27,"pouchdb-collate":29,"pouchdb-collections":31,"scope-eval":35,"spark-md5":36,"vuvuzela":38}],33:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":24}],24:[function(require,module,exports){
+},{"./src/regression":34}],34:[function(require,module,exports){
 /**
 * @license
 *
@@ -25078,7 +25857,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],25:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 // Generated by CoffeeScript 1.9.2
 (function() {
   var hasProp = {}.hasOwnProperty,
@@ -25102,7 +25881,7 @@ if (typeof exports !== 'undefined') {
 
 }).call(this);
 
-},{}],26:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 (function (factory) {
     if (typeof exports === 'object') {
         // Node/CommonJS
@@ -25807,7 +26586,7 @@ if (typeof exports !== 'undefined') {
     return SparkMD5;
 }));
 
-},{}],27:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -27357,7 +28136,7 @@ if (typeof exports !== 'undefined') {
   }
 }.call(this));
 
-},{}],28:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 'use strict';
 
 /**
@@ -27532,786 +28311,7 @@ exports.parse = function (str) {
   }
 };
 
-},{}],29:[function(require,module,exports){
-var $ = require('jquery');
-var Backbone = require('backbone');
-var DashboardView = require('./views/dashboard/dashboard');
-var AppView = require('./views/app/app');
-var GoalView = require('./views/goal/goal');
-
-var Router = Backbone.Router.extend({
-  initialize: function(options) {
-    // Instance variables
-    this.currentView = null;
-    this.loadingData = true;
-    this.options = options;
-
-    // Container for the app
-    this.el = $(".main");
-
-    this.listenToOnce(options.data, "processed", function() {
-      // Let the app know that data is available for display
-      this.loadingData = false;
-
-      // Remove the loading indicator
-      $(".loading").remove();
-
-      if (options.data.length == 0) {
-        // Prompt people to install the app, if they haven't already
-        this.navigate("app");
-        this.switchView(AppView);
-      }
-      else if (this.currentView) {
-        // Render the current view, if one has been set
-        this.el.html(this.currentView.render().el);
-      }
-    });
-  },
-
-  routes: {
-    "": "dashboard", // '/'
-    "app": "app",    // '/app'
-    "goal": "goal"   // '/goal'
-  },
-
-  switchView: function(view) {
-    if (this.currentView) {
-      this.currentView.remove();
-      this.currentView.unbind();
-      this.currentView = null;
-    }
-    this.currentView = new view(this.options);
-    if (!this.loadingData) {
-      this.el.html(this.currentView.render().el);
-    }
-  },
-
-  dashboard: function() {
-    this.switchView(DashboardView);
-  },
-
-  app: function() {
-    this.switchView(AppView);
-  },
-
-  goal: function() {
-    this.switchView(GoalView);
-  }
-});
-
-module.exports = Router;
-
-},{"./views/app/app":30,"./views/dashboard/dashboard":31,"./views/goal/goal":38,"backbone":7,"jquery":15}],30:[function(require,module,exports){
-var Backbone = require('backbone');
-
-var View = Backbone.View.extend({
-  className: "screen column",
-
-  initialize: function() {
-  },
-
-  render: function() {
-    var htmlString = "";
-
-    this.$el.html("<div class='modal'><div><img src='images/Download_on_the_App_Store_Badge_US-UK_135x40.svg' alt='Download on the App Store'/><br/><a href='#'>Back to my dashboard</a></div></div>");
-
-    return this;
-  }
-});
-
-module.exports = View;
-
-},{"backbone":7}],31:[function(require,module,exports){
-var Backbone = require('backbone');
-var HeroView = require('./hero');
-var ViewerView = require('./viewer');
-var FooterView = require('./footer');
-
-var View = Backbone.View.extend({
-  className: "screen column",
-
-  initialize: function(options) {
-    // Child components
-    this.hero = new HeroView(options);
-    this.viewer = new ViewerView(options);
-    this.footer = new FooterView(options);
-  },
-
-  render: function() {
-    // Show the hero component
-    this.$el.append(this.hero.render().el);
-
-    // Show the viewer component
-    this.$el.append(this.viewer.render().el);
-
-    // Show the footer component
-    this.$el.append(this.footer.render().el);
-
-    return this;
-  },
-
-  remove: function() {
-    this.undelegateEvents();
-    if (this.hero) {
-      this.hero.remove();
-    }
-    if (this.viewer) {
-      this.viewer.remove();
-    }
-    if (this.footer) {
-      this.footer.remove();
-    }
-  }
-});
-
-module.exports = View;
-
-},{"./footer":32,"./hero":33,"./viewer":37,"backbone":7}],32:[function(require,module,exports){
-var Backbone = require('backbone');
-
-var View = Backbone.View.extend({
-  className: "footer dark",
-
-  render: function() {
-    this.$el.html(
-      "<span> PUT your data to <a href='" +
-      APPLICATION_DATA_URL +
-      "'>" +
-      APPLICATION_DATA_URL.replace(/&/g, "&amp;") +
-      "</a></span>"
-    );
-
-    return this;
-  }
-});
-
-module.exports = View;
-
-},{"backbone":7}],33:[function(require,module,exports){
-var _ = require('underscore');
-var Backbone = require('backbone');
-var Helpers = require('../../helpers');
-var regression = require('regression');
-var DateNames = require('date-names');
-
-var View = Backbone.View.extend({
-  className: "hero dark row",
-
-  initialize: function(options) {
-
-    /**
-     * Helper methods
-     */
-
-    // Get the distance run in the given interval (to present, if only one argument given)
-    this.getDistance = function(start, end) {
-      var distance = 0,
-          run, t;
-
-      for (var i = options.data.length - 1; i >= 0; --i) {
-        run = options.data.at(i);
-        t = run.get('timestamp');
-
-        // Interval check
-        if (end) {
-          if (t >= start && t < end) {
-            distance += run.getMileage();
-          }
-        }
-        else {
-          if (t >= start) {
-            distance += run.getMileage();
-          }
-        }
-
-        // Break early if possible
-        if (t < start) {
-          break;
-        }
-      }
-
-      return Math.round(distance * 10) / 10;
-    };
-
-    // Compile run data for a previous number of weeks
-    this.compileWeeklyRuns = function(startOfThisWeek, numberOfWeeks) {
-      var weekIterator = new Date(startOfThisWeek.getTime() - Helpers.WEEK_IN_MS),
-          runsByWeek = [],
-          obj = {
-            weekOf: weekIterator,
-            distance: 0
-          },
-          run,
-          t;
-
-      for (var i = options.data.length - 1; i >= 0; --i) {
-        run = options.data.at(i);
-        t = run.get('timestamp');
-
-        // Skip runs from this week
-        if (t >= startOfThisWeek) {
-          continue;
-        }
-
-        // Skip runs older than the cutoff
-        if (t < startOfThisWeek - (Helpers.WEEK_IN_MS * numberOfWeeks)) {
-          break;
-        }
-
-        // Account for weeks with no runs at all
-        while (t < weekIterator) {
-          weekIterator = new Date(weekIterator.getTime() - Helpers.WEEK_IN_MS);
-          runsByWeek.unshift(obj);
-          obj = {
-            weekOf: weekIterator,
-            distance: 0
-          };
-        }
-
-        // Add distance to the week object
-        obj.distance += run.getMileage();
-      }
-      runsByWeek.unshift(obj);
-
-      return runsByWeek;
-    };
-
-    // Display the last day of the given week
-    this.renderGoalDate = function(goalAmount, runsByWeek, startOfThisWeek) {
-      var actualTrend,
-          rateOfChange,
-          weeksUntilGoal,
-          distance,
-          weekIterator,
-          i;
-
-      /*********************************************************
-       * DEBUG SECTION: Test veracity of polynomial regression *
-       *********************************************************/
-
-      // Calculate the trend over the last eight weeks
-      i = 0;
-      actualTrend = regression('polynomial', runsByWeek.map(function(w) {
-        return [i++, w.distance];
-      }), 2).equation;
-
-      // Extrapolate (no more than a year) into the future to determine 
-      // when we will achieve our goal
-      weeksUntilGoal = 0;
-      for (var i = 8; i < 60; ++i) {
-        if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= goalAmount) {
-          break;
-        }
-        ++weeksUntilGoal;
-      }
-
-      // Display the last day of the given week
-      weekIterator = new Date(startOfThisWeek.getTime() + (Helpers.DAY_IN_MS * 6));
-      for (var i = 0; i < weeksUntilGoal; ++i) {
-        weekIterator = new Date(weekIterator.getTime() + Helpers.WEEK_IN_MS);
-      }
-      if (weeksUntilGoal >= 52) {
-        console.log("Polynomial regression prediction: n/a");
-      }
-      else {
-        console.log("Polynomial regression prediction: " + DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate());
-      }
-
-      /*********************
-       * END DEBUG SECTION *
-       *********************/
-
-      // Calculate a linear regression of the last several weeks
-      i = 0;
-      actualTrend = regression('linear', runsByWeek.map(function(w) {
-        return [i++, w.distance];
-      })).equation;
-      rateOfChange = ((actualTrend[0] + actualTrend[1]) / actualTrend[1]);
-
-      // If rate of change is negative, we'll never achieve our goal
-      if (rateOfChange < 0) {
-        return "&mdash;";
-      }
-      else {
-        // Extrapolate (no more than a year) into the future to determine
-        // when we will achieve our goal
-        weeksUntilGoal = 0;
-        distance = runsByWeek[runsByWeek.length - 1].distance;
-        for (var i = runsByWeek.length; i < 52 + runsByWeek.length; ++i) {
-          var distance = distance * rateOfChange;
-          if (distance >= goalAmount) {
-            break;
-          }
-          ++weeksUntilGoal;
-        }
-
-        // Display the last day of the given week
-        weekIterator = new Date(startOfThisWeek.getTime() + (Helpers.DAY_IN_MS * 6));
-        for (var i = 0; i < weeksUntilGoal; ++i) {
-          weekIterator = new Date(weekIterator.getTime() + Helpers.WEEK_IN_MS);
-        }
-        return DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate();
-      }
-    };
-
-    // Display run data for the last eight weeks
-    this.renderChart = function(runsByWeek, distanceThisWeek) {
-      var chartHtml = "";
-
-      maxDistance = _.max(
-        runsByWeek.map(function(w) {
-          return w.distance;
-        })
-      );
-      for (var i = 0; i < runsByWeek.length; ++i) {
-        chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].distance / maxDistance * 100) + "%;'>"
-        if (i == runsByWeek.length - 1) {
-          chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].distance * 100) + "%;'></div>";
-        }
-        chartHtml += "</div>";
-      }
-
-      return chartHtml;
-    };
-
-    /* Render this again when any distances change */
-    this.listenTo(options.data, "change:distance", this.render);
-  },
-
-  render: function() {
-    var startOfToday = Helpers.getMidnight(new Date()),
-        startOfThisWeek = new Date(startOfToday.getTime() - (Helpers.DAY_IN_MS * startOfToday.getDay())),
-        startOfLastWeek = new Date(startOfThisWeek.getTime() - Helpers.WEEK_IN_MS), 
-        runsByWeek = [],
-        distanceThisWeek = this.getDistance(startOfThisWeek),
-        distanceLastWeek = this.getDistance(startOfLastWeek, startOfThisWeek),
-        percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
-        goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10,
-        remainingThisWeek = Math.round(10 * (goalThisWeek - distanceThisWeek)) / 10,
-        goalAmount = 40,
-        trendingWeeks = 7,
-        trendPercentString,
-        trendDescriptionString,
-        goalDateString,
-        chartHtml;
-
-    // Display trending data
-    if (percentChange < 10) {
-      trendPercentString = remainingThisWeek;
-      trendDescriptionString = "miles to go this week.";
-    }
-    else {
-      trendPercentString = percentChange + "%";
-      trendDescriptionString = "more miles than last week.";
-    }
-
-    // Compile run data for the last eight weeks
-    runsByWeek = this.compileWeeklyRuns(startOfThisWeek, trendingWeeks);
-
-    // Display the last day of the given week
-    goalDateString = this.renderGoalDate(goalAmount, runsByWeek, startOfThisWeek);
-
-    // Add the goal for this week
-    runsByWeek.push({
-      weekOf: startOfThisWeek,
-      distance: runsByWeek[runsByWeek.length - 1].distance * 1.1
-    });
-
-    // Display run data for the last eight weeks
-    chartHtml = this.renderChart(runsByWeek, distanceThisWeek);
-
-    // Render stuff
-    this.$el.html(
-      "<p><big>" +
-      distanceThisWeek +
-      "</big> of " +
-      goalThisWeek +
-      " miles this week.</p><p><big>" +
-      trendPercentString +
-      "</big> " +
-      trendDescriptionString +
-      "</p><p class='expand'><big>" +
-      goalAmount +
-      "</big> miles per week by " +
-      goalDateString +
-      "</p><div class='graph row'>" +
-      chartHtml +
-      "</div>"
-    );
-    
-    return this;
-  }
-});
-
-module.exports = View;
-
-},{"../../helpers":2,"backbone":7,"date-names":9,"regression":23,"underscore":27}],34:[function(require,module,exports){
-var Backbone = require('backbone');
-var RunView = require('./run');
-
-var View = Backbone.View.extend({
-  tagName: "ul",
-  className: "list",
-
-  initialize: function(options) {
-    // Instance variables
-    this.options = options;
-
-    // Children
-    this.runs = [];
-  },
-
-  render: function() {
-    // Tabulate the list of runs
-    for (var i = this.options.data.length - 1; i >= 0; --i) {
-      var run = this.options.data.at(i),
-          view = new RunView({
-            model: run,
-            attributes: {
-              parent: this.attributes.parent
-            }
-          });
-
-      this.$el.append(view.render().el);
-      this.runs.push(view);
-    }
-
-    return this;
-  },
-
-  remove: function() {
-    this.undelegateEvents();
-    this.runs.forEach(function(r) {
-      r.remove();
-    });
-  }
-});
-
-module.exports = View;
-
-},{"./run":36,"backbone":7}],35:[function(require,module,exports){
-var $ = require('jquery');
-var Backbone = require('backbone');
-var Helpers = require('../../helpers');
-
-var View = Backbone.View.extend({
-  className: "map",
-
-  initialize: function(options) {
-
-    /**
-     * Instance data
-     */
-    this.options = options;
-    this.overlays = [];
-    this.timers = [];
-    this.bounds = null;
-
-    /**
-     * Helper methods
-     */
-
-    // Add an overlay to the map
-    this.addOverlay = function(overlay) {
-      overlay.setMap(this.mapReference);
-      this.overlays.push(overlay);
-    };
-
-    // Remove all overlays from the map
-    this.removeAllOverlays = function() {
-      for (var i in this.overlays) {
-        this.overlays[i].setMap(null);
-      }
-      this.overlays = [];
-    };
-
-    // Get an array of coordinates
-    this.getCoordinates = function(data) {
-      var coords = [];
-
-      for (var i in data) {
-        coords.push(new google.maps.LatLng({
-          lat: parseFloat(data[i]["latitude"]),
-          lng: parseFloat(data[i]["longitude"])
-        }));
-      }
-
-      return coords;
-    };
-
-    // Get the boundaries of the map
-    this.getBoundaries = function(coords) {
-      var bounds = new google.maps.LatLngBounds();
-
-      for (var i in coords) {
-        bounds.extend(coords[i]);
-      }
-
-      return bounds;
-    };
-
-    // Animate a function
-    this.startAnimation = function(expression, interval) {
-      var timerId = setInterval(expression, interval);
-      this.timers.push(timerId);
-      return timerId;
-    };
-
-    // Stop a specific animation
-    this.stopAnimation = function(id) {
-      var index = this.timers.indexOf(id);
-      if (index >= 0) {
-        clearInterval(this.timers[index]);
-      }
-      this.timers.splice(index, 1);
-    };
-
-    // Stop animations
-    this.stopAnimations = function() {
-      for (var i in this.timers) {
-        clearInterval(this.timers[i]);
-      }
-      this.timers = [];
-    };
-
-    var me = this;
-    this.fitMap = function() {
-      google.maps.event.trigger(me.mapReference, "resize");
-      me.mapReference.fitBounds(me.bounds);
-    },
-
-    /**
-     * Events
-     */
-
-    // Resize the map whenever the window resizes
-    $(window).bind("resize", this.fitMap);
-  },
-
-  render: function() {
-    // Show the map
-    if (!this.mapReference) {
-      this.mapReference = new google.maps.Map(this.el, {
-        disableDefaultUI: true,
-        draggable: false,
-        scrollwheel: false,
-        disableDoubleClickZoom: true
-      });
-    }
-
-    if (this.model) {
-      this.displayRun();
-    }
-
-    return this;
-  },
-
-  remove: function() {
-    this.undelegateEvents();
-    $(window).unbind("resize", this.fitMap);
-    this.mapReference = null;
-  },
-
-  displayRun: function() {
-    var me = this;
-
-    // Animate the latest route
-    this.stopAnimations();
-    this.options.data.localDB.get(this.model.get('_id'), {attachments: true}).then(function(doc) {
-      var data = Helpers.getRun(doc);
-      var filtered = Helpers.defaultFilter(data);
-      var coords = Helpers.getCoordinates(filtered);
-
-      // Set the map boundaries
-      me.bounds = me.getBoundaries(coords);
-      me.fitMap();
-
-      // Animate the route
-      var draw = [];
-      var timer = me.startAnimation(function() {
-        if (coords.length == 0) {
-          me.stopAnimation(timer);
-          return;
-        }
-
-        // Add a point to the draw array
-        draw.push(coords.shift());
-
-        // Clear any existing overlays
-        me.removeAllOverlays();
-
-        // Construct the path
-        var path = new google.maps.Polyline({
-          path: draw,
-          geodesic: true,
-          strokeColor: "#ff0000",
-          strokeOpacity: 0.6,
-          strokeWeight: 2
-        });
-
-        // Draw the route thus far
-        me.addOverlay(path);
-      }, 5);
-    });
-  }
-});
-
-module.exports = View;
-
-},{"../../helpers":2,"backbone":7,"jquery":15}],36:[function(require,module,exports){
-var Backbone = require('backbone');
-var Helpers = require('../../helpers');
-var DateNames = require('date-names');
-
-var View = Backbone.View.extend({
-  tagName: "li",
-
-  events: {
-    "click": "clicked"
-  },
-
-  clicked: function() {
-    this.attributes.parent.displayRun(this);
-  },
-
-  render: function() {
-    var ts = this.model.get('timestamp'),
-        now = new Date(),
-        startOfToday = Helpers.getMidnight(now),
-        startOfYesterday = new Date(startOfToday - Helpers.DAY_IN_MS),
-        startOfThisWeek = new Date(startOfToday - (Helpers.DAY_IN_MS * startOfToday.getDay())),
-        dayOfWeek = ts.getDay(),
-        dayOfMonth = ts.getDate(),
-        month = ts.getMonth(),
-        year = ts.getYear() + 1900,
-        thisYear = now.getYear() + 1900,
-        todayString = "Today",
-        yesterdayString = "Yesterday",
-        shortString = DateNames.days[dayOfWeek],
-        longerString = DateNames.months[month] + " " + dayOfMonth,
-        longestString = longerString + ", " + year,
-        mileage = this.model.getMileage(),
-        date;
-
-    // Pick the right date format
-    if (ts.getTime() >= startOfToday.getTime()) {
-      date = todayString;
-    }
-    else if (ts.getTime() >= startOfYesterday.getTime()) {
-      date = yesterdayString;
-    }
-    else if (ts.getTime() >= startOfThisWeek.getTime()) {
-      date = shortString;
-    }
-    else if (year == thisYear) {
-      date = longerString;
-    }
-    else {
-      date = longestString;
-    }
-
-    this.$el.html("<a href='#'>" + date + "</a><small>" + mileage + " mi</small>");
-
-    return this;
-  }
-});
-
-module.exports = View;
-
-},{"../../helpers":2,"backbone":7,"date-names":9}],37:[function(require,module,exports){
-var _ = require('underscore');
-var Backbone = require('backbone');
-var ListView = require('./list');
-var MapView = require('./map');
-
-var View = Backbone.View.extend({
-  className: "viewer row expand",
-
-  initialize: function(options) {
-    // Child components
-    this.map = new MapView(_.extend(_.clone(options), {
-      attributes: {
-        parent: this
-      }
-    }));
-    this.list = new ListView(_.extend(_.clone(options), {
-      attributes: {
-        parent: this
-      }
-    }));
-
-    // Helper methods
-    this.displayRun = function(view) {
-      // Set the selected class
-      this.$(".selected").removeClass("selected");
-      view.$el.addClass("selected");
-
-      // Display the run
-      this.map.model = view.model;
-      this.map.render();
-    };
-  },
-
-  render: function() {
-    // Show the list of runs
-    this.$el.append(this.list.render().el);
-
-    // Show the map
-    this.$el.append(this.map.render().el);
-
-    if (this.list.runs.length > 0) {
-      this.displayRun(this.list.runs[0]);
-    }
-
-    return this;
-  },
-
-  remove: function() {
-    this.undelegateEvents();
-    if (this.map) {
-      this.map.remove();
-    }
-    if (this.list) {
-      this.list.remove();
-    }
-  }
-});
-
-module.exports = View;
-
-},{"./list":34,"./map":35,"backbone":7,"underscore":27}],38:[function(require,module,exports){
-var Backbone = require('backbone');
-
-var View = Backbone.View.extend({
-  className: "screen column",
-
-  render: function() {
-    var htmlString = "<div class='modal'>" +
-                     "<form>" +
-                     "<div class='field row'>" +
-                     "<label for='miles_per_week'>Miles per week</label>" +
-                     "<input id='miles_per_week' name='miles_per_mile' type='number'/>" +
-                     "</div>" +
-                     "<div class='field row'>" +
-                     "<label for='minutes_per_mile'>Minutes per mile</label>" +
-                     "<input id='minutes_per_mile' name='minutes_per_mile' type='number'/>" +
-                     "</div>" +
-                     "<buttons>" +
-                     "<button class='set_goal'>Set goal</button> " +
-                     "<a href='#'>Nevermind, go back</a>" +
-                     "</buttons>" +
-                     "</form>" +
-                     "</div>";
-
-    this.$el.append(htmlString);
-
-    return this;
-  }
-});
-
-module.exports = View;
-
-},{"backbone":7}],39:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
