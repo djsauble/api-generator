@@ -19,7 +19,7 @@ app.use(require('serve-static')(__dirname + '/public'));
 app.use(require('cookie-parser')());
 app.use(require('body-parser').json());
 app.use(require('express-session')({
-  secret: 'yea blurg matey',
+  secret: process.env.CACHE_SECRET,
   resave: true,
   saveUninitialized: true
 }));
