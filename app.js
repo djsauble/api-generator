@@ -6,14 +6,29 @@ var uuid = require('uuid');
 var http = require('http');
 var Buffer = require('Buffer');
 
-// What port to listen on?
-var PORT = 3000;
-
 // Get the URI components for database operations
 var HTTP_OPTIONS = httpOptions();
 
 // Construct a base path for the database, including auth credentials
 var host = `${HTTP_OPTIONS.protocol}\/\/${HTTP_OPTIONS.auth ? HTTP_OPTIONS.auth + '@' : ''}${HTTP_OPTIONS.hostname}${HTTP_OPTIONS.port ? ':' + HTTP_OPTIONS.port : ''}`;
+
+// Create a server instance
+var app = express();
+
+// Configure the server
+app.set('port', process.env.PORT || 3000);
+app.set('views', __dirname + '/views');
+app.set('view engine', 'ejs');
+app.use(require('serve-static')(__dirname + '/public'));
+app.use(require('cookie-parser')());
+app.use(require('body-parser').json());
+app.use(require('express-session')({
+  secret: 'yea blurg matey',
+  resave: true,
+  saveUninitialized: true
+}));
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Passport session setup
 //   To support persistent login sessions, Passport needs to be able to
@@ -34,7 +49,7 @@ passport.deserializeUser(function(obj, done) {
 passport.use(new StravaStrategy({
     clientID: '12528',
     clientSecret: '06b9e1c06bb52c17a3ce177293400e539accda7a',
-    callbackURL: `http:\/\/127.0.0.1:${PORT}/auth/strava/callback`,
+    callbackURL: `http:\/\/127.0.0.1:${app.get('port')}/auth/strava/callback`,
   },
   function(accessToken, refreshToken, profile, done) {
     // Create the user (if it doesn't already exist)
@@ -58,25 +73,10 @@ passport.use(new StravaStrategy({
   }
 ));
 
-// Create a server instance
-var app = express();
-
-// Configure the server
-app.set('views', __dirname + '/views');
-app.set('view engine', 'ejs');
-app.use(require('serve-static')(__dirname + '/public'));
-app.use(require('cookie-parser')());
-app.use(require('body-parser').json());
-app.use(require('express-session')({
-  secret: 'yea blurg matey',
-  resave: true,
-  saveUninitialized: true
-}));
-app.use(passport.initialize());
-app.use(passport.session());
+// Routes
 
 app.get('/', ensureAuthenticated, function(req, res) {
-  var requestURL = `${req.protocol}:\/\/${req.hostname}:${PORT}`;
+  var requestURL = `${req.protocol}:\/\/${req.hostname}:${app.get('port')}`;
   res.render('index', {
     requestURL: requestURL,
     host: host,
@@ -195,8 +195,8 @@ app.get('/logout', function(req, res) {
   res.redirect('/');
 });
 
-app.listen(PORT, function() {
-  console.log(`Listening on port ${PORT}`);
+app.listen(app.get('port'), function() {
+  console.log(`Listening on port ${app.get('port')}`);
 });
 
 // Simple route middleware to ensure user is authenticated.

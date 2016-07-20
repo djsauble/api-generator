@@ -1,7 +1,10 @@
 {
   "name": "api-generator",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "create REST endpoints to receive geolocation data and rudimentary visualization of that data",
+  "engines": {
+    "node": "4.4.7"
+  },
   "dependencies": {
     "date-names": "0.1.6",
     "regression": "1.2.1",
