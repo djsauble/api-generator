@@ -179,7 +179,6 @@ passport.use(new StravaStrategy({
   },
   function(accessToken, refreshToken, profile, done) {
     // Create the user (if it doesn't already exist)
-    console.log("TIME TO CREATE A USER!");
     createUser(profile).then(function() {
       // Fetch the user and return it
       var path = `/users/${profile.emails[0].value}`;
@@ -233,6 +232,7 @@ function createUser(user) {
     // Does a user document already exist?
     http.get(`${host}${path}`, (res) => {
       if (res.statusCode !== 200) { // No, create it and return the new user
+console.log("LOOKS LIKE WE NEED TO CREATE A NEW USER");
 
         // Calculate the run database name
         var databaseName = `z${uuid.v4()}`;
