@@ -179,6 +179,7 @@ passport.use(new StravaStrategy({
   },
   function(accessToken, refreshToken, profile, done) {
     // Create the user (if it doesn't already exist)
+    console.log("TIME TO CREATE A USER!");
     createUser(profile).then(function() {
       // Fetch the user and return it
       var path = `/users/${profile.emails[0].value}`;
