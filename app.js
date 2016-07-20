@@ -72,7 +72,7 @@ app.put('/api/:database_id', function(req, res) {
       function(err, body, header) {
 
         // Insert an attachment
-        nano.db.attachment.insert(
+        runs.attachment.insert(
           runId,
           'data.json',
           JSON.stringify(data, null, 2),
