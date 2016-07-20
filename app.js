@@ -17,6 +17,7 @@ var app = express();
 
 // Configure the server
 app.set('port', process.env.PORT || 3000);
+app.set('hostname', process.env.CALLBACK_URL);
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
 app.use(require('serve-static')(__dirname + '/public'));
@@ -29,51 +30,6 @@ app.use(require('express-session')({
 }));
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Passport session setup
-//   To support persistent login sessions, Passport needs to be able to
-//   serialize users into and deserialize users out of the session. Typically,
-//   this will be as simple as storing the user ID when serializing, and 
-//   finding the user by ID when deserializing. However, since this example 
-//   does not have a database of user records, the complete Strava profile is
-//   serialized and deserialized.
-passport.serializeUser(function(user, done) {
-  done(null, user);
-});
-
-passport.deserializeUser(function(obj, done) {
-  done(null, obj);
-});
-
-// Configure the passport strategy
-passport.use(new StravaStrategy({
-    clientID: '12528',
-    clientSecret: '06b9e1c06bb52c17a3ce177293400e539accda7a',
-    callbackURL: '/auth/strava/callback',
-  },
-  function(accessToken, refreshToken, profile, done) {
-    // Create the user (if it doesn't already exist)
-    createUser(profile).then(function() {
-      // Fetch the user and return it
-      var path = `/users/${profile.emails[0].value}`;
-      http.get(`${host}${path}`, (res) => {
-        if (res.statusCode === 200) { // User exists, return it
-          res.on('data', function(chunk) {
-            var parsed = JSON.parse(chunk);
-            return done(null, parsed);
-          });
-        }
-        else { 
-          // Could not fetch user (!)
-          console.log("FATAL ERROR: Could not fetch user profile");
-          return done(null, null);
-        }
-      });
-    });
-  }
-));
-
-// Routes
 
 app.get('/', ensureAuthenticated, function(req, res) {
   var requestURL = `${req.protocol}:\/\/${req.hostname}:${app.get('port')}`;
@@ -198,6 +154,49 @@ app.get('/logout', function(req, res) {
 app.listen(app.get('port'), function() {
   console.log(`Listening on port ${app.get('port')}`);
 });
+
+// Passport session setup
+//   To support persistent login sessions, Passport needs to be able to
+//   serialize users into and deserialize users out of the session. Typically,
+//   this will be as simple as storing the user ID when serializing, and 
+//   finding the user by ID when deserializing. However, since this example 
+//   does not have a database of user records, the complete Strava profile is
+//   serialized and deserialized.
+passport.serializeUser(function(user, done) {
+  done(null, user);
+});
+
+passport.deserializeUser(function(obj, done) {
+  done(null, obj);
+});
+
+// Configure the passport strategy
+passport.use(new StravaStrategy({
+    clientID: '12528',
+    clientSecret: '06b9e1c06bb52c17a3ce177293400e539accda7a',
+    callbackURL: `${app.get('hostname')}/auth/strava/callback`,
+  },
+  function(accessToken, refreshToken, profile, done) {
+    // Create the user (if it doesn't already exist)
+    createUser(profile).then(function() {
+      // Fetch the user and return it
+      var path = `/users/${profile.emails[0].value}`;
+      http.get(`${host}${path}`, (res) => {
+        if (res.statusCode === 200) { // User exists, return it
+          res.on('data', function(chunk) {
+            var parsed = JSON.parse(chunk);
+            return done(null, parsed);
+          });
+        }
+        else { 
+          // Could not fetch user (!)
+          console.log("FATAL ERROR: Could not fetch user profile");
+          return done(null, null);
+        }
+      });
+    });
+  }
+));
 
 // Simple route middleware to ensure user is authenticated.
 //   Use this route middleware on any resource that needs to be protected. If
