@@ -27,9 +27,8 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.get('/', ensureAuthenticated, function(req, res) {
-  var requestURL = `${req.protocol}:\/\/${req.hostname}:${app.get('port')}`;
   res.render('index', {
-    requestURL: requestURL,
+    requestURL: process.env.CALLBACK_URL,
     host: process.env.COUCHDB_DATABASE_URL,
     user: req.user
   });
