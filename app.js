@@ -171,6 +171,7 @@ passport.deserializeUser(function(obj, done) {
 });
 
 // Configure the passport strategy
+console.log(`${app.get('hostname')}/auth/strava/callback`);
 passport.use(new StravaStrategy({
     clientID: '12528',
     clientSecret: '06b9e1c06bb52c17a3ce177293400e539accda7a',
