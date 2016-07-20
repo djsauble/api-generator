@@ -230,8 +230,12 @@ function createUser(user) {
 
   return new Promise(function(resolve) {
     // Does a user document already exist?
-    console.log(`${host}${path}`);
-    http.get(`${host}${path}`, (res) => {
+    var options = _.extend(HTTP_OPTIONS, {
+      path: path,
+      method: 'GET'
+    });
+    console.log(options);
+    http.get(options, (res) => {
       if (res.statusCode !== 200) { // No, create it and return the new user
 
         // Calculate the run database name
