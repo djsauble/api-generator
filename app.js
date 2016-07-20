@@ -331,7 +331,7 @@ function httpOptions() {
   // Database port
   var port = strings2[1];
   if (!port) {
-    port = '';
+    port = undefined;
   }
 
   // Default options
