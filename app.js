@@ -5,12 +5,7 @@ var passport = require('passport');
 var uuid = require('uuid');
 var http = require('http');
 var Buffer = require('Buffer');
-
-// Get the URI components for database operations
-var HTTP_OPTIONS = httpOptions();
-
-// Construct a base path for the database, including auth credentials
-var host = `${HTTP_OPTIONS.protocol}\/\/${HTTP_OPTIONS.auth ? HTTP_OPTIONS.auth + '@' : ''}${HTTP_OPTIONS.hostname}${HTTP_OPTIONS.port ? ':' + HTTP_OPTIONS.port : ''}`;
+var nano = require('nano')(process.env.COUCHDB_DATABASE_URL);
 
 // Create a server instance
 var app = express();
@@ -35,7 +30,7 @@ app.get('/', ensureAuthenticated, function(req, res) {
   var requestURL = `${req.protocol}:\/\/${req.hostname}:${app.get('port')}`;
   res.render('index', {
     requestURL: requestURL,
-    host: host,
+    host: process.env.COUCHDB_DATABASE_URL,
     user: req.user
   });
 });
@@ -57,65 +52,43 @@ app.put('/api/:database_id', function(req, res) {
   var data = req.body;
 
   // Does the given user own the specified database and token key?
-  var path = `/users/${user}`;
-  http.get(`${host}${path}`, (res) => {
-    res.on('data', function(chunk) {
-      var parsed = JSON.parse(chunk);
+  var users = nano.db.use('users');
+  users.get(user, function(err, body) {
+    // Is this a valid request?
+    if (body.user_token != token || body.run_database != database) {
+      return;
+    }
 
-      // Is this a valid request?
-      if (parsed.user_token != token || parsed.run_database != database) {
-        return;
-      }
+    // Generate a unique identifier for the run
+    var runId = uuid.v4();
 
-      // Generate a unique identifier for the run
-      var runId = uuid.v4();
-
-      // Get the path to the new document
-      var path = `/${parsed.run_database}/${runId}`;
-
-      // Create the run document
-      var req = http.request(
-        _.extend(HTTP_OPTIONS, {
-          path: path
-        }),
-        (res) => {
-        res.on('data', function(chunk) {
-          var parsed = JSON.parse(chunk);
-
-          // Create the attachment
-          var req = http.request(
-            _.extend(HTTP_OPTIONS, {
-              path: `${path}/data.json`,
-              headers: {
-                'Content-Type': 'text/json',
-                'If-Match': parsed.rev
-              }
-            }),
-            (res) => {
-            if (res.statusCode === 201) {
-              console.log("Run uploaded");
-            }
-          });
-
-          // Write the document
-          req.write(JSON.stringify(data, null, 2));
-
-          // End the request
-          req.end();
-        });
-      });
-
-      // Write the document
-      req.write(JSON.stringify({
+    // Create the run document
+    var runs = nano.db.use(body.run_database);
+    runs.insert(
+      {
         created_by: user,
         timestamp: (new Date).toString()
-      }));
+      },
+      runId,
+      function(err, body, header) {
 
-      // End the request
-      req.end();
-
-      // Upload the attachment
-    });
+        // Insert an attachment
+        nano.db.attachment.insert(
+          runId,
+          'data.json',
+          JSON.stringify(data, null, 2),
+          'text/json',
+          {
+            rev: body.rev
+          },
+          function(err, body) {
+            if (!err) {
+              console.log("Run uploaded");
+            }
+          }
+        )
+      }
+    );
   });
   res.status(200).end();
 });
@@ -171,7 +144,6 @@ passport.deserializeUser(function(obj, done) {
 });
 
 // Configure the passport strategy
-console.log(`${app.get('hostname')}/auth/strava/callback`);
 passport.use(new StravaStrategy({
     clientID: '12528',
     clientSecret: '06b9e1c06bb52c17a3ce177293400e539accda7a',
@@ -181,13 +153,10 @@ passport.use(new StravaStrategy({
     // Create the user (if it doesn't already exist)
     createUser(profile).then(function() {
       // Fetch the user and return it
-      var path = `/users/${profile.emails[0].value}`;
-      http.get(`${host}${path}`, (res) => {
-        if (res.statusCode === 200) { // User exists, return it
-          res.on('data', function(chunk) {
-            var parsed = JSON.parse(chunk);
-            return done(null, parsed);
-          });
+      var users = nano.db.use('users')
+      users.get(profile.emails[0].value, function(err, body) {
+        if (!err) { // User exists, return it
+          return done(null, body);
         }
         else { 
           // Could not fetch user (!)
@@ -225,18 +194,11 @@ function createUser(user) {
   // Get the document name
   var documentName = email;
 
-  // Construct the document URI
-  var path = `/users/${documentName}`;
-
   return new Promise(function(resolve) {
     // Does a user document already exist?
-    var options = _.extend(HTTP_OPTIONS, {
-      path: path,
-      method: 'GET'
-    });
-    console.log(options);
-    http.get(options, (res) => {
-      if (res.statusCode !== 200) { // No, create it and return the new user
+    var users = nano.db.use('users');
+    users.get(documentName, function(err, body) {
+      if (err) { // No, create it and return the new user
 
         // Calculate the run database name
         var databaseName = `z${uuid.v4()}`;
@@ -244,48 +206,31 @@ function createUser(user) {
         // Calculate the user token
         var userToken = uuid.v4();
 
-        // Build the user data payload
-        var data = JSON.stringify({
-          "strava_id": user.id,
-          "name": givenName,
-          "familyName": familyName,
-          "run_database": databaseName,
-          "user_token": userToken
-        });
-
         // Create the user document
-        var req = http.request(
-          _.extend(HTTP_OPTIONS, {
-            path: path
-          }),
-          (res) => {
-          if (res.statusCode === 201) {
-            console.log("User document created");
+        users.insert(
+          {
+            "strava_id": user.id,
+            "name": givenName,
+            "familyName": familyName,
+            "run_database": databaseName,
+            "user_token": userToken
+          },
+          documentName,
+          function(err, body, header) {
+            // Create the run database
+            if (!err) {
+              console.log("User created");
+            }
+            var runs = nano.db.create(databaseName, function(err, body) {
+              if (!err) {
+                console.log("Run database created");
+
+                // Done with this, resolve the promise
+                resolve();
+              }
+            });
           }
-        });
-
-        // Write the document
-        req.write(data);
-
-        // End the request
-        req.end();
-
-        // Create the run database
-        var req = http.request(
-          _.extend(HTTP_OPTIONS, {
-            path: `/${databaseName}/`,
-          }),
-          (res) => {
-          if (res.statusCode === 201) {
-            console.log("Run database created");
-
-            // Done with this, resolve the promise
-            resolve();
-          }
-        });
-
-        // End the request
-        req.end();
+        );
       }
       else { // Yes, resolve the promise
         console.log("User already exists");
@@ -293,56 +238,4 @@ function createUser(user) {
       }
     });
   });
-}
-
-// Return an options hash for HTTP requests
-function httpOptions() {
-
-  // Database username
-  var username = process.env.COUCHDB_DATABASE_USERNAME;
-
-  // Database password
-  var password = process.env.COUCHDB_DATABASE_PASSWORD;
-
-  // Auth string `username:password`
-  var auth = undefined;
-  if (!username) {
-    username = '';
-  }
-  if (!password) {
-    password = '';
-  }
-  if (!!username || !!password) {
-    auth = `${username}:${password}`
-  }
-
-  // Database URL
-  var api = process.env.COUCHDB_DATABASE_URL;
-  var strings = api.split('://');
-  strings[1] = strings[1].replace(/\/$/, '');
-  var strings2 = strings[1].split(':');
-
-  // HTTP or HTTPS?
-  var protocol = strings[0];
-
-  // Hostname
-  var hostname = strings2[0];
-
-  // Database port
-  var port = strings2[1];
-  if (!port) {
-    port = undefined;
-  }
-
-  // Default options
-  return {
-    protocol: `${protocol}:`,
-    hostname: hostname,
-    port: port,
-    auth: auth ? auth : undefined,
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'text/json'
-    }
-  };
 }
