@@ -27,6 +27,10 @@
   padding: 5px 5px 5px 0;
 }
 
+.landing_page input[type=range] {
+  width: 150px;
+}
+
 .landing_page input[type=submit] {
   width: 159px;
   height: 31px;
