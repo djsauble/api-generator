@@ -1,0 +1,133 @@
+body {
+  margin: 2em;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  position: absolute;
+}
+
+/**
+ * Center a box in the screen
+ */
+
+.modal {
+  flex: 1 1 auto;
+}
+
+.modal img.spinner {
+  width: 1em;
+  height: 1em;
+  position: relative;
+  top: 0.1em;
+  margin-right: 0.25em;
+}
+
+.modal > * {
+  display: inline-block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/**
+ * Header which displays logout information
+ */
+
+.header {
+  background-color: #444444;
+  padding: 0.5em 2em 0.5em 2em;
+  flex-shrink: 0;
+}
+
+.header > * {
+  font-size: 0.8em;
+}
+
+/**
+ * Footer which displays API information
+ */
+
+.footer {
+  background-color: #2f2fb7;
+  padding: 0.5em 2em 0.5em 2em;
+  flex-shrink: 0;
+}
+
+.footer > * {
+  font-size: 0.8em;
+}
+
+/**
+ * Block of highlighted information
+ */
+
+.hero {
+  background-color: #963896;
+  padding: 1em 2em 1em 2em;
+  flex-shrink: 0;
+}
+
+ul.list {
+  overflow: scroll;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+ul.list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 2em;
+  border-bottom: 1px solid #efefef;
+}
+
+ul.list li.selected {
+  background-color: #efef99;
+}
+
+ul.list li:last-child {
+  border-bottom: none;
+}
+
+ul.list li *:last-child {
+  margin-left: 1em;
+}
+
+.map {
+  flex: 1 1 auto;
+  margin: 0;
+  position: relative;
+}
+
+/**
+ * Trending graph
+ */
+
+.graph {
+  align-items: flex-end;
+  height: 2em;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.bar {
+  background-color: rgba(255, 255, 255, 0.6);
+  width: 1em;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.progress {
+  background-color: #ffffff;
+}
+
+/**
+ * Page specific styles
+ */
+
+.landing_page {
+  width: 1024px;
+  margin: 0 auto;
+}

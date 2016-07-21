@@ -16,5 +16,7 @@ Create a database named `users`.
 
 # Run
 
+In another tab...
+
     $ node app.js
     $ open localhost:3000

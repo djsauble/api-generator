@@ -1,3 +1,22 @@
-<h1>Login to Forrest Cruise</h1>
-
-<a href="/auth/strava">Login with Strava</a>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Forrest Cruise</title>
+    <link href='css/styles.css' type='text/css' rel='Stylesheet'/>
+    <link href='css/landing.css' type='text/css' rel='Stylesheet'/>
+  </head>
+  <body class='landing_page'>
+    <h1>Set big plans. Achieve them.</h1>
+    <form action='/auth/strava' method='get'>
+      <div class='field row'>
+        <label for='today'>How much do you run?</label>
+        <input type='range' id='today' name='today' min='0' max='100' value='0'/>
+      </div>
+      <div class='field row'>
+        <label for 'goal'>What is your dream goal?</label>
+        <input type='range' id='goal' name='goal' min='0' max='100' value='40'/>
+      </div>
+      <input type='submit' value='Log in with Strava'/>
+    </form>
+  </body>
+</html>

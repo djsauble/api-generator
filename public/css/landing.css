@@ -1,0 +1,18 @@
+/**
+ * Page specific styles
+ */
+
+.landing_page {
+  width: 1024px;
+  margin: 0 auto;
+}
+
+.landing_page input[type=submit] {
+  width: 159px;
+  height: 31px;
+  border: none;
+  text-indent: -999em;
+  background-image: url(../images/LogInWithStrava.png);
+  background-color: transparent;
+  background-repeat: no-repeat;
+}
