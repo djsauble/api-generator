@@ -40,7 +40,7 @@ function weeksToGoal(startMileage, goalMileage) {
 
     // Find the right training level for the current mileage
     if (currentMileage < 3) { func = lessThan3; }
-    else if (currentMileage < 6) { func = lessThan6; }
+    else if (currentMileage < 10) { func = lessThan10; }
     else if (currentMileage < 20) { func = lessThan20; }
     else { func = moreThan20; }
 
@@ -60,7 +60,7 @@ function lessThan3(currentMileage) {
   }
 }
 
-function lessThan6(currentMileage) {
+function lessThan10(currentMileage) {
   return {
     milesPerWeek: currentMileage + 1,
     weeksAtThisLevel: 1
