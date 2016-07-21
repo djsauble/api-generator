@@ -7,6 +7,19 @@
   margin: 0 auto;
 }
 
+.landing_page label {
+  font-size: 30px;
+  padding: 7px;
+}
+
+.landing_page output {
+  font-size: 30px;
+  text-align: center;
+  width: 50px;
+  margin-left: 0;
+  padding: 5px;
+}
+
 .landing_page input[type=submit] {
   width: 159px;
   height: 31px;
