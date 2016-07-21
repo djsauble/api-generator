@@ -7,18 +7,20 @@
     <script src='js/landing.js' type='text/javascript'></script>
   </head>
   <body class='landing_page'>
-    <h1>Set big plans. Achieve them.</h1>
+    <h1>Set ambitious running goals.</h1>
     <!--<form action='/auth/strava' method='get'>-->
     <form>
       <div class='field row'>
         <label for='today' class='expand'>How much do you run?</label>
         <input type='range' id='today' oninput='updateToday(value)' name='today' min='0' max='100' value='0'/>
         <output for='today' id='todayOutput'>0</output>
+        <small>miles per week</small>
       </div>
       <div class='field row'>
         <label for 'goal' class='expand'>What is your dream goal?</label>
         <input type='range' id='goal' oninput='updateGoal(value)' name='goal' min='0' max='100' value='40'/>
         <output for='goal' id='goalOutput'>40</output>
+        <small>miles per week</small>
       </div>
       <input type='submit' value='Log in with Strava'/>
     </form>

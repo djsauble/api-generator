@@ -3,8 +3,12 @@
  */
 
 .landing_page {
-  width: 1024px;
+  width: 750px;
   margin: 0 auto;
+}
+
+.landing_page .row {
+  align-items: baseline;
 }
 
 .landing_page label {
@@ -12,9 +16,13 @@
   padding: 7px;
 }
 
+.landing_page small {
+  margin-left: 0;
+}
+
 .landing_page output {
   font-size: 30px;
-  text-align: center;
+  text-align: right;
   width: 50px;
   margin-left: 0;
   padding: 5px;
