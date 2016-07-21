@@ -3,7 +3,7 @@
  */
 
 .landing_page {
-  width: 750px;
+  width: 500px;
   margin: 0 auto;
 }
 
@@ -22,10 +22,9 @@
 
 .landing_page output {
   font-size: 30px;
-  text-align: right;
-  width: 50px;
   margin-left: 0;
-  padding: 5px;
+  font-weight: bold;
+  padding: 5px 5px 5px 0;
 }
 
 .landing_page input[type=submit] {
@@ -36,4 +35,9 @@
   background-image: url(../images/LogInWithStrava.png);
   background-color: transparent;
   background-repeat: no-repeat;
+}
+
+.landing_page .set .field:last-child ,
+.landing_page .meet .field:last-child  {
+  margin-bottom: 0;
 }
