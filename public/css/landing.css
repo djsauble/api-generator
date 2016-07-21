@@ -11,6 +11,10 @@
   align-items: baseline;
 }
 
+.landing_page h1 {
+  margin-bottom: 0.3em;
+}
+
 .landing_page label {
   font-size: 30px;
   padding: 7px;
