@@ -29,7 +29,7 @@ $(function() {
   });
 });
 
-},{"./models/runs":4,"./router":5,"backbone":17,"jquery":25}],2:[function(require,module,exports){
+},{"./models/runs":4,"./router":5,"backbone":18,"jquery":26}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (doc) {
@@ -154,7 +154,7 @@ var Run = Backbone.Model.extend({
 
 module.exports = Run;
 
-},{"backbone":17}],4:[function(require,module,exports){
+},{"backbone":18}],4:[function(require,module,exports){
 var _ = require('underscore');
 var PouchDB = require('pouchdb');
 var Backbone = require('backbone');
@@ -253,7 +253,7 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":17,"backbone-pouch":16,"pouchdb":32,"underscore":37}],5:[function(require,module,exports){
+},{"../helpers":2,"./run":3,"backbone":18,"backbone-pouch":17,"pouchdb":33,"underscore":38}],5:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -322,19 +322,33 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/app/app":6,"./views/dashboard/dashboard":7,"./views/goal/goal":14,"backbone":17,"jquery":25}],6:[function(require,module,exports){
+},{"./views/app/app":6,"./views/dashboard/dashboard":8,"./views/goal/goal":15,"backbone":18,"jquery":26}],6:[function(require,module,exports){
 var Backbone = require('backbone');
+var SecurityCode = require('./code');
 
 var View = Backbone.View.extend({
   className: "screen column",
 
   initialize: function() {
+    this.securityCode = new SecurityCode;
   },
 
   render: function() {
-    var htmlString = "";
 
-    this.$el.html("<div class='modal'><div><img src='images/Download_on_the_App_Store_Badge_US-UK_135x40.svg' alt='Download on the App Store'/><br/><a href='#'>Back to my dashboard</a></div></div>");
+    this.$el.html(
+      "<div class='modal'>" +
+      "<div>" +
+      "<h1>1. Get the app</h1>" +
+      "<img src='images/Download_on_the_App_Store_Badge_US-UK_135x40.svg' alt='Download on the App Store'/>" +
+      "<h1>2. Enter a security code</h1>" +
+      "<div class='code'>" +
+      "</div>" +
+      "</div>" +
+      "</div>"
+    );
+
+    this.securityCode.setElement(this.$('.code'));
+    this.securityCode.render();
 
     return this;
   }
@@ -342,7 +356,25 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":17}],7:[function(require,module,exports){
+},{"./code":7,"backbone":18}],7:[function(require,module,exports){
+var Backbone = require('backbone');
+
+var View = Backbone.View.extend({
+
+  render: function() {
+
+    this.$el.html(
+      "<h1><code class='security_code'>X6Z5a0</code></h1>" +
+      "<p>(expires in 5 minutes)</p>"
+    );
+
+    return this;
+  }
+});
+
+module.exports = View;
+
+},{"backbone":18}],8:[function(require,module,exports){
 var Backbone = require('backbone');
 var HeroView = require('./hero');
 var ViewerView = require('./viewer');
@@ -387,7 +419,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./footer":8,"./hero":9,"./viewer":13,"backbone":17}],8:[function(require,module,exports){
+},{"./footer":9,"./hero":10,"./viewer":14,"backbone":18}],9:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -408,7 +440,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":17}],9:[function(require,module,exports){
+},{"backbone":18}],10:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -666,7 +698,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":17,"date-names":19,"regression":33,"underscore":37}],10:[function(require,module,exports){
+},{"../../helpers":2,"backbone":18,"date-names":20,"regression":34,"underscore":38}],11:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -710,7 +742,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":12,"backbone":17}],11:[function(require,module,exports){
+},{"./run":13,"backbone":18}],12:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -879,7 +911,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":17,"jquery":25}],12:[function(require,module,exports){
+},{"../../helpers":2,"backbone":18,"jquery":26}],13:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -939,7 +971,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":17,"date-names":19}],13:[function(require,module,exports){
+},{"../../helpers":2,"backbone":18,"date-names":20}],14:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -1000,31 +1032,32 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":10,"./map":11,"backbone":17,"underscore":37}],14:[function(require,module,exports){
+},{"./list":11,"./map":12,"backbone":18,"underscore":38}],15:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
   className: "screen column",
 
   render: function() {
-    var htmlString = "<div class='modal'>" +
-                     "<form>" +
-                     "<div class='field row'>" +
-                     "<label for='miles_per_week'>Miles per week</label>" +
-                     "<input id='miles_per_week' name='miles_per_mile' type='number'/>" +
-                     "</div>" +
-                     "<div class='field row'>" +
-                     "<label for='minutes_per_mile'>Minutes per mile</label>" +
-                     "<input id='minutes_per_mile' name='minutes_per_mile' type='number'/>" +
-                     "</div>" +
-                     "<buttons>" +
-                     "<button class='set_goal'>Set goal</button> " +
-                     "<a href='#'>Nevermind, go back</a>" +
-                     "</buttons>" +
-                     "</form>" +
-                     "</div>";
 
-    this.$el.append(htmlString);
+    this.$el.html(
+      "<div class='modal'>" +
+      "<form>" +
+      "<div class='field row'>" +
+      "<label for='miles_per_week'>Miles per week</label>" +
+      "<input id='miles_per_week' name='miles_per_mile' type='number'/>" +
+      "</div>" +
+      "<div class='field row'>" +
+      "<label for='minutes_per_mile'>Minutes per mile</label>" +
+      "<input id='minutes_per_mile' name='minutes_per_mile' type='number'/>" +
+      "</div>" +
+      "<buttons>" +
+      "<button class='set_goal'>Set goal</button> " +
+      "<a href='#'>Nevermind, go back</a>" +
+      "</buttons>" +
+      "</form>" +
+      "</div>"
+    );
 
     return this;
   }
@@ -1032,7 +1065,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":17}],15:[function(require,module,exports){
+},{"backbone":18}],16:[function(require,module,exports){
 'use strict';
 
 module.exports = argsArray;
@@ -1052,7 +1085,7 @@ function argsArray(fun) {
     }
   };
 }
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 /*
  * backbone-pouch
  * http://jo.github.io/backbone-pouch/
@@ -1304,7 +1337,7 @@ function argsArray(fun) {
   };
 }(this));
 
-},{"underscore":37}],17:[function(require,module,exports){
+},{"underscore":38}],18:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -3228,7 +3261,7 @@ function argsArray(fun) {
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":25,"underscore":37}],18:[function(require,module,exports){
+},{"jquery":26,"underscore":38}],19:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -3241,11 +3274,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],19:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":18}],20:[function(require,module,exports){
+},{"./en":19}],21:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -3415,7 +3448,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":21}],21:[function(require,module,exports){
+},{"./debug":22}],22:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -3614,7 +3647,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":28}],22:[function(require,module,exports){
+},{"ms":29}],23:[function(require,module,exports){
 (function (root, factory) {
   /* istanbul ignore next */
   if (typeof define === 'function' && define.amd) {
@@ -3832,7 +3865,7 @@ function coerce(val) {
   return PromisePool
 })
 
-},{}],23:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 (function (global){
 'use strict';
 var Mutation = global.MutationObserver || global.WebKitMutationObserver;
@@ -3905,7 +3938,7 @@ function immediate(task) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],24:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -3930,7 +3963,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],25:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -14006,7 +14039,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 (function() { 
 
   var slice   = Array.prototype.slice,
@@ -14035,7 +14068,7 @@ return jQuery;
   this.extend = extend;
 
 }).call(this);
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 'use strict';
 var immediate = require('immediate');
 
@@ -14290,7 +14323,7 @@ function race(iterable) {
   }
 }
 
-},{"immediate":23}],28:[function(require,module,exports){
+},{"immediate":24}],29:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -14417,7 +14450,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 'use strict';
 
 var MIN_MAGNITUDE = -324; // verified by -Number.MIN_VALUE
@@ -14772,7 +14805,7 @@ function numToIndexableString(num) {
   return result;
 }
 
-},{"./utils":30}],30:[function(require,module,exports){
+},{"./utils":31}],31:[function(require,module,exports){
 'use strict';
 
 function pad(str, padWith, upToLength) {
@@ -14843,7 +14876,7 @@ exports.intToDecimalForm = function (int) {
 
   return result;
 };
-},{}],31:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 'use strict';
 exports.Map = LazyMap; // TODO: use ES6 map
 exports.Set = LazySet; // TODO: use ES6 set
@@ -14914,7 +14947,7 @@ LazySet.prototype.delete = function (key) {
   return this.store.delete(key);
 };
 
-},{}],32:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 (function (process,global){
 'use strict';
 
@@ -25605,9 +25638,9 @@ PouchDB.plugin(IDBPouch)
 
 module.exports = PouchDB;
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":40,"argsarray":15,"debug":20,"es6-promise-pool":22,"events":39,"inherits":24,"js-extend":26,"lie":27,"pouchdb-collate":29,"pouchdb-collections":31,"scope-eval":35,"spark-md5":36,"vuvuzela":38}],33:[function(require,module,exports){
+},{"_process":41,"argsarray":16,"debug":21,"es6-promise-pool":23,"events":40,"inherits":25,"js-extend":27,"lie":28,"pouchdb-collate":30,"pouchdb-collections":32,"scope-eval":36,"spark-md5":37,"vuvuzela":39}],34:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":34}],34:[function(require,module,exports){
+},{"./src/regression":35}],35:[function(require,module,exports){
 /**
 * @license
 *
@@ -25857,7 +25890,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],35:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 // Generated by CoffeeScript 1.9.2
 (function() {
   var hasProp = {}.hasOwnProperty,
@@ -25881,7 +25914,7 @@ if (typeof exports !== 'undefined') {
 
 }).call(this);
 
-},{}],36:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 (function (factory) {
     if (typeof exports === 'object') {
         // Node/CommonJS
@@ -26586,7 +26619,7 @@ if (typeof exports !== 'undefined') {
     return SparkMD5;
 }));
 
-},{}],37:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -28136,7 +28169,7 @@ if (typeof exports !== 'undefined') {
   }
 }.call(this));
 
-},{}],38:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 'use strict';
 
 /**
@@ -28311,7 +28344,7 @@ exports.parse = function (str) {
   }
 };
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -28615,7 +28648,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],40:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
