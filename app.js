@@ -43,39 +43,6 @@ app.get('/login', function(req, res) {
   res.render('login', { user: req.user });
 });
 
-// Request an auth token (for connecting a mobile device)
-app.get('/app', function(req, res) {
-  var user = req.query.user;
-  var token = req.query.token;
-
-  var users = nano.db.use('users');
-  users.get(user, function(err, body) {
-    // Is this a valid request?
-    if (body.user_token != token) {
-      return;
-    }
-
-    // Generate a unique identifier for the app
-    var appToken = uuid.v4().substr(0, 4);
-
-    // Generate an expiry time 15 minutes from now
-    var expires = (new Date(Date.now() + (1000 * 60 * 15))).toString();
-
-    // Insert the token
-    var tokens = nano.db.use('tokens');
-    tokens.insert({
-        _id: appToken,
-        user: body._id,
-        expires: expires
-      }, function(err, body) {
-      if (!err) {
-        console.log(`App token set (expires ${expires})`);
-      }
-    });
-  });
-  res.status(200).end();
-});
-
 // Create a new record (extension point)
 app.put('/api/:database_id', function(req, res) {
   var database = req.params.database_id;
@@ -161,36 +128,89 @@ server.listen(app.get('port'), function() {
 });
 
 // Create a WebSockets server instance
-var wss = new SocketServer({server: server});
+var wss = new SocketServer({
+  server: server,
+  path: '/ws'
+});
 
 wss.on('connection', (ws) => {
   console.log('Client connected');
   ws.on('message', function(data, flags) {
-    var token = data;
-    var url = '';
-
-    var tokens = nano.db.use('tokens');
-    tokens.get(token, function(err, body) {
-      // Is this a valid request?
-      if (err || (new Date(body.expires)).getTime() < Date.now()) {
-        ws.send('invalid code');
-        return;
-      }
-
-      // Fetch the associated user URL
-      var users = nano.db.use('users');
-      users.get(body.user, function(err, body) {
-        if (err) {
-          ws.send('account has been deleted');
-          return;
-        }
-
-        ws.send(`${process.env.CALLBACK_URL}/api/${body.run_database}?user=${body._id}&token=${body.user_token}`)
-      });
-    });
+    var request = JSON.parse(data);
+    if (request.type == 'use_token') {
+      console.log("Request to consume a token");
+      useToken(ws, request.token);
+    }
+    else if (request.type == 'get_token') {
+      console.log("Request to create a token");
+      getToken(ws, request.user, request.token);
+    }
+    else {
+      console.log("Unknown websockets request");
+    }
   });
   ws.on('close', () => console.log('Client disconnected'));
 });
+
+// Consume an auth token
+function useToken(ws, token) {
+  var tokens = nano.db.use('tokens');
+  tokens.get(token, function(err, body) {
+    // Is this a valid request?
+    if (err || (new Date(body.expires)).getTime() < Date.now()) {
+      ws.send('invalid code');
+      return;
+    }
+
+    // Fetch the associated user URL
+    var users = nano.db.use('users');
+    users.get(body.user, function(err, body) {
+      if (err) {
+        ws.send('account has been deleted');
+        return;
+      }
+
+      ws.send(`${process.env.CALLBACK_URL}/api/${body.run_database}?user=${body._id}&token=${body.user_token}`)
+    });
+  });
+}
+
+// Request an auth token (for connecting a mobile device)
+function getToken(ws, user, token) {
+  var users = nano.db.use('users');
+  users.get(user, function(err, body) {
+    // Is this a valid request?
+    if (body.user_token != token) {
+      ws.send('{error: "Invalid request"}');
+      return;
+    }
+
+    // Generate a unique identifier for the app
+    var appToken = uuid.v4().substr(0, 4);
+
+    // Generate an expiry time 15 minutes from now
+    var expires = (new Date(Date.now() + (1000 * 60 * 15))).toString();
+
+    // Insert the token
+    var tokens = nano.db.use('tokens');
+    tokens.insert({
+        _id: appToken,
+        user: body._id,
+        expires: expires
+      }, function(err, body) {
+      if (err) {
+        ws.send('{error: "Could not create token"}');
+        return;
+      }
+      console.log(`App token set (expires ${expires})`);
+      ws.send(JSON.stringify({
+        token: appToken,
+        expires: expires
+      }));
+    });
+  });
+  res.status(200).end();
+}
 
 // Passport session setup
 //   To support persistent login sessions, Passport needs to be able to
