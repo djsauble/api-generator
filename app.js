@@ -6,6 +6,7 @@ var uuid = require('uuid');
 var http = require('http');
 var Buffer = require('Buffer');
 var nano = require('nano')(process.env.COUCHDB_DATABASE_URL);
+var SocketServer = require('ws').Server;
 
 // Create a server instance
 var app = express();
@@ -42,9 +43,67 @@ app.get('/login', function(req, res) {
   res.render('login', { user: req.user });
 });
 
+// Request an auth token (for connecting a mobile device)
+app.get('/app', function(req, res) {
+  var user = req.query.user;
+  var token = req.query.token;
+
+  var users = nano.db.use('users');
+  users.get(user, function(err, body) {
+    // Is this a valid request?
+    if (body.user_token != token) {
+      return;
+    }
+
+    // Generate a unique identifier for the app
+    var appToken = uuid.v4().substr(0, 4);
+
+    // Generate an expiry time 15 minutes from now
+    var expires = (new Date(Date.now() + (1000 * 60 * 15))).toString();
+
+    // Insert the token
+    var tokens = nano.db.use('tokens');
+    tokens.insert({
+        _id: appToken,
+        user: body._id,
+        expires: expires
+      }, function(err, body) {
+      if (!err) {
+        console.log(`App token set (expires ${expires})`);
+      }
+    });
+  });
+  res.status(200).end();
+});
+
+// Consume an auth token
+app.post('/app', function(req, res) {
+  var token = req.query.token;
+  var url = '';
+
+  var tokens = nano.db.use('tokens');
+  tokens.get(token, function(err, body) {
+    // Is this a valid request?
+    if (err || (new Date(body.expires)).getTime() < Date.now()) {
+      reject();
+      return;
+    }
+
+    // Fetch the associated user URL
+    var users = nano.db.use('users');
+    users.get(body.user, function(err, body) {
+      if (err) {
+        reject();
+        return;
+      }
+
+      resolve();
+    });
+  });
+});
+
 // Create a new record (extension point)
 app.put('/api/:database_id', function(req, res) {
-
   var database = req.params.database_id;
   var user = req.query.user;
   var token = req.query.token;
@@ -125,6 +184,14 @@ app.get('/logout', function(req, res) {
 
 app.listen(app.get('port'), function() {
   console.log(`Listening on port ${app.get('port')}`);
+});
+
+// Create a WebSockets server instance
+var wss = new SocketServer({server: app});
+
+wss.on('connection', (ws) => {
+  console.log('Client connected');
+  ws.on('close', () => console.log('Client disconnected'));
 });
 
 // Passport session setup
