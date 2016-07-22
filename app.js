@@ -9,7 +9,7 @@ var SocketServer = require('ws').Server;
 
 // Create a server instance
 var app = express();
-var server = require('http').createServer(app);
+var expressWs = require('express-ws')(app);
 
 // Configure the server
 app.set('port', process.env.PORT || 3000);
@@ -29,7 +29,6 @@ app.use(passport.session());
 
 app.get('/', ensureAuthenticated, function(req, res) {
   res.render('index', {
-    requestURL: process.env.CALLBACK_URL,
     host: process.env.COUCHDB_DATABASE_URL,
     user: req.user
   });
@@ -123,26 +122,18 @@ app.get('/logout', function(req, res) {
   res.redirect('/');
 });
 
-server.listen(app.get('port'), function() {
-  console.log(`Listening on port ${app.get('port')}`);
-});
+// List of all active sockets, indexed by user ID
+var sockets = {};
 
-// Create a WebSockets server instance
-var wss = new SocketServer({
-  server: server,
-  path: '/ws'
-});
-
-wss.on('connection', (ws) => {
+app.ws('/ws', function(ws, req) {
   console.log('Client connected');
   ws.on('message', function(data, flags) {
     var request = JSON.parse(data);
     if (request.type == 'use_token') {
-      console.log("Request to consume a token");
       useToken(ws, request.token);
     }
     else if (request.type == 'get_token') {
-      console.log("Request to create a token");
+      sockets[request.token] = ws;
       getToken(ws, request.user, request.token);
     }
     else {
@@ -152,28 +143,9 @@ wss.on('connection', (ws) => {
   ws.on('close', () => console.log('Client disconnected'));
 });
 
-// Consume an auth token
-function useToken(ws, token) {
-  var tokens = nano.db.use('tokens');
-  tokens.get(token, function(err, body) {
-    // Is this a valid request?
-    if (err || (new Date(body.expires)).getTime() < Date.now()) {
-      ws.send('invalid code');
-      return;
-    }
-
-    // Fetch the associated user URL
-    var users = nano.db.use('users');
-    users.get(body.user, function(err, body) {
-      if (err) {
-        ws.send('account has been deleted');
-        return;
-      }
-
-      ws.send(`${process.env.CALLBACK_URL}/api/${body.run_database}?user=${body._id}&token=${body.user_token}`)
-    });
-  });
-}
+app.listen(app.get('port'), function() {
+  console.log(`Listening on port ${app.get('port')}`);
+});
 
 // Request an auth token (for connecting a mobile device)
 function getToken(ws, user, token) {
@@ -195,7 +167,7 @@ function getToken(ws, user, token) {
     var tokens = nano.db.use('tokens');
     tokens.insert({
         _id: appToken,
-        user: body._id,
+        user: user,
         expires: expires
       }, function(err, body) {
       if (err) {
@@ -209,7 +181,39 @@ function getToken(ws, user, token) {
       }));
     });
   });
-  res.status(200).end();
+}
+
+// Consume an auth token
+function useToken(ws, token) {
+  var tokens = nano.db.use('tokens');
+  tokens.get(token, function(err, tokenDoc) {
+    // Is this a valid request?
+    if (err || (new Date(tokenDoc.expires)).getTime() < Date.now()) {
+      ws.send('invalid code');
+      return;
+    }
+
+    // Fetch the associated user URL
+    var users = nano.db.use('users');
+    users.get(tokenDoc.user, function(err, body) {
+      if (err) {
+        ws.send('account has been deleted');
+        return;
+      }
+
+      ws.send(`${process.env.CALLBACK_URL}/api/${body.run_database}?user=${body._id}&token=${body.user_token}`)
+
+      // Delete the token doc
+      tokens.destroy(token, tokenDoc._rev, function() {
+        if (!err) {
+          console.log('Temporary auth token has been deleted');
+        }
+      });
+
+      // Inform the callee that the request has been finished
+      sockets[body.user_token].close();
+    });
+  });
 }
 
 // Passport session setup

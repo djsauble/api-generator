@@ -5,11 +5,7 @@ var View = Backbone.View.extend({
 
   render: function() {
     this.$el.html(
-      "<span> PUT your data to <a href='" +
-      APPLICATION_DATA_URL +
-      "'>" +
-      APPLICATION_DATA_URL.replace(/&/g, "&amp;") +
-      "</a></span>"
+      "<span> PUT your data to ...</span>"
     );
 
     return this;

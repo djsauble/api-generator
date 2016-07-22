@@ -21,7 +21,8 @@
     <!-- Global data -->
     <script type='text/javascript'>
       CLOUDANT_DATA_URL = '<%- `${locals.host}/${locals.user.run_database}` %>';
-      APPLICATION_DATA_URL = '<%- `${locals.requestURL}/api/${locals.user.run_database}?user=${locals.user._id}&token=${locals.user.user_token}` %>';
+      USER_ID = '<%- locals.user._id %>';
+      USER_TOKEN = '<%- locals.user.user_token %>';
     </script>
 
     <!-- Non-NPM dependencies -->

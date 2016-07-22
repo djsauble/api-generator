@@ -1,6 +1,5 @@
 var _ = require('underscore');
 var Backbone = require('backbone');
-var WebSocket = require('ws');
 
 var View = Backbone.View.extend({
 
@@ -9,14 +8,21 @@ var View = Backbone.View.extend({
     this.token = 'please wait...';
     this.expires = new Date();
 
-    this.ws = new WebSocket('wss://api-generator2.herokuapp.com/ws');
-    this.ws.on('open', function() {
-      ws.send(JSON.stringify({
-        type: 'get_token'
+    // Production
+    //this.ws = new WebSocket('wss://api-generator2.herokuapp.com/ws');
+
+    // Test
+    this.ws = new WebSocket('ws://127.0.0.1:5000/ws');
+
+    this.ws.onopen = function() {
+      me.ws.send(JSON.stringify({
+        type: 'get_token',
+        user: USER_ID,
+        token: USER_TOKEN
       }));
-    });
-    this.ws.on('message', function(data, flags) {
-      var message = JSON.parse(data);
+    };
+    this.ws.onmessage = function(data, flags) {
+      var message = JSON.parse(data.data);
       if (message.error) {
         me.token = message.error;
       }
@@ -25,15 +31,24 @@ var View = Backbone.View.extend({
         me.expires = new Date(message.expires);
       }
       me.render();
-    });
-    this.ws.on('error', function(error, more) {
+    };
+    this.ws.onclose = function() {
+      me.token = undefined;
+      me.expires = undefined;
+      me.render();
+    };
+    this.ws.onerror = function(error, more) {
       console.log(error);
-    });
+    };
   },
 
   template: _.template(`
-    <h1><code class='security_code'><%= token %></code></h1>
-    <p>(expires <%= expires %>)</p>
+    <% if (token) { %>
+      <h1><code class='security_code'><%= token %></code></h1>
+      <p>(expires <%= expires %>)</p>
+    <% } else { %>
+      <p>All set. Go for a run!</p>
+    <% } %>
   `),
 
   render: function() {
