@@ -9,10 +9,10 @@ var View = Backbone.View.extend({
     this.expires = new Date();
 
     // Production
-    //this.ws = new WebSocket('wss://api-generator2.herokuapp.com/ws');
+    this.ws = new WebSocket('wss://api-generator2.herokuapp.com/ws');
 
     // Test
-    this.ws = new WebSocket('ws://127.0.0.1:5000/ws');
+    //this.ws = new WebSocket('ws://127.0.0.1:5000/ws');
 
     this.ws.onopen = function() {
       me.ws.send(JSON.stringify({
