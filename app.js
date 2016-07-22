@@ -30,7 +30,8 @@ app.use(passport.session());
 app.get('/', ensureAuthenticated, function(req, res) {
   res.render('index', {
     host: process.env.COUCHDB_DATABASE_URL,
-    user: req.user
+    user: req.user,
+    wsUrl: process.env.WEBSOCKET_URL
   });
 });
 
@@ -212,6 +213,7 @@ function useToken(ws, token) {
 
       // Inform the callee that the request has been finished
       sockets[body.user_token].close();
+      delete sockets[body.user_token];
     });
   });
 }
