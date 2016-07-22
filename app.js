@@ -3,13 +3,13 @@ var express = require('express');
 var StravaStrategy = require('passport-strava-oauth2').Strategy;
 var passport = require('passport');
 var uuid = require('uuid');
-var http = require('http');
 var Buffer = require('Buffer');
 var nano = require('nano')(process.env.COUCHDB_DATABASE_URL);
 var SocketServer = require('ws').Server;
 
 // Create a server instance
 var app = express();
+var server = require('http').createServer(app);
 
 // Configure the server
 app.set('port', process.env.PORT || 3000);
@@ -74,32 +74,6 @@ app.get('/app', function(req, res) {
     });
   });
   res.status(200).end();
-});
-
-// Consume an auth token
-app.post('/app', function(req, res) {
-  var token = req.query.token;
-  var url = '';
-
-  var tokens = nano.db.use('tokens');
-  tokens.get(token, function(err, body) {
-    // Is this a valid request?
-    if (err || (new Date(body.expires)).getTime() < Date.now()) {
-      reject();
-      return;
-    }
-
-    // Fetch the associated user URL
-    var users = nano.db.use('users');
-    users.get(body.user, function(err, body) {
-      if (err) {
-        reject();
-        return;
-      }
-
-      resolve();
-    });
-  });
 });
 
 // Create a new record (extension point)
@@ -182,15 +156,39 @@ app.get('/logout', function(req, res) {
   res.redirect('/');
 });
 
-app.listen(app.get('port'), function() {
+server.listen(app.get('port'), function() {
   console.log(`Listening on port ${app.get('port')}`);
 });
 
 // Create a WebSockets server instance
-var wss = new SocketServer({server: app});
+var wss = new SocketServer({server: server});
 
 wss.on('connection', (ws) => {
   console.log('Client connected');
+  ws.on('message', function(data, flags) {
+    var token = data;
+    var url = '';
+
+    var tokens = nano.db.use('tokens');
+    tokens.get(token, function(err, body) {
+      // Is this a valid request?
+      if (err || (new Date(body.expires)).getTime() < Date.now()) {
+        ws.send('invalid code');
+        return;
+      }
+
+      // Fetch the associated user URL
+      var users = nano.db.use('users');
+      users.get(body.user, function(err, body) {
+        if (err) {
+          ws.send('account has been deleted');
+          return;
+        }
+
+        ws.send(`${process.env.CALLBACK_URL}/api/${body.run_database}?user=${body._id}&token=${body.user_token}`)
+      });
+    });
+  });
   ws.on('close', () => console.log('Client disconnected'));
 });
 
