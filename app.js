@@ -18,7 +18,7 @@ app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
 app.use(require('serve-static')(__dirname + '/public'));
 app.use(require('cookie-parser')());
-app.use(require('body-parser').json());
+app.use(require('body-parser').json({limit: '25mb'}));
 app.use(require('express-session')({
   secret: process.env.CACHE_SECRET,
   resave: true,
