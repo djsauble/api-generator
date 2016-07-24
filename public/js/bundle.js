@@ -366,6 +366,7 @@ var View = Backbone.View.extend({
     var me = this;
     this.token = 'please wait...';
     this.expires = new Date();
+    this.nextRefresh = undefined;
 
     this.ws = new WebSocket(WEBSOCKET_URL);
 
@@ -384,12 +385,29 @@ var View = Backbone.View.extend({
       else {
         me.token = message.token;
         me.expires = new Date(message.expires);
+
+        // Schedule the next token refresh
+        me.nextRefresh = setTimeout(
+          function() {
+            me.ws.send(JSON.stringify({
+              type: 'refresh_token',
+              user: USER_ID,
+              user_token: USER_TOKEN,
+              old_token: me.token
+            }));
+          },
+          me.expires.getTime() - Date.now()
+        );
       }
       me.render();
     };
     this.ws.onclose = function() {
       me.token = undefined;
       me.expires = undefined;
+      if (me.nextRefresh) {
+        clearTimeout(me.nextRefresh);
+        me.nextRefresh = undefined;
+      }
       me.render();
     };
     this.ws.onerror = function(error, more) {

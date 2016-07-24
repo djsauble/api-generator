@@ -137,6 +137,9 @@ app.ws('/ws', function(ws, req) {
       sockets[request.token] = ws;
       getToken(ws, request.user, request.token);
     }
+    else if (request.type == 'refresh_token') {
+      refreshToken(ws, request.user, request.user_token, request.old_token);
+    }
     else {
       console.log("Unknown websockets request");
     }
@@ -158,7 +161,7 @@ function getToken(ws, user, token) {
       return;
     }
 
-    // Generate a unique identifier for the app
+    // Generate a unique identifier for the app token
     var appToken = uuid.v4().substr(0, 4);
 
     // Generate an expiry time 15 minutes from now
@@ -184,13 +187,38 @@ function getToken(ws, user, token) {
   });
 }
 
+// Refresh an outstanding token (one that is about to expire, for example)
+function refreshToken(ws, user, userToken, oldToken) {
+  var users = nano.db.use('users');
+  users.get(user, function(err, body) {
+    // Is this a valid request?
+    if (body.user_token != userToken) {
+      ws.send('{error: "Invalid request"}');
+      return;
+    }
+
+    // Delete the existing token
+    var tokens = nano.db.use('tokens');
+    tokens.get(oldToken, function(err, tokenDoc) {
+      if (!err) {
+        tokens.destroy(oldToken, tokenDoc._rev, function() {
+          console.log('Old authentication token has been deleted')
+
+          // Create a new token
+          getToken(ws, user, userToken);
+        });
+      }
+    });
+  });
+}
+
 // Consume an auth token
 function useToken(ws, token) {
   var tokens = nano.db.use('tokens');
   tokens.get(token, function(err, tokenDoc) {
     // Is this a valid request?
     if (err || (new Date(tokenDoc.expires)).getTime() < Date.now()) {
-      ws.send('invalid code');
+      ws.close();
       return;
     }
 
@@ -198,7 +226,7 @@ function useToken(ws, token) {
     var users = nano.db.use('users');
     users.get(tokenDoc.user, function(err, body) {
       if (err) {
-        ws.send('account has been deleted');
+        ws.close();
         return;
       }
 
