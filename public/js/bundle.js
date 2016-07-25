@@ -465,6 +465,7 @@ var View = Backbone.View.extend({
 module.exports = View;
 
 },{"backbone":18,"underscore":38}],8:[function(require,module,exports){
+var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
 var ViewerView = require('./viewer');
@@ -475,20 +476,31 @@ var View = Backbone.View.extend({
 
   initialize: function(options) {
     // Child components
+    this.options = options;
     this.hero = new HeroView(options);
     this.viewer = new ViewerView(options);
     this.footer = new FooterView(options);
   },
 
   render: function() {
-    // Show the hero component
-    this.$el.append(this.hero.render().el);
+    if (this.options.data.length == 0) {
+      // Empty state
+      this.$el.html(`
+        <div class='modal'>
+          <span><img class='spinner' src='images/loader.gif'/> Waiting for your first run&hellip;</span>
+        </div>
+      `);
+    }
+    else {
+      // Show the hero component
+      this.$el.append(this.hero.render().el);
 
-    // Show the viewer component
-    this.$el.append(this.viewer.render().el);
+      // Show the viewer component
+      this.$el.append(this.viewer.render().el);
 
-    // Show the footer component
-    this.$el.append(this.footer.render().el);
+      // Show the footer component
+      this.$el.append(this.footer.render().el);
+    }
 
     return this;
   },
@@ -509,7 +521,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./footer":9,"./hero":10,"./viewer":14,"backbone":18}],9:[function(require,module,exports){
+},{"./footer":9,"./hero":10,"./viewer":14,"backbone":18,"underscore":38}],9:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
