@@ -68,17 +68,18 @@ var View = Backbone.View.extend({
   template: _.template(`
     <% if (token) { %>
       <h1><code class='security_code'><%= token %></code></h1>
-      <p>(expires <%= expires %>)</p>
     <% } else { %>
-      <p>All set. Go for a run!</p>
+      <h2 class='success'>
+        <i class='fa fa-check-circle'></i> Connected to device.
+      </h2>
     <% } %>
+    <a href='#'>Go to the dashboard</a>
   `),
 
   render: function() {
 
     this.$el.html(this.template({
-      token: this.token,
-      expires: this.expires
+      token: this.token
     }));
 
     return this;

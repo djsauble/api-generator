@@ -124,10 +124,9 @@ ul.list li *:last-child {
 }
 
 /**
- * Page specific styles
+ * Token request screen
  */
 
-.landing_page {
-  width: 1024px;
-  margin: 0 auto;
+.success {
+  color: green;
 }
