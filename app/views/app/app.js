@@ -26,6 +26,13 @@ var View = Backbone.View.extend({
     this.securityCode.render();
 
     return this;
+  },
+
+  remove: function() {
+    this.undelegateEvents();
+    if (this.securityCode) {
+      this.securityCode.remove();
+    }
   }
 });
 

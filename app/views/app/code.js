@@ -5,7 +5,7 @@ var View = Backbone.View.extend({
 
   initialize: function() {
     var me = this;
-    this.token = 'please wait...';
+    this.token = undefined;
     this.expires = new Date();
     this.nextRefresh = undefined;
 
@@ -19,7 +19,16 @@ var View = Backbone.View.extend({
       }));
     };
     this.ws.onmessage = function(data, flags) {
-      var message = JSON.parse(data.data);
+      // Make sure this is something we know how to parse
+      var message
+      try {
+        message = JSON.parse(data.data);
+      } catch(err) {
+        // Do nothing
+        return
+      }
+
+      // Take appropriate action
       if (message.error) {
         me.token = message.error;
       }
@@ -73,6 +82,16 @@ var View = Backbone.View.extend({
     }));
 
     return this;
+  },
+
+  remove: function() {
+    this.undelegateEvents();
+    if (this.token) {
+      this.ws.send(JSON.stringify({
+        type: 'use_token',
+        token: this.token
+      }));
+    }
   }
 });
 
