@@ -1,9 +1,29 @@
 {
   "name": "api-generator",
   "version": "0.0.1",
+  "author": "Daniel Sauble",
   "description": "create REST endpoints to receive geolocation data and rudimentary visualization of that data",
+  "keywords": [
+    "running",
+    "geolocation",
+    "couchdb"
+  ],
+  "license": "Apache-2.0",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "grunt test"
+  },
   "engines": {
-    "node": "4.4.7"
+    "node": "4.4.7",
+    "npm": "3.10.5"
+  },
+  "devDependencies": {
+    "browserify": "13.0.1",
+    "grunt": "*",
+    "grunt-browserify": "*",
+    "grunt-contrib-jshint": "^1.0.0",
+    "grunt-contrib-qunit": "^1.2.0"
   },
   "dependencies": {
     "Buffer": "0.0.0",
