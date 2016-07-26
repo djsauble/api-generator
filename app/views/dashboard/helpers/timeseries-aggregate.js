@@ -11,7 +11,14 @@
  *   value: Number
  * }
  *
- * The algorithm is weighted toward sums that favor the end of
+ * The output is an array of objects of the following format:
+ *
+ * {
+ *   period: Date, // The start of the period being sum
+ *   sum: Number   // The sum of values in the period
+ * }
+ *
+ * This algorithm is weighted toward sums that favor the end of
  * the series array (most recent values), as it iterates from 
  * end to start.
  */

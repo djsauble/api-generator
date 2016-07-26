@@ -29,7 +29,7 @@ $(function() {
   });
 });
 
-},{"./models/runs":4,"./router":5,"backbone":20,"jquery":29}],2:[function(require,module,exports){
+},{"./models/runs":4,"./router":5,"backbone":22,"jquery":31}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (doc) {
@@ -154,7 +154,7 @@ var Run = Backbone.Model.extend({
 
 module.exports = Run;
 
-},{"backbone":20}],4:[function(require,module,exports){
+},{"backbone":22}],4:[function(require,module,exports){
 var _ = require('underscore');
 var PouchDB = require('pouchdb');
 var Backbone = require('backbone');
@@ -253,7 +253,7 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":20,"backbone-pouch":19,"pouchdb":36,"underscore":41}],5:[function(require,module,exports){
+},{"../helpers":2,"./run":3,"backbone":22,"backbone-pouch":21,"pouchdb":38,"underscore":43}],5:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -322,7 +322,7 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/app/app":6,"./views/dashboard/dashboard":8,"./views/goal/goal":17,"backbone":20,"jquery":29}],6:[function(require,module,exports){
+},{"./views/app/app":6,"./views/dashboard/dashboard":8,"./views/goal/goal":19,"backbone":22,"jquery":31}],6:[function(require,module,exports){
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
 
@@ -363,7 +363,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./code":7,"backbone":20}],7:[function(require,module,exports){
+},{"./code":7,"backbone":22}],7:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -464,7 +464,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":20,"underscore":41}],8:[function(require,module,exports){
+},{"backbone":22,"underscore":43}],8:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
@@ -521,7 +521,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./footer":9,"./hero":12,"./viewer":16,"backbone":20,"underscore":41}],9:[function(require,module,exports){
+},{"./footer":9,"./hero":14,"./viewer":18,"backbone":22,"underscore":43}],9:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -538,7 +538,242 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":20}],10:[function(require,module,exports){
+},{"backbone":22}],10:[function(require,module,exports){
+var regression = require('regression');
+
+/**
+ * Given an array of timeseries data ordered from oldest to
+ * newest, predict when a future value is likely to be hit.
+ *
+ * The series is expected to be an array of objects of the
+ * following format:
+ *
+ * {
+ *   timestamp: Date,
+ *   value: Number
+ * }
+ *
+ * The algorithm will try to fit the series with a second-degree
+ * polynomial and a linear regression. The quickest one wins.
+ *
+ * This method works best when the future value is larger than 
+ * any of the items in the series.
+ *
+ * The output is a Date, or null if no prediction can be made.
+ */
+var predict = function(futureValue, series) {
+  var actualTrend,
+      polynomialPrediction,
+      linearPrediction;
+
+  // Try to fit the trend with a second-degree polynomial
+  actualTrend = regression('polynomial', series.map(function(w) {
+    return [w.timestamp.getTime(), w.value];
+  }), 2).equation;
+  if (actualTrend[2]) {
+    var a = actualTrend[0],
+        b = actualTrend[1],
+        c = actualTrend[2];
+
+    polynomialPrediction =
+      (Math.sqrt((-4*a*c) + (b*b) + (4*c*futureValue)) - b) /
+      (2*c);
+  }
+
+  // Try to fit the trend with a linear equation
+  actualTrend = regression('linear', series.map(function(w) {
+    return [w.timestamp.getTime(), w.value];
+  })).equation;
+  linearPrediction = (futureValue - actualTrend[1]) / actualTrend[0];
+
+  // Return the closest prediction
+  console.log("Poly: " + new Date(polynomialPrediction));
+  console.log("Linr: " + new Date(linearPrediction));
+  if (polynomialPrediction && linearPrediction) {
+    var poly = polynomialPrediction;
+    var linr = linearPrediction;
+    return new Date(poly < linr ? poly : linr);
+  }
+  else if (polynomialPrediction) {
+    return new Date(polynomialPrediction);
+  }
+  else {
+    return new Date(linearPrediction);
+  }
+};
+
+module.exports = predict;
+
+},{"regression":39}],11:[function(require,module,exports){
+/**
+ * Helpers to round dates to day, week, month, year boundaries.
+ *
+ * The default rounding behavior is to day boundaries. To change
+ * this, set boundary to one of:
+ *
+ * 'year'
+ * 'month'
+ * 'week'
+ * 'day' [default]
+ */
+
+var DAY_IN_MS = 1000 * 60 * 60 * 24;
+var WEEK_IN_MS = DAY_IN_MS * 7;
+
+var floor = function(date, boundary) {
+  var start = new Date(date);
+
+  // Account for the default case
+  if (!boundary) {
+    boundary = 'day';
+  }
+
+  // Are we rounding to the day?
+  start.setHours(0);
+  start.setMinutes(0);
+  start.setSeconds(0);
+  start.setMilliseconds(0);
+  if (boundary === 'day') {
+    return start;
+  }
+
+  // Are we rounding to the week?
+  if (boundary === 'week') {
+    start.setDate(start.getDate() - start.getDay());
+
+    return start;
+  }
+
+  // Are we rounding to the month?
+  start.setDate(1);
+  if (boundary === 'month') {
+    return start;
+  }
+
+  // Are we rounding to the year?
+  start.setMonth(1);
+  if (boundary === 'year') {
+    return start;
+  }
+
+  return undefined;
+};
+
+var ceil = function(date, boundary) {
+  var end = new Date(date);
+
+  // Account for the default case
+  if (!boundary) {
+    boundary = 'day';
+  }
+
+  // Are we rounding to the day?
+  end.setHours(0);
+  end.setMinutes(0);
+  end.setSeconds(0);
+  end.setMilliseconds(0);
+  if (boundary === 'day') {
+    end.setDate(end.getDate() + 1);
+
+    return end;
+  }
+
+  // Are we rounding to the week?
+  if (boundary === 'week') {
+    end.setDate(end.getDate() + (7 - end.getDay()));
+
+    return end;
+  }
+
+  // Are we rounding to the month?
+  end.setDate(1);
+  if (boundary === 'month') {
+    end.setMonth(end.getMonth() + 1);
+
+    return end;
+  }
+
+  // Are we rounding to the year?
+  end.setMonth(0);
+  if (boundary === 'year') {
+    end.setYear(end.getYear() + 1);
+
+    return closest(start, end);
+  }
+
+  return undefined;
+};
+
+var round = function(date, boundary) {
+  var start = new Date(date),
+      end = new Date(date),
+      closest = function(a, b) {
+        if (date.getTime() - a.getTime() <= b.getTime() - date.getTime()) {
+          return a;
+        }
+        else {
+          return b;
+        }
+      };
+
+  // Account for the default case
+  if (!boundary) {
+    boundary = 'day';
+  }
+
+  // Are we rounding to the nearest day?
+  start.setHours(0);
+  start.setMinutes(0);
+  start.setSeconds(0);
+  start.setMilliseconds(0);
+  end.setHours(0);
+  end.setMinutes(0);
+  end.setSeconds(0);
+  end.setMilliseconds(0);
+  if (boundary === 'day') {
+    end.setDate(end.getDate() + 1);
+
+    return closest(start, end);
+  }
+
+  // Are we rounding to the nearest week?
+  if (boundary === 'week') {
+    start.setDate(start.getDate() - start.getDay());
+    end.setDate(end.getDate() + (7 - end.getDay()));
+
+    return closest(start, end);
+  }
+
+  // Are we rounding to the nearest month?
+  start.setDate(1);
+  end.setDate(1);
+  if (boundary === 'month') {
+    end.setMonth(end.getMonth() + 1);
+
+    return closest(start, end);
+  }
+
+  // Are we rounding to the nearest year?
+  start.setMonth(0);
+  end.setMonth(0);
+  if (boundary === 'year') {
+    end.setYear(end.getYear() + 1);
+
+    return closest(start, end);
+  }
+
+  return undefined;
+};
+
+module.exports = {
+  round: round,
+  ceil: ceil,
+  floor: floor,
+  DAY_IN_MS: DAY_IN_MS,
+  WEEK_IN_MS: WEEK_IN_MS
+}
+
+},{}],12:[function(require,module,exports){
 /**
  * Given an array of timeseries data ordered from oldest to
  * newest, aggregate the sum of X periods of Y milliseconds 
@@ -552,7 +787,14 @@ module.exports = View;
  *   value: Number
  * }
  *
- * The algorithm is weighted toward sums that favor the end of
+ * The output is an array of objects of the following format:
+ *
+ * {
+ *   period: Date, // The start of the period being sum
+ *   sum: Number   // The sum of values in the period
+ * }
+ *
+ * This algorithm is weighted toward sums that favor the end of
  * the series array (most recent values), as it iterates from 
  * end to start.
  */
@@ -600,7 +842,7 @@ var aggregate = function(endDate, numPeriods, periodDurationInMs, series) {
 
 module.exports = aggregate;
 
-},{}],11:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 /**
  * Given an array of timeseries data ordered from oldest to
  * newest, return the sum of the values between the start and
@@ -651,129 +893,28 @@ var sum = function(startDate, endDate, series) {
 
 module.exports = sum;
 
-},{}],12:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
-var Helpers = require('../../helpers');
 var regression = require('regression');
 var DateNames = require('date-names');
 var sum = require('./helpers/timeseries-sum');
 var aggregate = require('./helpers/timeseries-aggregate');
+var predict = require('./helpers/date-prediction');
+var DateRound = require('./helpers/date-round');
 var round = require('float').round;
 
 var View = Backbone.View.extend({
   className: "hero dark row",
 
   initialize: function(options) {
-
     this.options = options;
-
-    // Display the last day of the given week
-    this.renderGoalDate = function(goalAmount, runsByWeek, startOfThisWeek) {
-      var actualTrend,
-          rateOfChange,
-          weeksUntilGoal,
-          distance,
-          weekIterator,
-          i;
-
-      /*********************************************************
-       * DEBUG SECTION: Test veracity of polynomial regression *
-       *********************************************************/
-
-      // Calculate the trend over the last eight weeks
-      i = 0;
-      actualTrend = regression('polynomial', runsByWeek.slice(0, 7).map(function(w) {
-        return [i++, w.sum];
-      }), 2).equation;
-
-      // Extrapolate (no more than a year) into the future to determine 
-      // when we will achieve our goal
-      weeksUntilGoal = 0;
-      for (i = 8; i < 60; ++i) {
-        if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= goalAmount) {
-          break;
-        }
-        ++weeksUntilGoal;
-      }
-
-      // Display the last day of the given week
-      weekIterator = new Date(startOfThisWeek.getTime() + (Helpers.DAY_IN_MS * 6));
-      for (i = 0; i < weeksUntilGoal; ++i) {
-        weekIterator = new Date(weekIterator.getTime() + Helpers.WEEK_IN_MS);
-      }
-      if (weeksUntilGoal >= 52) {
-        console.log("Polynomial regression prediction: n/a");
-      }
-      else {
-        console.log("Polynomial regression prediction: " + DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate());
-      }
-
-      /*********************
-       * END DEBUG SECTION *
-       *********************/
-
-      // Calculate a linear regression of the last several weeks
-      i = 0;
-      actualTrend = regression('linear', runsByWeek.map(function(w) {
-        return [i++, w.sum];
-      })).equation;
-      rateOfChange = ((actualTrend[0] + actualTrend[1]) / actualTrend[1]);
-
-      // If rate of change is negative, we'll never achieve our goal
-      if (rateOfChange < 0) {
-        return "&mdash;";
-      }
-      else {
-        // Extrapolate (no more than a year) into the future to determine
-        // when we will achieve our goal
-        weeksUntilGoal = 0;
-        distance = runsByWeek[runsByWeek.length - 1].sum;
-        for (i = runsByWeek.length; i < 52 + runsByWeek.length; ++i) {
-          distance = distance * rateOfChange;
-          if (distance >= goalAmount) {
-            break;
-          }
-          ++weeksUntilGoal;
-        }
-
-        // Display the last day of the given week
-        weekIterator = new Date(startOfThisWeek.getTime() + (Helpers.DAY_IN_MS * 6));
-        for (i = 0; i < weeksUntilGoal; ++i) {
-          weekIterator = new Date(weekIterator.getTime() + Helpers.WEEK_IN_MS);
-        }
-        return DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate();
-      }
-    };
-
-    // Display run data for the last eight weeks
-    this.renderChart = function(runsByWeek, distanceThisWeek) {
-      var chartHtml = "";
-
-      maxDistance = _.max(
-        runsByWeek.map(function(w) {
-          return w.sum;
-        })
-      );
-      for (var i = 0; i < runsByWeek.length; ++i) {
-        chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].sum / maxDistance * 100) + "%;'>";
-        if (i == runsByWeek.length - 1) {
-          chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].sum * 100) + "%;'></div>";
-        }
-        chartHtml += "</div>";
-      }
-
-      return chartHtml;
-    };
-
-    /* Render this again when any distances change */
-    this.listenTo(options.data, "change:distance", this.render);
   },
 
   render: function() {
-    var startOfToday = Helpers.getMidnight(new Date()),
-        startOfThisWeek = new Date(startOfToday.getTime() - (Helpers.DAY_IN_MS * startOfToday.getDay())),
-        startOfLastWeek = new Date(startOfThisWeek.getTime() - Helpers.WEEK_IN_MS), 
+    var startOfToday = DateRound.floor(new Date()),
+        startOfThisWeek = DateRound.floor(startOfToday, 'week'),
+        startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'), 
         runsByWeek = [],
         rawData = this.options.data.map(function(r) {
           return {
@@ -804,10 +945,10 @@ var View = Backbone.View.extend({
     }
 
     // Compile run data for the last seven weeks
-    runsByWeek = aggregate(startOfThisWeek, trendingWeeks, Helpers.WEEK_IN_MS, rawData);
+    runsByWeek = aggregate(startOfThisWeek, trendingWeeks, DateRound.WEEK_IN_MS, rawData);
 
     // Display the last day of the given week
-    goalDateString = this.renderGoalDate(goalAmount, runsByWeek, startOfThisWeek);
+    goalDateString = this.getGoalDate(goalAmount, runsByWeek, startOfThisWeek);
 
     // Add the goal for this week
     runsByWeek.push({
@@ -816,7 +957,7 @@ var View = Backbone.View.extend({
     });
 
     // Display run data for the last eight weeks
-    chartHtml = this.renderChart(runsByWeek, distanceThisWeek);
+    chartHtml = this.getChartHtml(runsByWeek, distanceThisWeek);
 
     // Render stuff
     this.$el.html(
@@ -838,12 +979,64 @@ var View = Backbone.View.extend({
     );
     
     return this;
+  },
+
+  // Display the last day of the given week
+  getGoalDate: function(goalAmount, runsByWeek, startOfThisWeek) {
+    var max, prediction, month, day;
+
+    // Set the max horizon for the prediction (three years in the future)
+    max = new Date();
+    max.setYear(max.getYear() + 1900 + 3);
+    
+    // Get the prediction
+    prediction = predict(goalAmount, runsByWeek.map(function(r) {
+      return {
+        timestamp: r.period,
+        value: r.sum
+      };
+    }));
+
+    // Is the prediction after today?
+    if (prediction.getTime() < Date.now()) {
+      return "today";
+    }
+
+    // Is the prediction less than three years in the future?
+    if (prediction.getTime() < max.getTime()) {
+      month = DateNames.months[prediction.getMonth()];
+      day = prediction.getDate();
+      return month + " " + day;
+    }
+
+    return "&mdash;";
+  },
+
+  // Display run data for the last eight weeks
+  getChartHtml: function(runsByWeek, distanceThisWeek) {
+    var chartHtml = "";
+
+    maxDistance = _.max(
+      runsByWeek.map(function(w) {
+        return w.sum;
+      })
+    );
+    for (var i = 0; i < runsByWeek.length; ++i) {
+      chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].sum / maxDistance * 100) + "%;'>";
+      if (i == runsByWeek.length - 1) {
+        chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].sum * 100) + "%;'></div>";
+      }
+      chartHtml += "</div>";
+    }
+
+    return chartHtml;
   }
+
 });
 
 module.exports = View;
 
-},{"../../helpers":2,"./helpers/timeseries-aggregate":10,"./helpers/timeseries-sum":11,"backbone":20,"date-names":22,"float":26,"regression":37,"underscore":41}],13:[function(require,module,exports){
+},{"./helpers/date-prediction":10,"./helpers/date-round":11,"./helpers/timeseries-aggregate":12,"./helpers/timeseries-sum":13,"backbone":22,"date-names":24,"float":28,"regression":39,"underscore":43}],15:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -887,7 +1080,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":15,"backbone":20}],14:[function(require,module,exports){
+},{"./run":17,"backbone":22}],16:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -1056,7 +1249,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":20,"jquery":29}],15:[function(require,module,exports){
+},{"../../helpers":2,"backbone":22,"jquery":31}],17:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -1116,7 +1309,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":20,"date-names":22}],16:[function(require,module,exports){
+},{"../../helpers":2,"backbone":22,"date-names":24}],18:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -1177,7 +1370,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":13,"./map":14,"backbone":20,"underscore":41}],17:[function(require,module,exports){
+},{"./list":15,"./map":16,"backbone":22,"underscore":43}],19:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -1210,7 +1403,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":20}],18:[function(require,module,exports){
+},{"backbone":22}],20:[function(require,module,exports){
 'use strict';
 
 module.exports = argsArray;
@@ -1230,7 +1423,7 @@ function argsArray(fun) {
     }
   };
 }
-},{}],19:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 /*
  * backbone-pouch
  * http://jo.github.io/backbone-pouch/
@@ -1482,7 +1675,7 @@ function argsArray(fun) {
   };
 }(this));
 
-},{"underscore":41}],20:[function(require,module,exports){
+},{"underscore":43}],22:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -3406,7 +3599,7 @@ function argsArray(fun) {
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":29,"underscore":41}],21:[function(require,module,exports){
+},{"jquery":31,"underscore":43}],23:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -3419,11 +3612,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],22:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":21}],23:[function(require,module,exports){
+},{"./en":23}],25:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -3593,7 +3786,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":24}],24:[function(require,module,exports){
+},{"./debug":26}],26:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -3792,7 +3985,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":32}],25:[function(require,module,exports){
+},{"ms":34}],27:[function(require,module,exports){
 (function (root, factory) {
   /* istanbul ignore next */
   if (typeof define === 'function' && define.amd) {
@@ -4010,7 +4203,7 @@ function coerce(val) {
   return PromisePool
 })
 
-},{}],26:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 /**
  * Credit: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
  */
@@ -4064,7 +4257,7 @@ module.exports = {
   }
 };
 
-},{}],27:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 (function (global){
 'use strict';
 var Mutation = global.MutationObserver || global.WebKitMutationObserver;
@@ -4137,7 +4330,7 @@ function immediate(task) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],28:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -4162,7 +4355,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],29:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -14238,7 +14431,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],30:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 (function() { 
 
   var slice   = Array.prototype.slice,
@@ -14267,7 +14460,7 @@ return jQuery;
   this.extend = extend;
 
 }).call(this);
-},{}],31:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 'use strict';
 var immediate = require('immediate');
 
@@ -14522,7 +14715,7 @@ function race(iterable) {
   }
 }
 
-},{"immediate":27}],32:[function(require,module,exports){
+},{"immediate":29}],34:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -14649,7 +14842,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],33:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 'use strict';
 
 var MIN_MAGNITUDE = -324; // verified by -Number.MIN_VALUE
@@ -15004,7 +15197,7 @@ function numToIndexableString(num) {
   return result;
 }
 
-},{"./utils":34}],34:[function(require,module,exports){
+},{"./utils":36}],36:[function(require,module,exports){
 'use strict';
 
 function pad(str, padWith, upToLength) {
@@ -15075,7 +15268,7 @@ exports.intToDecimalForm = function (int) {
 
   return result;
 };
-},{}],35:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 'use strict';
 exports.Map = LazyMap; // TODO: use ES6 map
 exports.Set = LazySet; // TODO: use ES6 set
@@ -15146,7 +15339,7 @@ LazySet.prototype.delete = function (key) {
   return this.store.delete(key);
 };
 
-},{}],36:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 (function (process,global){
 'use strict';
 
@@ -25837,9 +26030,9 @@ PouchDB.plugin(IDBPouch)
 
 module.exports = PouchDB;
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":44,"argsarray":18,"debug":23,"es6-promise-pool":25,"events":43,"inherits":28,"js-extend":30,"lie":31,"pouchdb-collate":33,"pouchdb-collections":35,"scope-eval":39,"spark-md5":40,"vuvuzela":42}],37:[function(require,module,exports){
+},{"_process":46,"argsarray":20,"debug":25,"es6-promise-pool":27,"events":45,"inherits":30,"js-extend":32,"lie":33,"pouchdb-collate":35,"pouchdb-collections":37,"scope-eval":41,"spark-md5":42,"vuvuzela":44}],39:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":38}],38:[function(require,module,exports){
+},{"./src/regression":40}],40:[function(require,module,exports){
 /**
 * @license
 *
@@ -26089,7 +26282,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],39:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 // Generated by CoffeeScript 1.9.2
 (function() {
   var hasProp = {}.hasOwnProperty,
@@ -26113,7 +26306,7 @@ if (typeof exports !== 'undefined') {
 
 }).call(this);
 
-},{}],40:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 (function (factory) {
     if (typeof exports === 'object') {
         // Node/CommonJS
@@ -26818,7 +27011,7 @@ if (typeof exports !== 'undefined') {
     return SparkMD5;
 }));
 
-},{}],41:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -28368,7 +28561,7 @@ if (typeof exports !== 'undefined') {
   }
 }.call(this));
 
-},{}],42:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 'use strict';
 
 /**
@@ -28543,7 +28736,7 @@ exports.parse = function (str) {
   }
 };
 
-},{}],43:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -28847,7 +29040,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],44:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
