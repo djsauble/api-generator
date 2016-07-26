@@ -29,8 +29,8 @@ var View = Backbone.View.extend({
 
       // Calculate the trend over the last eight weeks
       i = 0;
-      actualTrend = regression('polynomial', runsByWeek.map(function(w) {
-        return [i++, w.distance];
+      actualTrend = regression('polynomial', runsByWeek.slice(0, 7).map(function(w) {
+        return [i++, w.sum];
       }), 2).equation;
 
       // Extrapolate (no more than a year) into the future to determine 
@@ -62,7 +62,7 @@ var View = Backbone.View.extend({
       // Calculate a linear regression of the last several weeks
       i = 0;
       actualTrend = regression('linear', runsByWeek.map(function(w) {
-        return [i++, w.distance];
+        return [i++, w.sum];
       })).equation;
       rateOfChange = ((actualTrend[0] + actualTrend[1]) / actualTrend[1]);
 
@@ -74,7 +74,7 @@ var View = Backbone.View.extend({
         // Extrapolate (no more than a year) into the future to determine
         // when we will achieve our goal
         weeksUntilGoal = 0;
-        distance = runsByWeek[runsByWeek.length - 1].distance;
+        distance = runsByWeek[runsByWeek.length - 1].sum;
         for (i = runsByWeek.length; i < 52 + runsByWeek.length; ++i) {
           distance = distance * rateOfChange;
           if (distance >= goalAmount) {
