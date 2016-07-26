@@ -57,7 +57,7 @@ var Runs = Backbone.Collection.extend({
         missingDistance = [],
         done = new Promise(function(resolve) {
           me.each(function(r) {
-            if (r.get('distance') === undefined) {
+            if (r.get('distance') === null) {
               missingDistance.push({
                 id: r.get('_id'),
                 rev: r.get('_rev')
