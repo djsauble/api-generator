@@ -29,7 +29,7 @@ $(function() {
   });
 });
 
-},{"./models/runs":4,"./router":5,"backbone":18,"jquery":27}],2:[function(require,module,exports){
+},{"./models/runs":4,"./router":5,"backbone":20,"jquery":30}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (doc) {
@@ -154,7 +154,7 @@ var Run = Backbone.Model.extend({
 
 module.exports = Run;
 
-},{"backbone":18}],4:[function(require,module,exports){
+},{"backbone":20}],4:[function(require,module,exports){
 var _ = require('underscore');
 var PouchDB = require('pouchdb');
 var Backbone = require('backbone');
@@ -253,7 +253,7 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":18,"backbone-pouch":17,"pouchdb":34,"underscore":40}],5:[function(require,module,exports){
+},{"../helpers":2,"./run":3,"backbone":20,"backbone-pouch":19,"pouchdb":37,"underscore":43}],5:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -322,7 +322,7 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/app/app":6,"./views/dashboard/dashboard":8,"./views/goal/goal":15,"backbone":18,"jquery":27}],6:[function(require,module,exports){
+},{"./views/app/app":6,"./views/dashboard/dashboard":8,"./views/goal/goal":17,"backbone":20,"jquery":30}],6:[function(require,module,exports){
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
 
@@ -363,7 +363,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./code":7,"backbone":18}],7:[function(require,module,exports){
+},{"./code":7,"backbone":20}],7:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -464,7 +464,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":18,"underscore":40}],8:[function(require,module,exports){
+},{"backbone":20,"underscore":43}],8:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
@@ -521,7 +521,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./footer":9,"./hero":10,"./viewer":14,"backbone":18,"underscore":40}],9:[function(require,module,exports){
+},{"./footer":9,"./hero":12,"./viewer":16,"backbone":20,"underscore":43}],9:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -538,94 +538,135 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":18}],10:[function(require,module,exports){
+},{"backbone":20}],10:[function(require,module,exports){
+/**
+ * Given an array of timeseries data ordered from oldest to
+ * newest, aggregate the sum of X periods of Y milliseconds 
+ * each, ending at the date given.
+ *
+ * Series data is expected to be an array of objects of the
+ * following format:
+ *
+ * {
+ *   timestamp: Date,
+ *   value: Number
+ * }
+ *
+ * The algorithm is weighted toward sums that favor the end of
+ * the series array (most recent values), as it iterates from 
+ * end to start.
+ */
+var aggregate = function(endDate, numPeriods, periodDurationInMs, series) {
+  var iterator = new Date(endDate.getTime() - periodDurationInMs),
+      sumByPeriod = [],
+      obj = {
+        period: iterator,
+        sum: 0
+      },
+      point,
+      t;
+
+  for (var i = series.length - 1; i >= 0; --i) {
+    point = series[i];
+    t = point.timestamp;
+
+    // Skip runs that are after the ending date
+    if (t >= endDate) {
+      continue;
+    }
+
+    // Skip runs older than the cutoff
+    if (t < endDate - (periodDurationInMs * numPeriods)) {
+      break;
+    }
+
+    // Account for periods with no data at all
+    while (t < iterator) {
+      iterator = new Date(iterator.getTime() - periodDurationInMs);
+      sumByPeriod.unshift(obj);
+      obj = {
+        period: iterator,
+        sum: 0
+      };
+    }
+
+    // Add value to the week object
+    obj.sum += point.value;
+  }
+  sumByPeriod.unshift(obj);
+
+  return sumByPeriod;
+};
+
+module.exports = aggregate;
+
+},{}],11:[function(require,module,exports){
+/**
+ * Given an array of timeseries data ordered from oldest to
+ * newest, return the sum of the values between the start and
+ * end dates (inclusive).
+ *
+ * If either startDate or endDate is undefined, the sum is
+ * calculated to the start or end of the series, respectively.
+ *
+ * Series data is expected to be an array of objects of the
+ * following format:
+ *
+ * {
+ *   timestamp: Date,
+ *   value: Number
+ * }
+ *
+ * The algorithm is weighted toward sums that favor the end of
+ * the series array (most recent values), as it iterates from 
+ * end to start.
+ */
+var sum = function(startDate, endDate, series) {
+  var sum = 0, point, i, t;
+
+  for (i = series.length - 1; i >= 0; --i) {
+    point = series[i];
+    t = point.timestamp;
+
+    // Interval check
+    if (endDate) {
+      if (t >= startDate && t < endDate) {
+        sum += point.value;
+      }
+    }
+    else {
+      if (t >= startDate) {
+        sum += point.value;
+      }
+    }
+
+    // Break early if possible
+    if (t < startDate) {
+      break;
+    }
+  }
+
+  return sum;
+};
+
+module.exports = sum;
+
+},{}],12:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var regression = require('regression');
 var DateNames = require('date-names');
+var sum = require('./helpers/timeseries-sum');
+var aggregate = require('./helpers/timeseries-aggregate');
+var round = require('float').round;
 
 var View = Backbone.View.extend({
   className: "hero dark row",
 
   initialize: function(options) {
 
-    /**
-     * Helper methods
-     */
-
-    // Get the distance run in the given interval (to present, if only one argument given)
-    this.getDistance = function(start, end) {
-      var distance = 0,
-          run, t;
-
-      for (var i = options.data.length - 1; i >= 0; --i) {
-        run = options.data.at(i);
-        t = run.get('timestamp');
-
-        // Interval check
-        if (end) {
-          if (t >= start && t < end) {
-            distance += run.getMileage();
-          }
-        }
-        else {
-          if (t >= start) {
-            distance += run.getMileage();
-          }
-        }
-
-        // Break early if possible
-        if (t < start) {
-          break;
-        }
-      }
-
-      return Math.round(distance * 10) / 10;
-    };
-
-    // Compile run data for a previous number of weeks
-    this.compileWeeklyRuns = function(startOfThisWeek, numberOfWeeks) {
-      var weekIterator = new Date(startOfThisWeek.getTime() - Helpers.WEEK_IN_MS),
-          runsByWeek = [],
-          obj = {
-            weekOf: weekIterator,
-            distance: 0
-          },
-          run,
-          t;
-
-      for (var i = options.data.length - 1; i >= 0; --i) {
-        run = options.data.at(i);
-        t = run.get('timestamp');
-
-        // Skip runs from this week
-        if (t >= startOfThisWeek) {
-          continue;
-        }
-
-        // Skip runs older than the cutoff
-        if (t < startOfThisWeek - (Helpers.WEEK_IN_MS * numberOfWeeks)) {
-          break;
-        }
-
-        // Account for weeks with no runs at all
-        while (t < weekIterator) {
-          weekIterator = new Date(weekIterator.getTime() - Helpers.WEEK_IN_MS);
-          runsByWeek.unshift(obj);
-          obj = {
-            weekOf: weekIterator,
-            distance: 0
-          };
-        }
-
-        // Add distance to the week object
-        obj.distance += run.getMileage();
-      }
-      runsByWeek.unshift(obj);
-
-      return runsByWeek;
-    };
+    this.options = options;
 
     // Display the last day of the given week
     this.renderGoalDate = function(goalAmount, runsByWeek, startOfThisWeek) {
@@ -711,13 +752,13 @@ var View = Backbone.View.extend({
 
       maxDistance = _.max(
         runsByWeek.map(function(w) {
-          return w.distance;
+          return w.sum;
         })
       );
       for (var i = 0; i < runsByWeek.length; ++i) {
-        chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].distance / maxDistance * 100) + "%;'>";
+        chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].sum / maxDistance * 100) + "%;'>";
         if (i == runsByWeek.length - 1) {
-          chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].distance * 100) + "%;'></div>";
+          chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].sum * 100) + "%;'></div>";
         }
         chartHtml += "</div>";
       }
@@ -734,8 +775,14 @@ var View = Backbone.View.extend({
         startOfThisWeek = new Date(startOfToday.getTime() - (Helpers.DAY_IN_MS * startOfToday.getDay())),
         startOfLastWeek = new Date(startOfThisWeek.getTime() - Helpers.WEEK_IN_MS), 
         runsByWeek = [],
-        distanceThisWeek = this.getDistance(startOfThisWeek),
-        distanceLastWeek = this.getDistance(startOfLastWeek, startOfThisWeek),
+        rawData = this.options.data.map(function(r) {
+          return {
+            timestamp: r.get('timestamp'),
+            value: r.getMileage()
+          };
+        }),
+        distanceThisWeek = round(sum(startOfThisWeek, undefined, rawData), 1),
+        distanceLastWeek = round(sum(startOfLastWeek, startOfThisWeek, rawData), 1),
         percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
         goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10,
         remainingThisWeek = Math.round(10 * (goalThisWeek - distanceThisWeek)) / 10,
@@ -756,16 +803,16 @@ var View = Backbone.View.extend({
       trendDescriptionString = "more miles than last week.";
     }
 
-    // Compile run data for the last eight weeks
-    runsByWeek = this.compileWeeklyRuns(startOfThisWeek, trendingWeeks);
+    // Compile run data for the last seven weeks
+    runsByWeek = aggregate(startOfThisWeek, trendingWeeks, Helpers.WEEK_IN_MS, rawData);
 
     // Display the last day of the given week
     goalDateString = this.renderGoalDate(goalAmount, runsByWeek, startOfThisWeek);
 
     // Add the goal for this week
     runsByWeek.push({
-      weekOf: startOfThisWeek,
-      distance: runsByWeek[runsByWeek.length - 1].distance * 1.1
+      period: startOfThisWeek,
+      sum: runsByWeek[runsByWeek.length - 1].sum * 1.1
     });
 
     // Display run data for the last eight weeks
@@ -796,7 +843,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":18,"date-names":20,"regression":36,"underscore":40}],11:[function(require,module,exports){
+},{"../../helpers":2,"./helpers/timeseries-aggregate":10,"./helpers/timeseries-sum":11,"backbone":20,"date-names":22,"float":27,"regression":39,"underscore":43}],13:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -840,7 +887,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":13,"backbone":18}],12:[function(require,module,exports){
+},{"./run":15,"backbone":20}],14:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -1009,7 +1056,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":18,"jquery":27}],13:[function(require,module,exports){
+},{"../../helpers":2,"backbone":20,"jquery":30}],15:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -1069,7 +1116,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":18,"date-names":20}],14:[function(require,module,exports){
+},{"../../helpers":2,"backbone":20,"date-names":22}],16:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -1130,7 +1177,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":11,"./map":12,"backbone":18,"underscore":40}],15:[function(require,module,exports){
+},{"./list":13,"./map":14,"backbone":20,"underscore":43}],17:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -1163,7 +1210,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":18}],16:[function(require,module,exports){
+},{"backbone":20}],18:[function(require,module,exports){
 'use strict';
 
 module.exports = argsArray;
@@ -1183,7 +1230,7 @@ function argsArray(fun) {
     }
   };
 }
-},{}],17:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 /*
  * backbone-pouch
  * http://jo.github.io/backbone-pouch/
@@ -1435,7 +1482,7 @@ function argsArray(fun) {
   };
 }(this));
 
-},{"underscore":40}],18:[function(require,module,exports){
+},{"underscore":43}],20:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -3359,7 +3406,7 @@ function argsArray(fun) {
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":27,"underscore":40}],19:[function(require,module,exports){
+},{"jquery":30,"underscore":43}],21:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -3372,11 +3419,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],20:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":19}],21:[function(require,module,exports){
+},{"./en":21}],23:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -3546,7 +3593,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":22}],22:[function(require,module,exports){
+},{"./debug":24}],24:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -3745,7 +3792,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":30}],23:[function(require,module,exports){
+},{"ms":33}],25:[function(require,module,exports){
 (function (root, factory) {
   /* istanbul ignore next */
   if (typeof define === 'function' && define.amd) {
@@ -3963,7 +4010,7 @@ function coerce(val) {
   return PromisePool
 })
 
-},{}],24:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4267,7 +4314,61 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],25:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
+/**
+ * Credit: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
+ */
+ var decimalAdjust = function(type, value, exp) {
+  value = value || 0;
+  exp = exp === undefined ? -2 : -Math.abs(exp);
+  // If the exp is undefined or zero...
+  if (typeof exp === 'undefined' || +exp === 0) {
+    return Math[type](value);
+  }
+  value = +value;
+  exp = +exp;
+  // If the value is not a number or the exp is not an integer...
+  if (isNaN(value) || !(typeof exp === 'number' && exp % 1 === 0)) {
+    return NaN;
+  }
+  // Shift
+  value = value.toString().split('e');
+  value = Math[type](+(value[0] + 'e' + (value[1] ? (+value[1] - exp) : -exp)));
+  // Shift back
+  value = value.toString().split('e');
+  return +(value[0] + 'e' + (value[1] ? (+value[1] + exp) : exp));
+};
+
+var round = function(v, d) {
+  return decimalAdjust('round', v, d);
+};
+
+module.exports = {
+  round: round,
+  floor: function(v, d) {
+    return decimalAdjust('floor', v, d);
+  },
+  ceil: function(v, d) {
+    return decimalAdjust('ceil', v, d);
+  },
+  equals: function(a, b, d) {
+    return round(a, d) === round(b, d);
+  },
+  lessThan: function(a, b, d) {
+    return round(a, d) < round(b, d);
+  },
+  lessThanOrEquals: function(a, b, d) {
+    return round(a, d) <= round(b, d);
+  },
+  greaterThan: function(a, b, d) {
+    return round(a, d) > round(b, d);
+  },
+  greaterThanOrEquals: function(a, b, d) {
+    return round(a, d) >= round(b, d);
+  }
+};
+
+},{}],28:[function(require,module,exports){
 (function (global){
 'use strict';
 var Mutation = global.MutationObserver || global.WebKitMutationObserver;
@@ -4340,7 +4441,7 @@ function immediate(task) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],26:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -4365,7 +4466,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],27:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -14441,7 +14542,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],28:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 (function() { 
 
   var slice   = Array.prototype.slice,
@@ -14470,7 +14571,7 @@ return jQuery;
   this.extend = extend;
 
 }).call(this);
-},{}],29:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 'use strict';
 var immediate = require('immediate');
 
@@ -14725,7 +14826,7 @@ function race(iterable) {
   }
 }
 
-},{"immediate":25}],30:[function(require,module,exports){
+},{"immediate":28}],33:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -14852,7 +14953,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],31:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 'use strict';
 
 var MIN_MAGNITUDE = -324; // verified by -Number.MIN_VALUE
@@ -15207,7 +15308,7 @@ function numToIndexableString(num) {
   return result;
 }
 
-},{"./utils":32}],32:[function(require,module,exports){
+},{"./utils":35}],35:[function(require,module,exports){
 'use strict';
 
 function pad(str, padWith, upToLength) {
@@ -15278,7 +15379,7 @@ exports.intToDecimalForm = function (int) {
 
   return result;
 };
-},{}],33:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 'use strict';
 exports.Map = LazyMap; // TODO: use ES6 map
 exports.Set = LazySet; // TODO: use ES6 set
@@ -15349,7 +15450,7 @@ LazySet.prototype.delete = function (key) {
   return this.store.delete(key);
 };
 
-},{}],34:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 (function (process,global){
 'use strict';
 
@@ -26040,7 +26141,7 @@ PouchDB.plugin(IDBPouch)
 
 module.exports = PouchDB;
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":35,"argsarray":16,"debug":21,"es6-promise-pool":23,"events":24,"inherits":26,"js-extend":28,"lie":29,"pouchdb-collate":31,"pouchdb-collections":33,"scope-eval":38,"spark-md5":39,"vuvuzela":41}],35:[function(require,module,exports){
+},{"_process":38,"argsarray":18,"debug":23,"es6-promise-pool":25,"events":26,"inherits":29,"js-extend":31,"lie":32,"pouchdb-collate":34,"pouchdb-collections":36,"scope-eval":41,"spark-md5":42,"vuvuzela":44}],38:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -26161,9 +26262,9 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],36:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":37}],37:[function(require,module,exports){
+},{"./src/regression":40}],40:[function(require,module,exports){
 /**
 * @license
 *
@@ -26413,7 +26514,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],38:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 // Generated by CoffeeScript 1.9.2
 (function() {
   var hasProp = {}.hasOwnProperty,
@@ -26437,7 +26538,7 @@ if (typeof exports !== 'undefined') {
 
 }).call(this);
 
-},{}],39:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 (function (factory) {
     if (typeof exports === 'object') {
         // Node/CommonJS
@@ -27142,7 +27243,7 @@ if (typeof exports !== 'undefined') {
     return SparkMD5;
 }));
 
-},{}],40:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -28692,7 +28793,7 @@ if (typeof exports !== 'undefined') {
   }
 }.call(this));
 
-},{}],41:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 'use strict';
 
 /**

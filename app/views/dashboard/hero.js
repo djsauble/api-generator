@@ -3,88 +3,16 @@ var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var regression = require('regression');
 var DateNames = require('date-names');
+var sum = require('./helpers/timeseries-sum');
+var aggregate = require('./helpers/timeseries-aggregate');
+var round = require('float').round;
 
 var View = Backbone.View.extend({
   className: "hero dark row",
 
   initialize: function(options) {
 
-    /**
-     * Helper methods
-     */
-
-    // Get the distance run in the given interval (to present, if only one argument given)
-    this.getDistance = function(start, end) {
-      var distance = 0,
-          run, t;
-
-      for (var i = options.data.length - 1; i >= 0; --i) {
-        run = options.data.at(i);
-        t = run.get('timestamp');
-
-        // Interval check
-        if (end) {
-          if (t >= start && t < end) {
-            distance += run.getMileage();
-          }
-        }
-        else {
-          if (t >= start) {
-            distance += run.getMileage();
-          }
-        }
-
-        // Break early if possible
-        if (t < start) {
-          break;
-        }
-      }
-
-      return Math.round(distance * 10) / 10;
-    };
-
-    // Compile run data for a previous number of weeks
-    this.compileWeeklyRuns = function(startOfThisWeek, numberOfWeeks) {
-      var weekIterator = new Date(startOfThisWeek.getTime() - Helpers.WEEK_IN_MS),
-          runsByWeek = [],
-          obj = {
-            weekOf: weekIterator,
-            distance: 0
-          },
-          run,
-          t;
-
-      for (var i = options.data.length - 1; i >= 0; --i) {
-        run = options.data.at(i);
-        t = run.get('timestamp');
-
-        // Skip runs from this week
-        if (t >= startOfThisWeek) {
-          continue;
-        }
-
-        // Skip runs older than the cutoff
-        if (t < startOfThisWeek - (Helpers.WEEK_IN_MS * numberOfWeeks)) {
-          break;
-        }
-
-        // Account for weeks with no runs at all
-        while (t < weekIterator) {
-          weekIterator = new Date(weekIterator.getTime() - Helpers.WEEK_IN_MS);
-          runsByWeek.unshift(obj);
-          obj = {
-            weekOf: weekIterator,
-            distance: 0
-          };
-        }
-
-        // Add distance to the week object
-        obj.distance += run.getMileage();
-      }
-      runsByWeek.unshift(obj);
-
-      return runsByWeek;
-    };
+    this.options = options;
 
     // Display the last day of the given week
     this.renderGoalDate = function(goalAmount, runsByWeek, startOfThisWeek) {
@@ -170,13 +98,13 @@ var View = Backbone.View.extend({
 
       maxDistance = _.max(
         runsByWeek.map(function(w) {
-          return w.distance;
+          return w.sum;
         })
       );
       for (var i = 0; i < runsByWeek.length; ++i) {
-        chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].distance / maxDistance * 100) + "%;'>";
+        chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].sum / maxDistance * 100) + "%;'>";
         if (i == runsByWeek.length - 1) {
-          chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].distance * 100) + "%;'></div>";
+          chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].sum * 100) + "%;'></div>";
         }
         chartHtml += "</div>";
       }
@@ -193,8 +121,14 @@ var View = Backbone.View.extend({
         startOfThisWeek = new Date(startOfToday.getTime() - (Helpers.DAY_IN_MS * startOfToday.getDay())),
         startOfLastWeek = new Date(startOfThisWeek.getTime() - Helpers.WEEK_IN_MS), 
         runsByWeek = [],
-        distanceThisWeek = this.getDistance(startOfThisWeek),
-        distanceLastWeek = this.getDistance(startOfLastWeek, startOfThisWeek),
+        rawData = this.options.data.map(function(r) {
+          return {
+            timestamp: r.get('timestamp'),
+            value: r.getMileage()
+          };
+        }),
+        distanceThisWeek = round(sum(startOfThisWeek, undefined, rawData), 1),
+        distanceLastWeek = round(sum(startOfLastWeek, startOfThisWeek, rawData), 1),
         percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
         goalThisWeek = Math.round(10 * 1.1 * distanceLastWeek) / 10,
         remainingThisWeek = Math.round(10 * (goalThisWeek - distanceThisWeek)) / 10,
@@ -215,16 +149,16 @@ var View = Backbone.View.extend({
       trendDescriptionString = "more miles than last week.";
     }
 
-    // Compile run data for the last eight weeks
-    runsByWeek = this.compileWeeklyRuns(startOfThisWeek, trendingWeeks);
+    // Compile run data for the last seven weeks
+    runsByWeek = aggregate(startOfThisWeek, trendingWeeks, Helpers.WEEK_IN_MS, rawData);
 
     // Display the last day of the given week
     goalDateString = this.renderGoalDate(goalAmount, runsByWeek, startOfThisWeek);
 
     // Add the goal for this week
     runsByWeek.push({
-      weekOf: startOfThisWeek,
-      distance: runsByWeek[runsByWeek.length - 1].distance * 1.1
+      period: startOfThisWeek,
+      sum: runsByWeek[runsByWeek.length - 1].sum * 1.1
     });
 
     // Display run data for the last eight weeks
