@@ -21,7 +21,7 @@ var Router = Backbone.Router.extend({
       // Remove the loading indicator
       $(".loading").remove();
 
-      if (options.data.length == 0) {
+      if (options.data.length === 0) {
         // Prompt people to install the app, if they haven't already
         this.navigate("app");
         this.switchView(AppView);

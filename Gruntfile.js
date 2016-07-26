@@ -22,12 +22,6 @@ module.exports = function(grunt) {
         ' license */'
     },
 
-    // Specify which files to send through JSHint
-    lint: {
-      all: ['./grunt.js', './src/**/*.js',
-        './test-src/test.js']
-    },
-
     // JSHint configuration options.
     jshint: {
       all: ['Gruntfile.js', 'app.js', 'app/**/*.js', 'test/**/*.js']
@@ -40,23 +34,13 @@ module.exports = function(grunt) {
 
     // Configuration for browserify
     browserify: {
-      "public/js/bundle.js": {
-        requires: ['traverse'],
-        entries: ['app/app.js'],
-        prepend: ['<banner:meta.banner>'],
-        append: [],
-        hook: function() {
-          // bundle is passed in as first param
-        }
+      app: {
+        src: 'app/app.js',
+        dest: 'public/js/bundle.js'
       },
-      "public/js/bundle2.js": {
-        requires: ['traverse'],
-        entries: ['app/landing.js'],
-        prepend: ['<banner:meta.banner>'],
-        append: [],
-        hook: function() {
-          // bundle is passed in as first param
-        }
+      login: {
+        src: 'app/landing.js',
+        dest: 'public/js/bundle2.js'
       }
     }
   });

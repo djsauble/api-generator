@@ -39,8 +39,8 @@ var View = Backbone.View.extend({
 
       for (var i in data) {
         coords.push(new google.maps.LatLng({
-          lat: parseFloat(data[i]["latitude"]),
-          lng: parseFloat(data[i]["longitude"])
+          lat: parseFloat(data[i].latitude),
+          lng: parseFloat(data[i].longitude)
         }));
       }
 
@@ -86,7 +86,7 @@ var View = Backbone.View.extend({
     this.fitMap = function() {
       google.maps.event.trigger(me.mapReference, "resize");
       me.mapReference.fitBounds(me.bounds);
-    },
+    };
 
     /**
      * Events
@@ -137,7 +137,7 @@ var View = Backbone.View.extend({
       // Animate the route
       var draw = [];
       var timer = me.startAnimation(function() {
-        if (coords.length == 0) {
+        if (coords.length === 0) {
           me.stopAnimation(timer);
           return;
         }

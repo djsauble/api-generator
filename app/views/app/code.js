@@ -20,12 +20,12 @@ var View = Backbone.View.extend({
     };
     this.ws.onmessage = function(data, flags) {
       // Make sure this is something we know how to parse
-      var message
+      var message;
       try {
         message = JSON.parse(data.data);
       } catch(err) {
         // Do nothing
-        return
+        return;
       }
 
       // Take appropriate action
@@ -65,16 +65,16 @@ var View = Backbone.View.extend({
     };
   },
 
-  template: _.template(`
-    <% if (token) { %>
-      <h1><code class='security_code'><%= token %></code></h1>
-    <% } else { %>
-      <h2 class='success'>
-        <i class='fa fa-check-circle'></i> Connected to device.
-      </h2>
-    <% } %>
-    <a href='#'>Go to the dashboard</a>
-  `),
+  template: _.template(
+    "<% if (token) { %>" +
+    "<h1><code class='security_code'><%= token %></code></h1>" +
+    "<% } else { %>" +
+    "<h2 class='success'>" +
+    "<i class='fa fa-check-circle'></i> Connected to device." +
+    "</h2>" +
+    "<% } %>" +
+    "<a href='#'>Go to the dashboard</a>"
+  ),
 
   render: function() {
 

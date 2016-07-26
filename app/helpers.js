@@ -3,7 +3,7 @@ var Helpers = {
   getRun: function (doc) {
     return JSON.parse(
        atob(
-         doc._attachments["data.json"]["data"]
+         doc._attachments["data.json"].data
        )
      ).map(function (p) {
        p.latitude = parseFloat(p.latitude);

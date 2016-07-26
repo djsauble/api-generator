@@ -5,7 +5,7 @@ var View = Backbone.View.extend({
   className: "screen column",
 
   initialize: function() {
-    this.securityCode = new SecurityCode;
+    this.securityCode = new SecurityCode();
   },
 
   render: function() {

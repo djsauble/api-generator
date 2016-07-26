@@ -95,7 +95,7 @@ function lessThan3(currentMileage) {
   return {
     milesPerWeek: 3,
     weeksAtThisLevel: 1
-  }
+  };
 }
 
 // Increase weekly mileage by 1 until hitting 10 mpw
@@ -103,7 +103,7 @@ function lessThan10(currentMileage) {
   return {
     milesPerWeek: currentMileage + 1,
     weeksAtThisLevel: 1
-  }
+  };
 }
 
 // Increase weekly mileage by 10% per week until hitting 20 mpw
@@ -111,7 +111,7 @@ function lessThan20(currentMileage) {
   return {
     milesPerWeek: currentMileage * 1.1,
     weeksAtThisLevel: 1
-  }
+  };
 }
 
 // Increase weekly mileage at increasingly slow intervals after 20 mpw
@@ -119,5 +119,5 @@ function moreThan20(currentMileage) {
   return {
     milesPerWeek: currentMileage * 1.1,
     weeksAtThisLevel: 9.32002 * Math.log(0.0556632 * currentMileage)
-  }
+  };
 }

@@ -108,7 +108,7 @@ var View = Backbone.View.extend({
       // Extrapolate (no more than a year) into the future to determine 
       // when we will achieve our goal
       weeksUntilGoal = 0;
-      for (var i = 8; i < 60; ++i) {
+      for (i = 8; i < 60; ++i) {
         if (actualTrend[0] + actualTrend[1] * i + actualTrend[2] * Math.pow(i, 2) >= goalAmount) {
           break;
         }
@@ -117,7 +117,7 @@ var View = Backbone.View.extend({
 
       // Display the last day of the given week
       weekIterator = new Date(startOfThisWeek.getTime() + (Helpers.DAY_IN_MS * 6));
-      for (var i = 0; i < weeksUntilGoal; ++i) {
+      for (i = 0; i < weeksUntilGoal; ++i) {
         weekIterator = new Date(weekIterator.getTime() + Helpers.WEEK_IN_MS);
       }
       if (weeksUntilGoal >= 52) {
@@ -147,8 +147,8 @@ var View = Backbone.View.extend({
         // when we will achieve our goal
         weeksUntilGoal = 0;
         distance = runsByWeek[runsByWeek.length - 1].distance;
-        for (var i = runsByWeek.length; i < 52 + runsByWeek.length; ++i) {
-          var distance = distance * rateOfChange;
+        for (i = runsByWeek.length; i < 52 + runsByWeek.length; ++i) {
+          distance = distance * rateOfChange;
           if (distance >= goalAmount) {
             break;
           }
@@ -157,7 +157,7 @@ var View = Backbone.View.extend({
 
         // Display the last day of the given week
         weekIterator = new Date(startOfThisWeek.getTime() + (Helpers.DAY_IN_MS * 6));
-        for (var i = 0; i < weeksUntilGoal; ++i) {
+        for (i = 0; i < weeksUntilGoal; ++i) {
           weekIterator = new Date(weekIterator.getTime() + Helpers.WEEK_IN_MS);
         }
         return DateNames.months[weekIterator.getMonth()] + " " + weekIterator.getDate();
@@ -174,7 +174,7 @@ var View = Backbone.View.extend({
         })
       );
       for (var i = 0; i < runsByWeek.length; ++i) {
-        chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].distance / maxDistance * 100) + "%;'>"
+        chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].distance / maxDistance * 100) + "%;'>";
         if (i == runsByWeek.length - 1) {
           chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].distance * 100) + "%;'></div>";
         }

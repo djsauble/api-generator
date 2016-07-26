@@ -66,7 +66,7 @@ app.put('/api/:database_id', function(req, res) {
     runs.insert(
       {
         created_by: user,
-        timestamp: (new Date).toString()
+        timestamp: (new Date()).toString()
       },
       runId,
       function(err, body, header) {
@@ -85,7 +85,7 @@ app.put('/api/:database_id', function(req, res) {
               console.log("Run uploaded");
             }
           }
-        )
+        );
       }
     );
   });
@@ -144,11 +144,13 @@ app.ws('/ws', function(ws, req) {
       console.log("Unknown websockets request");
     }
   });
-  ws.on('close', () => console.log('Client disconnected'));
+  ws.on('close', function() {
+    console.log('Client disconnected');
+  });
 });
 
 app.listen(app.get('port'), function() {
-  console.log(`Listening on port ${app.get('port')}`);
+  console.log("Listening on port " + app.get('port'));
 });
 
 // Request an auth token (for connecting a mobile device)
@@ -178,7 +180,7 @@ function getToken(ws, user, token) {
         ws.send('{error: "Could not create token"}');
         return;
       }
-      console.log(`App token set (expires ${expires})`);
+      console.log("App token set (expires " + expires);
       ws.send(JSON.stringify({
         token: appToken,
         expires: expires
@@ -202,7 +204,7 @@ function refreshToken(ws, user, userToken, oldToken) {
     tokens.get(oldToken, function(err, tokenDoc) {
       if (!err) {
         tokens.destroy(oldToken, tokenDoc._rev, function() {
-          console.log('Old authentication token has been deleted')
+          console.log('Old authentication token has been deleted');
 
           // Create a new token
           getToken(ws, user, userToken);
@@ -230,7 +232,7 @@ function useToken(ws, token) {
         return;
       }
 
-      ws.send(`${process.env.CALLBACK_URL}/api/${body.run_database}?user=${body._id}&token=${body.user_token}`)
+      ws.send(process.env.CALLBACK_URL + "/api/" + body.run_database + "?user=" + body._id + "&token=" + body.user_token);
 
       // Delete the token doc
       tokens.destroy(token, tokenDoc._rev, function() {
@@ -265,13 +267,13 @@ passport.deserializeUser(function(obj, done) {
 passport.use(new StravaStrategy({
     clientID: '12528',
     clientSecret: '06b9e1c06bb52c17a3ce177293400e539accda7a',
-    callbackURL: `${app.get('hostname')}/auth/strava/callback`,
+    callbackURL: app.get('hostname') + "/auth/strava/callback",
   },
   function(accessToken, refreshToken, profile, done) {
     // Create the user (if it doesn't already exist)
     createUser(profile).then(function() {
       // Fetch the user and return it
-      var users = nano.db.use('users')
+      var users = nano.db.use('users');
       users.get(profile.emails[0].value, function(err, body) {
         if (!err) { // User exists, return it
           return done(null, body);
@@ -319,7 +321,7 @@ function createUser(user) {
       if (err) { // No, create it and return the new user
 
         // Calculate the run database name
-        var databaseName = `z${uuid.v4()}`;
+        var databaseName = "z" + uuid.v4();
 
         // Calculate the user token
         var userToken = uuid.v4();
