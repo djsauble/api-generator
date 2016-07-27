@@ -1,6 +1,7 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var $ = require('jquery');
 var Cookie = require('tiny-cookie');
+var Training = require('base-building');
 
 $(function() {
   // Configure events
@@ -46,17 +47,21 @@ function updateGoal() {
 
 // Update the time estimate
 function updateEstimate() {
-  document.querySelector('#estimate').value = makeWeeksHuman(
-    weeksToGoal(
+  document.querySelector('#estimate').value = Training.makeWeeksHuman(
+    Training.weeksToGoal(
       parseFloat(document.querySelector('#todayOutput').value),
       parseFloat(document.querySelector('#goalOutput').value)
     )
   );
 }
 
+},{"base-building":2,"jquery":3,"tiny-cookie":4}],2:[function(require,module,exports){
 // Convert weeks to a more appropriate timescale
 function makeWeeksHuman(weeks) {
-  if (weeks < 14) {
+  if (Math.round(weeks) === 1) {
+    return '1 week';
+  }
+  if (weeks < 13.035) {
     return Math.round(weeks) + ' weeks';
   }
   else if (weeks < 52) {
@@ -67,25 +72,30 @@ function makeWeeksHuman(weeks) {
   }
 }
 
+// How many weeks to train at a given mileage before adding more?
+function weeksAtMileage(currentMileage) {
+  var func;
+
+  // Find the right training level for the current mileage
+  if (currentMileage < 3) { func = lessThan3; }
+  else if (currentMileage < 10) { func = lessThan10; }
+  else if (currentMileage < 20) { func = lessThan20; }
+  else { func = moreThan20; }
+
+  // Simulate the current training level
+  return func(currentMileage);
+}
+
 // Given a starting and ending mileage, calculate training time
-function weeksToGoal(startMileage, goalMileage) {
-  var currentMileage = startMileage;
+function weeksToGoal(currentMileage, goalMileage) {
   var weekCount = 0;
 
   while (currentMileage < goalMileage) {
 
-    var func, state;
-
-    // Find the right training level for the current mileage
-    if (currentMileage < 3) { func = lessThan3; }
-    else if (currentMileage < 10) { func = lessThan10; }
-    else if (currentMileage < 20) { func = lessThan20; }
-    else { func = moreThan20; }
-
     // Simulate the current training level
-    state = func(currentMileage);
+    var state = weeksAtMileage(currentMileage);
     weekCount += state.weeksAtThisLevel;
-    currentMileage = state.milesPerWeek;
+    currentMileage = state.milesAtNextLevel;
   }
 
   return weekCount;
@@ -94,7 +104,7 @@ function weeksToGoal(startMileage, goalMileage) {
 // Never prescribe weekly mileage lower than 3
 function lessThan3(currentMileage) {
   return {
-    milesPerWeek: 3,
+    milesAtNextLevel: 3,
     weeksAtThisLevel: 1
   };
 }
@@ -102,7 +112,7 @@ function lessThan3(currentMileage) {
 // Increase weekly mileage by 1 until hitting 10 mpw
 function lessThan10(currentMileage) {
   return {
-    milesPerWeek: currentMileage + 1,
+    milesAtNextLevel: currentMileage + 1,
     weeksAtThisLevel: 1
   };
 }
@@ -110,7 +120,7 @@ function lessThan10(currentMileage) {
 // Increase weekly mileage by 10% per week until hitting 20 mpw
 function lessThan20(currentMileage) {
   return {
-    milesPerWeek: currentMileage * 1.1,
+    milesAtNextLevel: currentMileage * 1.1,
     weeksAtThisLevel: 1
   };
 }
@@ -118,12 +128,18 @@ function lessThan20(currentMileage) {
 // Increase weekly mileage at increasingly slow intervals after 20 mpw
 function moreThan20(currentMileage) {
   return {
-    milesPerWeek: currentMileage * 1.1,
+    milesAtNextLevel: currentMileage * 1.1,
     weeksAtThisLevel: 9.32002 * Math.log(0.0556632 * currentMileage)
   };
 }
 
-},{"jquery":2,"tiny-cookie":3}],2:[function(require,module,exports){
+module.exports = {
+  weeksToGoal: weeksToGoal,
+  weeksAtMileage: weeksAtMileage,
+  makeWeeksHuman: makeWeeksHuman
+};
+
+},{}],3:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -10199,7 +10215,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 /*!
  * tiny-cookie - A tiny cookie manipulation plugin
  * https://github.com/Alex1990/tiny-cookie
