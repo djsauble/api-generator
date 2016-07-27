@@ -10,83 +10,11 @@ var View = Backbone.View.extend({
     /**
      * Instance data
      */
+
     this.options = options;
     this.overlays = [];
     this.timers = [];
     this.bounds = null;
-
-    /**
-     * Helper methods
-     */
-
-    // Add an overlay to the map
-    this.addOverlay = function(overlay) {
-      overlay.setMap(this.mapReference);
-      this.overlays.push(overlay);
-    };
-
-    // Remove all overlays from the map
-    this.removeAllOverlays = function() {
-      for (var i in this.overlays) {
-        this.overlays[i].setMap(null);
-      }
-      this.overlays = [];
-    };
-
-    // Get an array of coordinates
-    this.getCoordinates = function(data) {
-      var coords = [];
-
-      for (var i in data) {
-        coords.push(new google.maps.LatLng({
-          lat: parseFloat(data[i].latitude),
-          lng: parseFloat(data[i].longitude)
-        }));
-      }
-
-      return coords;
-    };
-
-    // Get the boundaries of the map
-    this.getBoundaries = function(coords) {
-      var bounds = new google.maps.LatLngBounds();
-
-      for (var i in coords) {
-        bounds.extend(coords[i]);
-      }
-
-      return bounds;
-    };
-
-    // Animate a function
-    this.startAnimation = function(expression, interval) {
-      var timerId = setInterval(expression, interval);
-      this.timers.push(timerId);
-      return timerId;
-    };
-
-    // Stop a specific animation
-    this.stopAnimation = function(id) {
-      var index = this.timers.indexOf(id);
-      if (index >= 0) {
-        clearInterval(this.timers[index]);
-      }
-      this.timers.splice(index, 1);
-    };
-
-    // Stop animations
-    this.stopAnimations = function() {
-      for (var i in this.timers) {
-        clearInterval(this.timers[i]);
-      }
-      this.timers = [];
-    };
-
-    var me = this;
-    this.fitMap = function() {
-      google.maps.event.trigger(me.mapReference, "resize");
-      me.mapReference.fitBounds(me.bounds);
-    };
 
     /**
      * Events
@@ -94,6 +22,12 @@ var View = Backbone.View.extend({
 
     // Resize the map whenever the window resizes
     $(window).bind("resize", this.fitMap);
+
+    var me = this;
+    this.fitMap = function() {
+      google.maps.event.trigger(me.mapReference, "resize");
+      me.mapReference.fitBounds(me.bounds);
+    };
   },
 
   render: function() {
@@ -161,6 +95,69 @@ var View = Backbone.View.extend({
         me.addOverlay(path);
       }, 5);
     });
+  },
+
+  // Add an overlay to the map
+  addOverlay: function(overlay) {
+    overlay.setMap(this.mapReference);
+    this.overlays.push(overlay);
+  },
+
+  // Remove all overlays from the map
+  removeAllOverlays: function() {
+    for (var i in this.overlays) {
+      this.overlays[i].setMap(null);
+    }
+    this.overlays = [];
+  },
+
+  // Get an array of coordinates
+  getCoordinates: function(data) {
+    var coords = [];
+
+    for (var i in data) {
+      coords.push(new google.maps.LatLng({
+        lat: parseFloat(data[i].latitude),
+        lng: parseFloat(data[i].longitude)
+      }));
+    }
+
+    return coords;
+  },
+
+  // Get the boundaries of the map
+  getBoundaries: function(coords) {
+    var bounds = new google.maps.LatLngBounds();
+
+    for (var i in coords) {
+      bounds.extend(coords[i]);
+    }
+
+    return bounds;
+  },
+
+  // Animate a function
+  startAnimation: function(expression, interval) {
+    var timerId = setInterval(expression, interval);
+    this.timers.push(timerId);
+    return timerId;
+  },
+
+  // Stop a specific animation
+  stopAnimation: function(id) {
+    var index = this.timers.indexOf(id);
+    if (index >= 0) {
+      clearInterval(this.timers[index]);
+    }
+    this.timers.splice(index, 1);
+  },
+
+  // Stop animations
+  stopAnimations: function() {
+    for (var i in this.timers) {
+      clearInterval(this.timers[i]);
+    }
+    this.timers = [];
   }
 });
 
