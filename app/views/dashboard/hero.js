@@ -2,10 +2,10 @@ var _ = require('underscore');
 var Backbone = require('backbone');
 var regression = require('regression');
 var DateNames = require('date-names');
-var sum = require('./helpers/timeseries-sum');
-var aggregate = require('./helpers/timeseries-aggregate');
-var predict = require('./helpers/date-prediction');
-var DateRound = require('./helpers/date-round');
+var sum = require('timeseries-sum');
+var DateAggregate = require('timeseries-aggregate');
+var predict = require('date-prediction');
+var DateRound = require('date-round');
 var round = require('float').round;
 
 var View = Backbone.View.extend({
@@ -49,7 +49,7 @@ var View = Backbone.View.extend({
     }
 
     // Compile run data for the last seven weeks
-    runsByWeek = aggregate(startOfThisWeek, trendingWeeks, DateRound.WEEK_IN_MS, rawData);
+    runsByWeek = DateAggregate.aggregate(startOfThisWeek, trendingWeeks, DateAggregate.WEEK_IN_MS, rawData);
 
     // Display the last day of the given week
     goalDateString = this.getGoalDate(goalAmount, runsByWeek, startOfThisWeek);
