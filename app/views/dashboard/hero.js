@@ -1,6 +1,5 @@
 var _ = require('underscore');
 var Backbone = require('backbone');
-var regression = require('regression');
 var DateNames = require('date-names');
 var sum = require('timeseries-sum');
 var DateAggregate = require('timeseries-aggregate');

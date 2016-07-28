@@ -6,6 +6,9 @@ var uuid = require('uuid');
 var Buffer = require('Buffer');
 var nano = require('nano')(process.env.COUCHDB_DATABASE_URL);
 var SocketServer = require('ws').Server;
+var sum = require('timeseries-sum');
+var DateRound = require('date-round');
+var round = require('float').round;
 
 // Create a server instance
 var app = express();
@@ -35,10 +38,7 @@ app.get('/', ensureAuthenticated, function(req, res) {
   });
 });
 
-app.get('/account', ensureAuthenticated, function(req, res) {
-  res.render('account', { user: req.user });
-});
-
+// Login to the application
 app.get('/login', function(req, res) {
   res.render('login', { user: req.user });
 });
@@ -130,15 +130,17 @@ app.ws('/ws', function(ws, req) {
   console.log('Client connected');
   ws.on('message', function(data, flags) {
     var request = JSON.parse(data);
-    if (request.type == 'use_token') {
-      useToken(ws, request.token);
-    }
-    else if (request.type == 'get_token') {
-      sockets[request.token] = ws;
+    if (request.type == 'get_token') {
       getToken(ws, request.user, request.token);
     }
     else if (request.type == 'refresh_token') {
       refreshToken(ws, request.user, request.user_token, request.old_token);
+    }
+    else if (request.type == 'use_token') {
+      useToken(ws, request.token);
+    }
+    else if (request.type == 'get_weekly_goal') {
+      getWeeklyGoal(ws, request.user, request.token);
     }
     else {
       console.log("Unknown websockets request");
@@ -165,6 +167,9 @@ function getToken(ws, user, token) {
 
     // Generate a unique identifier for the app token
     var appToken = uuid.v4().substr(0, 4);
+
+    // Save the socket for future use
+    sockets[appToken] = ws;
 
     // Generate an expiry time 15 minutes from now
     var expires = (new Date(Date.now() + (1000 * 60 * 15))).toString();
@@ -242,8 +247,52 @@ function useToken(ws, token) {
       });
 
       // Inform the callee that the request has been finished
-      sockets[body.user_token].close();
-      delete sockets[body.user_token];
+      sockets[token].close();
+      delete sockets[token];
+    });
+  });
+}
+
+// Retrieve weekly goal information
+function getWeeklyGoal(ws, user, token) {
+  var users = nano.db.use('users');
+  users.get(user, function(err, body) {
+    // Is this a valid request?
+    if (body.user_token != token) {
+      ws.send('{error: "Invalid request"}');
+      return;
+    }
+
+    // Save the socket for future use
+    sockets[token] = ws;
+
+    // Fetch goal information
+    var runs = nano.db.use(body.run_database);
+    runs.list({include_docs: true}, function(err, body) {
+      if (err) {
+        ws.send('{error: "Could not retrieve runs from the database"}');
+        return;
+      }
+
+      var startOfToday = DateRound.floor(new Date()),
+          startOfThisWeek = DateRound.floor(startOfToday, 'week'),
+          startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'),
+          rawData = body.rows.map(function(r) {
+            return {
+              timestamp: new Date(r.doc.timestamp),
+              value: r.doc.distance / 1609.344
+            };
+          }).sort(function(a,b) {
+            return a.timestamp.getTime() - b.timestamp.getTime();
+          }),
+          distanceThisWeek = round(sum(startOfThisWeek, undefined, rawData), 1),
+          distanceLastWeek = round(sum(startOfLastWeek, startOfThisWeek, rawData), 1),
+          goalThisWeek = round(1.1 * distanceLastWeek, 1);
+
+      ws.send(JSON.stringify({
+        distanceThisWeek: distanceThisWeek,
+        goalThisWeek: goalThisWeek
+      }));
     });
   });
 }
