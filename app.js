@@ -63,29 +63,23 @@ app.put('/api/:database_id', function(req, res) {
 
     // Create the run document
     var runs = nano.db.use(body.run_database);
-    runs.insert(
+    runs.multipart.insert(
       {
         created_by: user,
         timestamp: (new Date()).toString()
       },
+      [
+        {
+          name: 'data.json',
+          data: JSON.stringify(data, null, 2),
+          content_type: 'text/json'
+        }
+      ],
       runId,
-      function(err, body, header) {
-
-        // Insert an attachment
-        runs.attachment.insert(
-          runId,
-          'data.json',
-          JSON.stringify(data, null, 2),
-          'text/json',
-          {
-            rev: body.rev
-          },
-          function(err, body) {
-            if (!err) {
-              console.log("Run uploaded");
-            }
-          }
-        );
+      function(err, body) {
+        if (!err) {
+          console.log("Run uploaded");
+        }
       }
     );
   });
@@ -346,6 +340,8 @@ function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) { return next(); }
   res.redirect('/login');
 }
+
+// Add missing distance data to a document, if needed
 
 // Create a user with their email as the primary identifier (idempotent)
 function createUser(user) {
