@@ -9,6 +9,7 @@ var SocketServer = require('ws').Server;
 var sum = require('timeseries-sum');
 var DateRound = require('date-round');
 var round = require('float').round;
+var Distance = require('compute-distance');
 
 // Create a server instance
 var app = express();
@@ -66,7 +67,8 @@ app.put('/api/:database_id', function(req, res) {
     runs.multipart.insert(
       {
         created_by: user,
-        timestamp: (new Date()).toString()
+        timestamp: (new Date()).toString(),
+        distance: getDistance(data)
       },
       [
         {
@@ -341,7 +343,14 @@ function ensureAuthenticated(req, res, next) {
   res.redirect('/login');
 }
 
-// Add missing distance data to a document, if needed
+// Calculate distance for a run document
+function getDistance(data) {
+  var filtered = Distance.filter(data),
+      points = Distance.map(filtered),
+      distance = Distance.compute(points);
+
+  return distance;
+}
 
 // Create a user with their email as the primary identifier (idempotent)
 function createUser(user) {

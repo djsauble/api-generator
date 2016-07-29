@@ -32,7 +32,7 @@
     "body-parser": "1.15.2",
     "bufferutil": "1.2.1",
     "charset": "^1.0.0",
-    "compute-distance": "0.0.1",
+    "compute-distance": "^0.0.4",
     "cookie-parser": "1.4.3",
     "date-names": "0.1.6",
     "date-prediction": "0.0.3",

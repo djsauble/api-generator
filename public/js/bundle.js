@@ -3166,12 +3166,32 @@ function argsArray(fun) {
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"jquery":31,"underscore":46}],19:[function(require,module,exports){
+(function (global){
+// Get the Google API object, if it exists
+var getGoogleAPI = function (options) {
+  if (options && options.google) {
+    return options.google;
+  }
+  else if (global && global.google) {
+    return global.google;
+  }
+  else if (window && window.google) {
+    return window.google;
+  }
+  else {
+    console.log("Google API object does not exist");
+    console.trace();
+  }
+
+  return undefined;
+};
 
 // Smooth the run (e.g. ignore bouncing GPS tracks)
-var defaultFilter = function (data) {
+var defaultFilter = function (data, options) {
   var accurate = [],
       filtered = [],
-      maxDistance = 20; // Meters
+      maxDistance = 20, // Meters
+      google = getGoogleAPI(options);
 
   // Filter out inaccurate points
   data.forEach(function(e) {
@@ -3211,8 +3231,9 @@ var defaultFilter = function (data) {
 };
 
 // Get an array of coordinates
-var getCoordinates = function (data) {
-  var coords = [];
+var getCoordinates = function (data, options) {
+  var coords = [],
+      google = getGoogleAPI(options);
 
   for (var i in data) {
     coords.push(new google.maps.LatLng({
@@ -3225,7 +3246,9 @@ var getCoordinates = function (data) {
 };
 
 // Get the distance represented by a set of coordinates (meters)
-var computeDistance = function (coords) {
+var computeDistance = function (coords, options) {
+  var google = getGoogleAPI(options);
+
   var distance = 0;
   for (var i = 0; i < coords.length - 1; ++i) {
     distance += google.maps.geometry.spherical.computeDistanceBetween(coords[i], coords[i+1]);
@@ -3239,6 +3262,7 @@ module.exports = {
   computeDistance: computeDistance
 };
 
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],20:[function(require,module,exports){
 "use strict";
 
