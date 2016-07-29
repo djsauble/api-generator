@@ -29,7 +29,7 @@ $(function() {
   });
 });
 
-},{"./models/runs":4,"./router":5,"backbone":18,"jquery":30}],2:[function(require,module,exports){
+},{"./models/runs":4,"./router":5,"backbone":18,"jquery":31}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (doc) {
@@ -44,91 +44,13 @@ var Helpers = {
      });
   },
 
-  // Smooth the run (e.g. ignore bouncing GPS tracks)
-  defaultFilter: function (data) {
-    var accurate = [],
-        filtered = [],
-        maxDistance = 20; // Meters
-
-    // Filter out inaccurate points
-    data.forEach(function(e) {
-      if (parseFloat(e.accuracy) < maxDistance) {
-        accurate.push(e);
-      }
-    });
-
-    // Filter out discontinuities (points that aren't adjacent to any other points)
-    for (var i = 1; i < accurate.length - 1; ++i) {
-      var pt1 = new google.maps.LatLng(
-          {
-            lat: parseFloat(accurate[i-1].latitude),
-            lng: parseFloat(accurate[i-1].longitude)
-          }
-      );
-      var pt2 = new google.maps.LatLng(
-          {
-            lat: parseFloat(accurate[i].latitude),
-            lng: parseFloat(accurate[i].longitude)
-          }
-      );
-      var pt3 = new google.maps.LatLng(
-          {
-            lat: parseFloat(accurate[i+1].latitude),
-            lng: parseFloat(accurate[i+1].longitude)
-          }
-      );
-      var d1 = google.maps.geometry.spherical.computeDistanceBetween(pt1, pt2);
-      var d2 = google.maps.geometry.spherical.computeDistanceBetween(pt2, pt3);
-      if (d1 <= maxDistance && d2 <= maxDistance) {
-        filtered.push(accurate[i]);
-      }
-    }
-
-    return filtered;
-  },
-
-  // Get an array of coordinates
-  getCoordinates: function (data) {
-    var coords = [];
-
-    for (var i in data) {
-      coords.push(new google.maps.LatLng({
-        lat: data[i].latitude,
-        lng: data[i].longitude
-      }));
-    }
-
-    return coords;
-  },
-
-  // Get the distance represented by a set of coordinates (meters)
-  computeDistance: function (coords) {
-    var distance = 0;
-    for (var i = 0; i < coords.length - 1; ++i) {
-      distance += google.maps.geometry.spherical.computeDistanceBetween(coords[i], coords[i+1]);
-    }
-    return distance;
-  },
-
   /**
    * Date functions
    */
 
   // Constants
   DAY_IN_MS: 1000 * 60 * 60 * 24,
-  WEEK_IN_MS: 1000 * 60 * 60 * 24 * 7,
-
-  // Get midnight of the given date
-  getMidnight: function (date) {
-    var startOfDay = new Date(date.getTime());
-
-    startOfDay.setHours(0);
-    startOfDay.setMinutes(0);
-    startOfDay.setSeconds(0);
-    startOfDay.setMilliseconds(0);
-
-    return startOfDay;
-  }
+  WEEK_IN_MS: 1000 * 60 * 60 * 24 * 7
 };
 
 module.exports = Helpers;
@@ -161,6 +83,7 @@ var Backbone = require('backbone');
 var BackbonePouch = require('backbone-pouch');
 var Run = require('./run');
 var Helpers = require('../helpers');
+var Distance = require('compute-distance');
 
 var Runs = Backbone.Collection.extend({
   model: Run,
@@ -229,11 +152,11 @@ var Runs = Backbone.Collection.extend({
               });
               docs.forEach(function(d) {
                 var data = Helpers.getRun(d),
-                    filtered = Helpers.defaultFilter(data),
-                    coords = Helpers.getCoordinates(filtered),
+                    filtered = Distance.filter(data),
+                    coords = Distance.mapToGoogle(filtered),
                     model = me.get(d._id);
 
-                model.save('distance', Helpers.computeDistance(coords));
+                model.save('distance', Distance.computeDistance(coords));
               });
               me.localDB.replicate.to(me.remoteDB).on('complete', function() {
                 resolve(missingDistance.length);
@@ -253,7 +176,7 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":18,"backbone-pouch":17,"pouchdb":37,"underscore":45}],5:[function(require,module,exports){
+},{"../helpers":2,"./run":3,"backbone":18,"backbone-pouch":17,"compute-distance":19,"pouchdb":38,"underscore":46}],5:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -322,7 +245,7 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/app/app":6,"./views/dashboard/dashboard":8,"./views/goal/goal":15,"backbone":18,"jquery":30}],6:[function(require,module,exports){
+},{"./views/app/app":6,"./views/dashboard/dashboard":8,"./views/goal/goal":15,"backbone":18,"jquery":31}],6:[function(require,module,exports){
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
 
@@ -464,7 +387,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":18,"underscore":45}],8:[function(require,module,exports){
+},{"backbone":18,"underscore":46}],8:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
@@ -521,7 +444,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./footer":9,"./hero":10,"./viewer":14,"backbone":18,"underscore":45}],9:[function(require,module,exports){
+},{"./footer":9,"./hero":10,"./viewer":14,"backbone":18,"underscore":46}],9:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -541,7 +464,6 @@ module.exports = View;
 },{"backbone":18}],10:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
-var regression = require('regression');
 var DateNames = require('date-names');
 var sum = require('timeseries-sum');
 var DateAggregate = require('timeseries-aggregate');
@@ -681,7 +603,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":18,"date-names":20,"date-prediction":21,"date-round":22,"float":27,"regression":39,"timeseries-aggregate":43,"timeseries-sum":44,"underscore":45}],11:[function(require,module,exports){
+},{"backbone":18,"date-names":21,"date-prediction":22,"date-round":23,"float":28,"timeseries-aggregate":44,"timeseries-sum":45,"underscore":46}],11:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -729,6 +651,7 @@ module.exports = View;
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
+var Distance = require('compute-distance');
 
 var View = Backbone.View.extend({
   className: "map",
@@ -789,8 +712,8 @@ var View = Backbone.View.extend({
     this.stopAnimations();
     this.options.data.localDB.get(this.model.get('_id'), {attachments: true}).then(function(doc) {
       var data = Helpers.getRun(doc);
-      var filtered = Helpers.defaultFilter(data);
-      var coords = Helpers.getCoordinates(filtered);
+      var filtered = Distance.filter(data);
+      var coords = Distance.mapToGoogle(filtered);
 
       // Set the map boundaries
       me.bounds = me.getBoundaries(coords);
@@ -891,10 +814,11 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":18,"jquery":30}],13:[function(require,module,exports){
+},{"../../helpers":2,"backbone":18,"compute-distance":19,"jquery":31}],13:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
+var DateRound = require('date-round');
 
 var View = Backbone.View.extend({
   tagName: "li",
@@ -910,7 +834,7 @@ var View = Backbone.View.extend({
   render: function() {
     var ts = this.model.get('timestamp'),
         now = new Date(),
-        startOfToday = Helpers.getMidnight(now),
+        startOfToday = DateRound.floor(now),
         startOfYesterday = new Date(startOfToday - Helpers.DAY_IN_MS),
         startOfThisWeek = new Date(startOfToday - (Helpers.DAY_IN_MS * startOfToday.getDay())),
         dayOfWeek = ts.getDay(),
@@ -951,7 +875,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":18,"date-names":20}],14:[function(require,module,exports){
+},{"../../helpers":2,"backbone":18,"date-names":21,"date-round":23}],14:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -1012,7 +936,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":11,"./map":12,"backbone":18,"underscore":45}],15:[function(require,module,exports){
+},{"./list":11,"./map":12,"backbone":18,"underscore":46}],15:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -1317,7 +1241,7 @@ function argsArray(fun) {
   };
 }(this));
 
-},{"underscore":45}],18:[function(require,module,exports){
+},{"underscore":46}],18:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -3241,7 +3165,81 @@ function argsArray(fun) {
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":30,"underscore":45}],19:[function(require,module,exports){
+},{"jquery":31,"underscore":46}],19:[function(require,module,exports){
+
+// Smooth the run (e.g. ignore bouncing GPS tracks)
+var defaultFilter = function (data) {
+  var accurate = [],
+      filtered = [],
+      maxDistance = 20; // Meters
+
+  // Filter out inaccurate points
+  data.forEach(function(e) {
+    if (!e.accuracy || parseFloat(e.accuracy) < maxDistance) {
+      accurate.push(e);
+    }
+  });
+
+  // Filter out discontinuities (points that aren't adjacent to any other points)
+  for (var i = 1; i < accurate.length - 1; ++i) {
+    var pt1 = new google.maps.LatLng(
+        {
+          lat: parseFloat(accurate[i-1].latitude),
+          lng: parseFloat(accurate[i-1].longitude)
+        }
+    );
+    var pt2 = new google.maps.LatLng(
+        {
+          lat: parseFloat(accurate[i].latitude),
+          lng: parseFloat(accurate[i].longitude)
+        }
+    );
+    var pt3 = new google.maps.LatLng(
+        {
+          lat: parseFloat(accurate[i+1].latitude),
+          lng: parseFloat(accurate[i+1].longitude)
+        }
+    );
+    var d1 = google.maps.geometry.spherical.computeDistanceBetween(pt1, pt2);
+    var d2 = google.maps.geometry.spherical.computeDistanceBetween(pt2, pt3);
+    if (d1 <= maxDistance && d2 <= maxDistance) {
+      filtered.push(accurate[i]);
+    }
+  }
+
+  return filtered;
+};
+
+// Get an array of coordinates
+var getCoordinates = function (data) {
+  var coords = [];
+
+  for (var i in data) {
+    coords.push(new google.maps.LatLng({
+      lat: parseFloat(data[i].latitude),
+      lng: parseFloat(data[i].longitude)
+    }));
+  }
+
+  return coords;
+};
+
+// Get the distance represented by a set of coordinates (meters)
+var computeDistance = function (coords) {
+  var distance = 0;
+  for (var i = 0; i < coords.length - 1; ++i) {
+    distance += google.maps.geometry.spherical.computeDistanceBetween(coords[i], coords[i+1]);
+  }
+  return distance;
+};
+
+module.exports = {
+  filter: defaultFilter,
+  mapToGoogle: getCoordinates,
+  computeDistance: computeDistance
+};
+
+},{}],20:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -3254,11 +3252,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":19}],21:[function(require,module,exports){
+},{"./en":20}],22:[function(require,module,exports){
 /**
  * Given an array of timeseries data ordered from oldest to
  * newest, predict when a future value is likely to be hit.
@@ -3327,7 +3325,7 @@ var predict = function(futureValue, series) {
 
 module.exports = predict;
 
-},{"regression":39}],22:[function(require,module,exports){
+},{"regression":40}],23:[function(require,module,exports){
 /**
  * Helpers to round dates to day, week, month, year boundaries.
  *
@@ -3496,7 +3494,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],23:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -3666,7 +3664,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":24}],24:[function(require,module,exports){
+},{"./debug":25}],25:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -3865,7 +3863,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":33}],25:[function(require,module,exports){
+},{"ms":34}],26:[function(require,module,exports){
 (function (root, factory) {
   /* istanbul ignore next */
   if (typeof define === 'function' && define.amd) {
@@ -4083,7 +4081,7 @@ function coerce(val) {
   return PromisePool
 })
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4387,7 +4385,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 /**
  * Credit: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
  */
@@ -4441,7 +4439,7 @@ module.exports = {
   }
 };
 
-},{}],28:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 (function (global){
 'use strict';
 var Mutation = global.MutationObserver || global.WebKitMutationObserver;
@@ -4514,7 +4512,7 @@ function immediate(task) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -4539,7 +4537,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],30:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -14615,7 +14613,7 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],31:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 (function() { 
 
   var slice   = Array.prototype.slice,
@@ -14644,7 +14642,7 @@ return jQuery;
   this.extend = extend;
 
 }).call(this);
-},{}],32:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 'use strict';
 var immediate = require('immediate');
 
@@ -14899,7 +14897,7 @@ function race(iterable) {
   }
 }
 
-},{"immediate":28}],33:[function(require,module,exports){
+},{"immediate":29}],34:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -15026,7 +15024,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],34:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 'use strict';
 
 var MIN_MAGNITUDE = -324; // verified by -Number.MIN_VALUE
@@ -15381,7 +15379,7 @@ function numToIndexableString(num) {
   return result;
 }
 
-},{"./utils":35}],35:[function(require,module,exports){
+},{"./utils":36}],36:[function(require,module,exports){
 'use strict';
 
 function pad(str, padWith, upToLength) {
@@ -15452,7 +15450,7 @@ exports.intToDecimalForm = function (int) {
 
   return result;
 };
-},{}],36:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 'use strict';
 exports.Map = LazyMap; // TODO: use ES6 map
 exports.Set = LazySet; // TODO: use ES6 set
@@ -15523,7 +15521,7 @@ LazySet.prototype.delete = function (key) {
   return this.store.delete(key);
 };
 
-},{}],37:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 (function (process,global){
 'use strict';
 
@@ -26214,7 +26212,7 @@ PouchDB.plugin(IDBPouch)
 
 module.exports = PouchDB;
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":38,"argsarray":16,"debug":23,"es6-promise-pool":25,"events":26,"inherits":29,"js-extend":31,"lie":32,"pouchdb-collate":34,"pouchdb-collections":36,"scope-eval":41,"spark-md5":42,"vuvuzela":46}],38:[function(require,module,exports){
+},{"_process":39,"argsarray":16,"debug":24,"es6-promise-pool":26,"events":27,"inherits":30,"js-extend":32,"lie":33,"pouchdb-collate":35,"pouchdb-collections":37,"scope-eval":42,"spark-md5":43,"vuvuzela":47}],39:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -26335,9 +26333,9 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":40}],40:[function(require,module,exports){
+},{"./src/regression":41}],41:[function(require,module,exports){
 /**
 * @license
 *
@@ -26587,7 +26585,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],41:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 // Generated by CoffeeScript 1.9.2
 (function() {
   var hasProp = {}.hasOwnProperty,
@@ -26611,7 +26609,7 @@ if (typeof exports !== 'undefined') {
 
 }).call(this);
 
-},{}],42:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 (function (factory) {
     if (typeof exports === 'object') {
         // Node/CommonJS
@@ -27316,7 +27314,7 @@ if (typeof exports !== 'undefined') {
     return SparkMD5;
 }));
 
-},{}],43:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 // Constants
 var MINUTE_IN_MS = 1000 * 60;
 var HOUR_IN_MS   = MINUTE_IN_MS * 60;
@@ -27374,7 +27372,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],44:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 // Calculate the sum of a half-closed Date interval
 var sum = function(startDate, endDate, series) {
   var sum = 0, point, i, t;
@@ -27414,7 +27412,7 @@ var sum = function(startDate, endDate, series) {
 
 module.exports = sum;
 
-},{}],45:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -28964,7 +28962,7 @@ module.exports = sum;
   }
 }.call(this));
 
-},{}],46:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 'use strict';
 
 /**

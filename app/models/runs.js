@@ -4,6 +4,7 @@ var Backbone = require('backbone');
 var BackbonePouch = require('backbone-pouch');
 var Run = require('./run');
 var Helpers = require('../helpers');
+var Distance = require('compute-distance');
 
 var Runs = Backbone.Collection.extend({
   model: Run,
@@ -72,11 +73,11 @@ var Runs = Backbone.Collection.extend({
               });
               docs.forEach(function(d) {
                 var data = Helpers.getRun(d),
-                    filtered = Helpers.defaultFilter(data),
-                    coords = Helpers.getCoordinates(filtered),
+                    filtered = Distance.filter(data),
+                    coords = Distance.mapToGoogle(filtered),
                     model = me.get(d._id);
 
-                model.save('distance', Helpers.computeDistance(coords));
+                model.save('distance', Distance.computeDistance(coords));
               });
               me.localDB.replicate.to(me.remoteDB).on('complete', function() {
                 resolve(missingDistance.length);

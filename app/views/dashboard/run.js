@@ -1,6 +1,7 @@
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
+var DateRound = require('date-round');
 
 var View = Backbone.View.extend({
   tagName: "li",
@@ -16,7 +17,7 @@ var View = Backbone.View.extend({
   render: function() {
     var ts = this.model.get('timestamp'),
         now = new Date(),
-        startOfToday = Helpers.getMidnight(now),
+        startOfToday = DateRound.floor(now),
         startOfYesterday = new Date(startOfToday - Helpers.DAY_IN_MS),
         startOfThisWeek = new Date(startOfToday - (Helpers.DAY_IN_MS * startOfToday.getDay())),
         dayOfWeek = ts.getDay(),

@@ -1,6 +1,7 @@
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
+var Distance = require('compute-distance');
 
 var View = Backbone.View.extend({
   className: "map",
@@ -61,8 +62,8 @@ var View = Backbone.View.extend({
     this.stopAnimations();
     this.options.data.localDB.get(this.model.get('_id'), {attachments: true}).then(function(doc) {
       var data = Helpers.getRun(doc);
-      var filtered = Helpers.defaultFilter(data);
-      var coords = Helpers.getCoordinates(filtered);
+      var filtered = Distance.filter(data);
+      var coords = Distance.mapToGoogle(filtered);
 
       // Set the map boundaries
       me.bounds = me.getBoundaries(coords);
