@@ -14,7 +14,7 @@ var Router = Backbone.Router.extend({
     // Container for the app
     this.el = $(".main");
 
-    this.listenToOnce(options.data, "processed", function() {
+    this.listenToOnce(options.data, "sync", function() {
       // Let the app know that data is available for display
       this.loadingData = false;
 

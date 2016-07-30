@@ -21,7 +21,8 @@
     
     <!-- Global data -->
     <script type='text/javascript'>
-      CLOUDANT_DATA_URL = '<%- `${locals.host}/${locals.user.run_database}` %>';
+      HOST = '<%- locals.host %>';
+      DATABASE = '<%- locals.user.run_database %>';
       USER_ID = '<%- locals.user._id %>';
       USER_TOKEN = '<%- locals.user.user_token %>';
       WEBSOCKET_URL = '<%- wsUrl %>';

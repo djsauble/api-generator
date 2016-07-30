@@ -56,46 +56,74 @@ var View = Backbone.View.extend({
   },
 
   displayRun: function() {
-    var me = this;
+    var me = this,
+        ws = new WebSocket(WEBSOCKET_URL);
 
     // Animate the latest route
     this.stopAnimations();
-    this.options.data.localDB.get(this.model.get('_id'), {attachments: true}).then(function(doc) {
-      var data = Helpers.getRun(doc);
-      var filtered = Distance.filter(data);
-      var coords = Distance.mapToGoogle(filtered);
+    ws.onopen = function() {
+      ws.send(JSON.stringify({
+        type: 'get_data',
+        user: USER_ID,
+        token: USER_TOKEN,
+        database: DATABASE,
+        run: me.model.get('_id')
+      }));
+    };
+    ws.onmessage = function(data, flags) {
+      // Make sure this is something we know how to parse
+      var message;
+      try {
+        message = JSON.parse(data.data);
+      } catch(err) {
+        // Do nothing
+        ws.close();
+        return;
+      }
 
-      // Set the map boundaries
-      me.bounds = me.getBoundaries(coords);
-      me.fitMap();
-
-      // Animate the route
-      var draw = [];
-      var timer = me.startAnimation(function() {
-        if (coords.length === 0) {
-          me.stopAnimation(timer);
-          return;
-        }
-
-        // Add a point to the draw array
-        draw.push(coords.shift());
-
-        // Clear any existing overlays
-        me.removeAllOverlays();
-
-        // Construct the path
-        var path = new google.maps.Polyline({
-          path: draw,
-          geodesic: true,
-          strokeColor: "#ff0000",
-          strokeOpacity: 0.6,
-          strokeWeight: 2
+      // Take appropriate action
+      if (!message.error) {
+        var filtered = Distance.filter(message);
+        var coords = filtered.map(function(f) {
+          return new google.maps.LatLng({
+            lat: parseFloat(f.latitude),
+            lng: parseFloat(f.longitude)
+          });
         });
 
-        // Draw the route thus far
-        me.addOverlay(path);
-      }, 5);
-    });
+        // Set the map boundaries
+        me.bounds = me.getBoundaries(coords);
+        me.fitMap();
+
+        // Animate the route
+        var draw = [];
+        var timer = me.startAnimation(function() {
+          if (coords.length === 0) {
+            me.stopAnimation(timer);
+            return;
+          }
+
+          // Add a point to the draw array
+          draw.push(coords.shift());
+
+          // Clear any existing overlays
+          me.removeAllOverlays();
+
+          // Construct the path
+          var path = new google.maps.Polyline({
+            path: draw,
+            geodesic: true,
+            strokeColor: "#ff0000",
+            strokeOpacity: 0.6,
+            strokeWeight: 2
+          });
+
+          // Draw the route thus far
+          me.addOverlay(path);
+        }, 5);
+      }
+      ws.close();
+    };
   },
 
   // Add an overlay to the map

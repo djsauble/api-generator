@@ -10,6 +10,7 @@ var sum = require('timeseries-sum');
 var DateRound = require('date-round');
 var round = require('float').round;
 var Distance = require('compute-distance');
+var Helpers = require('./app/helpers');
 
 // Create a server instance
 var app = express();
@@ -33,7 +34,7 @@ app.use(passport.session());
 
 app.get('/', ensureAuthenticated, function(req, res) {
   res.render('index', {
-    host: process.env.COUCHDB_DATABASE_URL,
+    host: process.env.CALLBACK_URL,
     user: req.user,
     wsUrl: process.env.WEBSOCKET_URL
   });
@@ -119,7 +120,10 @@ app.get('/logout', function(req, res) {
   res.redirect('/');
 });
 
-// List of all active sockets, indexed by user ID
+// List of all active sockets, indexed by:
+// User ID (for database GETs)
+// User token (for goal GETs)
+// Auth token (for token creation)
 var sockets = {};
 
 app.ws('/ws', function(ws, req) {
@@ -137,6 +141,12 @@ app.ws('/ws', function(ws, req) {
     }
     else if (request.type == 'get_weekly_goal') {
       getWeeklyGoal(ws, request.user, request.token);
+    }
+    else if (request.type == 'get_docs') {
+      getDocs(ws, request.database, request.user, request.token);
+    }
+    else if (request.type == 'get_data') {
+      getData(ws, request.database, request.run, request.user, request.token);
     }
     else {
       console.log("Unknown websockets request");
@@ -259,9 +269,6 @@ function getWeeklyGoal(ws, user, token) {
       return;
     }
 
-    // Save the socket for future use
-    sockets[token] = ws;
-
     // Fetch goal information
     var runs = nano.db.use(body.run_database);
     runs.list({include_docs: true}, function(err, body) {
@@ -289,6 +296,64 @@ function getWeeklyGoal(ws, user, token) {
         distanceThisWeek: distanceThisWeek,
         goalThisWeek: goalThisWeek
       }));
+    });
+  });
+}
+
+// Fetch all existing records
+//
+// NOTE: Eventually, we may want to convert document ids to 
+//       timestamps, to make it possible to fetch a contiguous
+//       subset of all available documents without resorting
+//       to secondary indices.
+function getDocs(ws, database, user, token) {
+  var users = nano.db.use('users');
+  users.get(user, function(err, body) {
+    // Is this a valid request?
+    if (body.user_token != token || body.run_database != database) {
+      ws.send('{error: "Invalid request"}');
+      return;
+    }
+
+    // Fetch the run documents
+    var runs = nano.db.use(body.run_database);
+    runs.list({include_docs: true}, function(err, body) {
+      if (err) {
+        ws.send('{error: "Could not retrieve runs from the database"}');
+        return;
+      }
+
+      ws.send(JSON.stringify(
+        body.rows.map(function(r) {
+          r.doc.timestamp = new Date(r.doc.timestamp);
+          return r.doc;
+        }).sort(function(a,b) {
+          return a.timestamp.getTime() - b.timestamp.getTime();
+        })
+      ));
+    });
+  });
+}
+
+// Fetch the data associated with a particular run
+function getData(ws, database, run, user, token) {
+  var users = nano.db.use('users');
+  users.get(user, function(err, body) {
+    // Is this a valid request?
+    if (body.user_token != token || body.run_database != database) {
+      ws.send('{error: "Invalid request"}');
+      return;
+    }
+
+    // Fetch the run data
+    var runs = nano.db.use(body.run_database);
+    runs.attachment.get(run, 'data.json', function(err, body) {
+      if (err) {
+        ws.send('{error: "Could not retrieve run data"}');
+        return;
+      }
+
+      ws.send(body.toString());
     });
   });
 }

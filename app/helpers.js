@@ -1,15 +1,12 @@
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
-  getRun: function (doc) {
+  getRun: function (buffer) {
+    console.log(buffer);
     return JSON.parse(
        atob(
-         doc._attachments["data.json"].data
+         buffer.data
        )
-     ).map(function (p) {
-       p.latitude = parseFloat(p.latitude);
-       p.longitude = parseFloat(p.longitude);
-       return p;
-     });
+     );
   },
 
   /**
