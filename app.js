@@ -403,9 +403,9 @@ passport.deserializeUser(function(obj, done) {
 
 // Configure the passport strategy
 passport.use(new StravaStrategy({
-    clientID: '12528',
-    clientSecret: '06b9e1c06bb52c17a3ce177293400e539accda7a',
-    callbackURL: app.get('hostname') + "/auth/strava/callback",
+    clientID: process.env.STRAVA_CLIENT,
+    clientSecret: process.env.STRAVA_SECRET,
+    callbackURL: app.get('hostname') + "/auth/strava/callback"
   },
   function(accessToken, refreshToken, profile, done) {
     // Create the user (if it doesn't already exist)
