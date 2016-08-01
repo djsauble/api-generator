@@ -446,7 +446,7 @@ var View = Backbone.View.extend({
         percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
         goalThisWeek = round(1.1 * distanceLastWeek, 1),
         remainingThisWeek = round(goalThisWeek - distanceThisWeek, 1),
-        goalAmount = GOAL,
+        goalAmount = (typeof GOAL === 'undefined' ? undefined : GOAL),
         trendingWeeks = 7,
         trendPercentString,
         trendDescriptionString,
@@ -467,7 +467,9 @@ var View = Backbone.View.extend({
     runsByWeek = DateAggregate.aggregate(startOfThisWeek, trendingWeeks, DateAggregate.WEEK_IN_MS, rawData);
 
     // Display the last day of the given week
-    goalDateString = this.getGoalDate(goalAmount, runsByWeek, startOfThisWeek);
+    if (goalAmount) {
+      goalDateString = this.getGoalDate(goalAmount, runsByWeek, startOfThisWeek);
+    }
 
     // Add the goal for this week
     runsByWeek.push({
@@ -479,26 +481,27 @@ var View = Backbone.View.extend({
     chartHtml = this.getChartHtml(runsByWeek, distanceThisWeek);
 
     // Render stuff
-    this.$el.html(
-      "<p><big>" +
-      distanceThisWeek +
-      "</big> of " +
-      goalThisWeek +
-      " miles this week.</p><p><big>" +
-      trendPercentString +
-      "</big> " +
-      trendDescriptionString +
-      "</p><p class='expand'><big>" +
-      goalAmount +
-      "</big> miles per week by " +
-      goalDateString +
-      "</p><div class='graph row'>" +
-      chartHtml +
-      "</div>"
-    );
+    this.$el.html(this.template({
+      distanceThisWeek: distanceThisWeek,
+      goalThisWeek: goalThisWeek,
+      trendPercentString: trendPercentString,
+      trendDescriptionString: trendDescriptionString,
+      goalAmount: goalAmount,
+      goalDateString: goalDateString,
+      chartHtml: chartHtml
+    }));
     
     return this;
   },
+
+  template: _.template(
+    "<p><big><%= distanceThisWeek %></big> of <%= goalThisWeek %> miles this week.</p>" +
+    "<p <%= goalAmount ? \"\" : \"class=\\\'expand\\\'\" %>><big><%= trendPercentString %></big> <%= trendDescriptionString %></p>" +
+    "<% if (goalAmount) { %>" +
+    "<p class='expand'><big><%= goalAmount %></big> miles per week by <%= goalDateString %></p>" +
+    "<% } %>" +
+    "<div class='graph row'><%= chartHtml %></div>"
+  ),
 
   // Display the last day of the given week
   getGoalDate: function(goalAmount, runsByWeek, startOfThisWeek) {
