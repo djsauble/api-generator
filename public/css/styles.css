@@ -90,6 +90,7 @@ form a {
 .row {
   display: flex;
   align-items: stretch;
+  flex-wrap: wrap;
 }
 
 .row > * {
@@ -98,6 +99,14 @@ form a {
 
 .row > *:first-child {
   margin-left: 0;
+}
+
+/**
+ * Center a row (or column) of flex items
+ */
+
+.center {
+  justify-content: center;
 }
 
 /**

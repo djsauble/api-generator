@@ -39,12 +39,7 @@ var View = Backbone.View.extend({
         // Schedule the next token refresh
         me.nextRefresh = setTimeout(
           function() {
-            me.ws.send(JSON.stringify({
-              type: 'refresh_token',
-              user: USER_ID,
-              user_token: USER_TOKEN,
-              old_token: me.token
-            }));
+            me.refresh(me);
           },
           me.expires.getTime() - Date.now()
         );
@@ -65,15 +60,21 @@ var View = Backbone.View.extend({
     };
   },
 
+  events: {
+    'click .refresh': 'clickRefresh'
+  },
+
   template: _.template(
+    "<h2>Connect</h2>" +
+    "<p>Provide the token below</p>" +
     "<% if (token) { %>" +
     "<h1><code class='security_code'><%= token %></code></h1>" +
+    "<button class='refresh'><i class='fa fa-refresh'></i> Refresh</button>" +
     "<% } else { %>" +
     "<h2 class='success'>" +
     "<i class='fa fa-check-circle'></i> Connected to device." +
     "</h2>" +
-    "<% } %>" +
-    "<a href='#'>Go to the dashboard</a>"
+    "<% } %>"
   ),
 
   render: function() {
@@ -93,6 +94,24 @@ var View = Backbone.View.extend({
         token: this.token
       }));
     }
+  },
+
+  clickRefresh: function() {
+    if (this.nextRefresh) {
+      clearTimeout(this.nextRefresh);
+      this.nextRefresh = undefined;
+    }
+
+    this.refresh(this);
+  },
+
+  refresh: function(me) {
+    me.ws.send(JSON.stringify({
+      type: 'refresh_token',
+      user: USER_ID,
+      user_token: USER_TOKEN,
+      old_token: me.token
+    }));
   }
 });
 

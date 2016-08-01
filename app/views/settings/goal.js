@@ -4,10 +4,6 @@ var Cookie = require('tiny-cookie');
 var Training = require('base-building');
 
 var View = Backbone.View.extend({
-  className: "screen column",
-
-  init: function() {
-  },
 
   events: {
     'input #today': 'updateToday',
@@ -18,8 +14,9 @@ var View = Backbone.View.extend({
   render: function() {
 
     this.$el.html(
-      "<div class='modal'>" +
-      "<div>" +
+      "<h2>Goal</h2>" +
+      "<p>Set a fitness goal</p>" +
+
       "<div class='field row'>" +
       "<label for='today'>I run</label>" +
       "<output for='today' id='todayOutput'>10</output>" +
@@ -36,12 +33,7 @@ var View = Backbone.View.extend({
       "<label for='estimate'>I can meet my goal in</label>" +
       "<output class='expand' id='estimate' name='estimate'>11 months</output>" +
       "</div>" +
-      "<buttons>" +
-      "<button class='set_goal'>Set goal</button> " +
-      "<a href='#'>Nevermind, go back</a>" +
-      "</buttons>" +
-      "</div>" +
-      "</div>"
+      "<button class='set_goal'>Set goal</button> "
     );
 
     this.loadFromCookies();

@@ -2,7 +2,6 @@ var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
 var ViewerView = require('./viewer');
-var FooterView = require('./footer');
 
 var View = Backbone.View.extend({
   className: "screen column",
@@ -12,7 +11,6 @@ var View = Backbone.View.extend({
     this.options = options;
     this.hero = new HeroView(options);
     this.viewer = new ViewerView(options);
-    this.footer = new FooterView(options);
   },
 
   render: function() {
@@ -30,9 +28,6 @@ var View = Backbone.View.extend({
 
       // Show the viewer component
       this.$el.append(this.viewer.render().el);
-
-      // Show the footer component
-      this.$el.append(this.footer.render().el);
     }
 
     return this;
@@ -45,9 +40,6 @@ var View = Backbone.View.extend({
     }
     if (this.viewer) {
       this.viewer.remove();
-    }
-    if (this.footer) {
-      this.footer.remove();
     }
   }
 });

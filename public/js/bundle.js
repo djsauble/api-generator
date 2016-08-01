@@ -27,7 +27,7 @@ $(function() {
   });
 });
 
-},{"./models/runs":4,"./router":5,"backbone":16,"jquery":24}],2:[function(require,module,exports){
+},{"./models/runs":4,"./router":5,"backbone":15,"jquery":23}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (buffer) {
@@ -71,7 +71,7 @@ var Run = Backbone.Model.extend({
 
 module.exports = Run;
 
-},{"backbone":16}],4:[function(require,module,exports){
+},{"backbone":15}],4:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var Run = require('./run');
@@ -128,12 +128,11 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":16,"underscore":31}],5:[function(require,module,exports){
+},{"../helpers":2,"./run":3,"backbone":15,"underscore":30}],5:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
-var AppView = require('./views/app/app');
-var GoalView = require('./views/goal/goal');
+var SettingsView = require('./views/settings/settings');
 
 var Router = Backbone.Router.extend({
   initialize: function(options) {
@@ -154,8 +153,8 @@ var Router = Backbone.Router.extend({
 
       if (options.data.length === 0) {
         // Prompt people to install the app, if they haven't already
-        this.navigate("app");
-        this.switchView(AppView);
+        this.navigate("settings");
+        this.switchView(SettingsView);
       }
       else if (this.currentView) {
         // Render the current view, if one has been set
@@ -165,9 +164,8 @@ var Router = Backbone.Router.extend({
   },
 
   routes: {
-    "": "dashboard", // '/'
-    "app": "app",    // '/app'
-    "goal": "goal"   // '/goal'
+    "": "dashboard",       // '/'
+    "settings": "settings" // '/app'
   },
 
   switchView: function(view) {
@@ -186,8 +184,8 @@ var Router = Backbone.Router.extend({
     this.switchView(DashboardView);
   },
 
-  app: function() {
-    this.switchView(AppView);
+  settings: function() {
+    this.switchView(SettingsView);
   },
 
   goal: function() {
@@ -197,154 +195,11 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/app/app":6,"./views/dashboard/dashboard":8,"./views/goal/goal":15,"backbone":16,"jquery":24}],6:[function(require,module,exports){
-var Backbone = require('backbone');
-var SecurityCode = require('./code');
-
-var View = Backbone.View.extend({
-  className: "screen column",
-
-  initialize: function() {
-    this.securityCode = new SecurityCode();
-  },
-
-  render: function() {
-
-    this.$el.html(
-      "<div class='modal'>" +
-      "<div>" +
-      "<h1>1. Get the app</h1>" +
-      "<img src='images/Download_on_the_App_Store_Badge_US-UK_135x40.svg' alt='Download on the App Store'/>" +
-      "<h1>2. Enter a security code</h1>" +
-      "<div class='code'>" +
-      "</div>" +
-      "</div>" +
-      "</div>"
-    );
-
-    this.securityCode.setElement(this.$('.code'));
-    this.securityCode.render();
-
-    return this;
-  },
-
-  remove: function() {
-    this.undelegateEvents();
-    if (this.securityCode) {
-      this.securityCode.remove();
-    }
-  }
-});
-
-module.exports = View;
-
-},{"./code":7,"backbone":16}],7:[function(require,module,exports){
-var _ = require('underscore');
-var Backbone = require('backbone');
-
-var View = Backbone.View.extend({
-
-  initialize: function() {
-    var me = this;
-    this.token = undefined;
-    this.expires = new Date();
-    this.nextRefresh = undefined;
-
-    this.ws = new WebSocket(WEBSOCKET_URL);
-
-    this.ws.onopen = function() {
-      me.ws.send(JSON.stringify({
-        type: 'get_token',
-        user: USER_ID,
-        token: USER_TOKEN
-      }));
-    };
-    this.ws.onmessage = function(data, flags) {
-      // Make sure this is something we know how to parse
-      var message;
-      try {
-        message = JSON.parse(data.data);
-      } catch(err) {
-        // Do nothing
-        return;
-      }
-
-      // Take appropriate action
-      if (message.error) {
-        me.token = message.error;
-      }
-      else {
-        me.token = message.token;
-        me.expires = new Date(message.expires);
-
-        // Schedule the next token refresh
-        me.nextRefresh = setTimeout(
-          function() {
-            me.ws.send(JSON.stringify({
-              type: 'refresh_token',
-              user: USER_ID,
-              user_token: USER_TOKEN,
-              old_token: me.token
-            }));
-          },
-          me.expires.getTime() - Date.now()
-        );
-      }
-      me.render();
-    };
-    this.ws.onclose = function() {
-      me.token = undefined;
-      me.expires = undefined;
-      if (me.nextRefresh) {
-        clearTimeout(me.nextRefresh);
-        me.nextRefresh = undefined;
-      }
-      me.render();
-    };
-    this.ws.onerror = function(error, more) {
-      console.log(error);
-    };
-  },
-
-  template: _.template(
-    "<% if (token) { %>" +
-    "<h1><code class='security_code'><%= token %></code></h1>" +
-    "<% } else { %>" +
-    "<h2 class='success'>" +
-    "<i class='fa fa-check-circle'></i> Connected to device." +
-    "</h2>" +
-    "<% } %>" +
-    "<a href='#'>Go to the dashboard</a>"
-  ),
-
-  render: function() {
-
-    this.$el.html(this.template({
-      token: this.token
-    }));
-
-    return this;
-  },
-
-  remove: function() {
-    this.undelegateEvents();
-    if (this.token) {
-      this.ws.send(JSON.stringify({
-        type: 'use_token',
-        token: this.token
-      }));
-    }
-  }
-});
-
-module.exports = View;
-
-},{"backbone":16,"underscore":31}],8:[function(require,module,exports){
+},{"./views/dashboard/dashboard":6,"./views/settings/settings":14,"backbone":15,"jquery":23}],6:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
 var ViewerView = require('./viewer');
-var FooterView = require('./footer');
 
 var View = Backbone.View.extend({
   className: "screen column",
@@ -354,7 +209,6 @@ var View = Backbone.View.extend({
     this.options = options;
     this.hero = new HeroView(options);
     this.viewer = new ViewerView(options);
-    this.footer = new FooterView(options);
   },
 
   render: function() {
@@ -372,9 +226,6 @@ var View = Backbone.View.extend({
 
       // Show the viewer component
       this.$el.append(this.viewer.render().el);
-
-      // Show the footer component
-      this.$el.append(this.footer.render().el);
     }
 
     return this;
@@ -388,32 +239,12 @@ var View = Backbone.View.extend({
     if (this.viewer) {
       this.viewer.remove();
     }
-    if (this.footer) {
-      this.footer.remove();
-    }
   }
 });
 
 module.exports = View;
 
-},{"./footer":9,"./hero":10,"./viewer":14,"backbone":16,"underscore":31}],9:[function(require,module,exports){
-var Backbone = require('backbone');
-
-var View = Backbone.View.extend({
-  className: "footer dark",
-
-  render: function() {
-    this.$el.html(
-      "<span> PUT your data to ...</span>"
-    );
-
-    return this;
-  }
-});
-
-module.exports = View;
-
-},{"backbone":16}],10:[function(require,module,exports){
+},{"./hero":7,"./viewer":11,"backbone":15,"underscore":30}],7:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var DateNames = require('date-names');
@@ -558,7 +389,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":16,"date-names":20,"date-prediction":21,"date-round":22,"float":23,"timeseries-aggregate":28,"timeseries-sum":29,"underscore":31}],11:[function(require,module,exports){
+},{"backbone":15,"date-names":19,"date-prediction":20,"date-round":21,"float":22,"timeseries-aggregate":27,"timeseries-sum":28,"underscore":30}],8:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -602,7 +433,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":13,"backbone":16}],12:[function(require,module,exports){
+},{"./run":10,"backbone":15}],9:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -797,7 +628,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":16,"compute-distance":18,"jquery":24}],13:[function(require,module,exports){
+},{"../../helpers":2,"backbone":15,"compute-distance":17,"jquery":23}],10:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -858,7 +689,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":16,"date-names":20,"date-round":22}],14:[function(require,module,exports){
+},{"../../helpers":2,"backbone":15,"date-names":19,"date-round":21}],11:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -919,17 +750,133 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":11,"./map":12,"backbone":16,"underscore":31}],15:[function(require,module,exports){
+},{"./list":8,"./map":9,"backbone":15,"underscore":30}],12:[function(require,module,exports){
+var _ = require('underscore');
+var Backbone = require('backbone');
+
+var View = Backbone.View.extend({
+
+  initialize: function() {
+    var me = this;
+    this.token = undefined;
+    this.expires = new Date();
+    this.nextRefresh = undefined;
+
+    this.ws = new WebSocket(WEBSOCKET_URL);
+
+    this.ws.onopen = function() {
+      me.ws.send(JSON.stringify({
+        type: 'get_token',
+        user: USER_ID,
+        token: USER_TOKEN
+      }));
+    };
+    this.ws.onmessage = function(data, flags) {
+      // Make sure this is something we know how to parse
+      var message;
+      try {
+        message = JSON.parse(data.data);
+      } catch(err) {
+        // Do nothing
+        return;
+      }
+
+      // Take appropriate action
+      if (message.error) {
+        me.token = message.error;
+      }
+      else {
+        me.token = message.token;
+        me.expires = new Date(message.expires);
+
+        // Schedule the next token refresh
+        me.nextRefresh = setTimeout(
+          function() {
+            me.refresh(me);
+          },
+          me.expires.getTime() - Date.now()
+        );
+      }
+      me.render();
+    };
+    this.ws.onclose = function() {
+      me.token = undefined;
+      me.expires = undefined;
+      if (me.nextRefresh) {
+        clearTimeout(me.nextRefresh);
+        me.nextRefresh = undefined;
+      }
+      me.render();
+    };
+    this.ws.onerror = function(error, more) {
+      console.log(error);
+    };
+  },
+
+  events: {
+    'click .refresh': 'clickRefresh'
+  },
+
+  template: _.template(
+    "<h2>Connect</h2>" +
+    "<p>Provide the token below</p>" +
+    "<% if (token) { %>" +
+    "<h1><code class='security_code'><%= token %></code></h1>" +
+    "<button class='refresh'><i class='fa fa-refresh'></i> Refresh</button>" +
+    "<% } else { %>" +
+    "<h2 class='success'>" +
+    "<i class='fa fa-check-circle'></i> Connected to device." +
+    "</h2>" +
+    "<% } %>"
+  ),
+
+  render: function() {
+
+    this.$el.html(this.template({
+      token: this.token
+    }));
+
+    return this;
+  },
+
+  remove: function() {
+    this.undelegateEvents();
+    if (this.token) {
+      this.ws.send(JSON.stringify({
+        type: 'use_token',
+        token: this.token
+      }));
+    }
+  },
+
+  clickRefresh: function() {
+    if (this.nextRefresh) {
+      clearTimeout(this.nextRefresh);
+      this.nextRefresh = undefined;
+    }
+
+    this.refresh(this);
+  },
+
+  refresh: function(me) {
+    me.ws.send(JSON.stringify({
+      type: 'refresh_token',
+      user: USER_ID,
+      user_token: USER_TOKEN,
+      old_token: me.token
+    }));
+  }
+});
+
+module.exports = View;
+
+},{"backbone":15,"underscore":30}],13:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Cookie = require('tiny-cookie');
 var Training = require('base-building');
 
 var View = Backbone.View.extend({
-  className: "screen column",
-
-  init: function() {
-  },
 
   events: {
     'input #today': 'updateToday',
@@ -940,8 +887,9 @@ var View = Backbone.View.extend({
   render: function() {
 
     this.$el.html(
-      "<div class='modal'>" +
-      "<div>" +
+      "<h2>Goal</h2>" +
+      "<p>Set a fitness goal</p>" +
+
       "<div class='field row'>" +
       "<label for='today'>I run</label>" +
       "<output for='today' id='todayOutput'>10</output>" +
@@ -958,12 +906,7 @@ var View = Backbone.View.extend({
       "<label for='estimate'>I can meet my goal in</label>" +
       "<output class='expand' id='estimate' name='estimate'>11 months</output>" +
       "</div>" +
-      "<buttons>" +
-      "<button class='set_goal'>Set goal</button> " +
-      "<a href='#'>Nevermind, go back</a>" +
-      "</buttons>" +
-      "</div>" +
-      "</div>"
+      "<button class='set_goal'>Set goal</button> "
     );
 
     this.loadFromCookies();
@@ -1048,7 +991,54 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":16,"base-building":17,"jquery":24,"tiny-cookie":30}],16:[function(require,module,exports){
+},{"backbone":15,"base-building":16,"jquery":23,"tiny-cookie":29}],14:[function(require,module,exports){
+var Backbone = require('backbone');
+var SecurityCode = require('./code');
+var Goal = require('./goal');
+
+var View = Backbone.View.extend({
+  className: "screen forrest-settings",
+
+  initialize: function() {
+    this.securityCode = new SecurityCode();
+    this.goal = new Goal();
+  },
+
+  render: function() {
+
+    this.$el.html(
+      "<a href='#'><i class='fa fa-arrow-left'></i> Go back to the dashboard</a>" +
+      "<div class='sections row center'>" +
+      "<div class='download'>" +
+      "<h2>Download</h2>" +
+      "<p>Get the app</p>" +
+      "<img src='images/Download_on_the_App_Store_Badge_US-UK_135x40.svg' alt='Download on the App Store'/>" +
+      "</div>" +
+      "<div class='code'></div>" +
+      "<div class='goal'></div>" +
+      "</div>"
+    );
+
+    this.securityCode.setElement(this.$('.code'));
+    this.securityCode.render();
+
+    this.goal.setElement(this.$('.goal'));
+    this.goal.render();
+
+    return this;
+  },
+
+  remove: function() {
+    this.undelegateEvents();
+    if (this.securityCode) {
+      this.securityCode.remove();
+    }
+  }
+});
+
+module.exports = View;
+
+},{"./code":12,"./goal":13,"backbone":15}],15:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -2972,7 +2962,7 @@ module.exports = View;
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":24,"underscore":31}],17:[function(require,module,exports){
+},{"jquery":23,"underscore":30}],16:[function(require,module,exports){
 // Convert weeks to a more appropriate timescale
 function makeWeeksHuman(weeks) {
   if (Math.round(weeks) === 1) {
@@ -3056,7 +3046,7 @@ module.exports = {
   makeWeeksHuman: makeWeeksHuman
 };
 
-},{}],18:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 var sgeo = require('sgeo');
 
 // Smooth the run (e.g. ignore bouncing GPS tracks)
@@ -3126,7 +3116,7 @@ module.exports = {
   compute: computeDistance
 };
 
-},{"sgeo":27}],19:[function(require,module,exports){
+},{"sgeo":26}],18:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -3139,11 +3129,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],20:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":19}],21:[function(require,module,exports){
+},{"./en":18}],20:[function(require,module,exports){
 /**
  * Given an array of timeseries data ordered from oldest to
  * newest, predict when a future value is likely to be hit.
@@ -3212,7 +3202,7 @@ var predict = function(futureValue, series) {
 
 module.exports = predict;
 
-},{"regression":25}],22:[function(require,module,exports){
+},{"regression":24}],21:[function(require,module,exports){
 /**
  * Helpers to round dates to day, week, month, year boundaries.
  *
@@ -3381,7 +3371,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],23:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 /**
  * Credit: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
  */
@@ -3435,7 +3425,7 @@ module.exports = {
   }
 };
 
-},{}],24:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -13511,9 +13501,9 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],25:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":26}],26:[function(require,module,exports){
+},{"./src/regression":25}],25:[function(require,module,exports){
 /**
 * @license
 *
@@ -13763,7 +13753,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],27:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 
 //Original version of this module came from following website by Chris Veness
 //http://www.movable-type.co.uk/scripts/latlong.html
@@ -14438,7 +14428,7 @@ if (typeof String.prototype.trim == 'undefined') {
   }
 }
 
-},{}],28:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 // Constants
 var MINUTE_IN_MS = 1000 * 60;
 var HOUR_IN_MS   = MINUTE_IN_MS * 60;
@@ -14496,7 +14486,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],29:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 // Calculate the sum of a half-closed Date interval
 var sum = function(startDate, endDate, series) {
   var sum = 0, point, i, t;
@@ -14536,7 +14526,7 @@ var sum = function(startDate, endDate, series) {
 
 module.exports = sum;
 
-},{}],30:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 /*!
  * tiny-cookie - A tiny cookie manipulation plugin
  * https://github.com/Alex1990/tiny-cookie
@@ -14682,7 +14672,7 @@ module.exports = sum;
 
 }));
 
-},{}],31:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors

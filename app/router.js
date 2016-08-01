@@ -1,8 +1,7 @@
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
-var AppView = require('./views/app/app');
-var GoalView = require('./views/goal/goal');
+var SettingsView = require('./views/settings/settings');
 
 var Router = Backbone.Router.extend({
   initialize: function(options) {
@@ -23,8 +22,8 @@ var Router = Backbone.Router.extend({
 
       if (options.data.length === 0) {
         // Prompt people to install the app, if they haven't already
-        this.navigate("app");
-        this.switchView(AppView);
+        this.navigate("settings");
+        this.switchView(SettingsView);
       }
       else if (this.currentView) {
         // Render the current view, if one has been set
@@ -34,9 +33,8 @@ var Router = Backbone.Router.extend({
   },
 
   routes: {
-    "": "dashboard", // '/'
-    "app": "app",    // '/app'
-    "goal": "goal"   // '/goal'
+    "": "dashboard",       // '/'
+    "settings": "settings" // '/app'
   },
 
   switchView: function(view) {
@@ -55,8 +53,8 @@ var Router = Backbone.Router.extend({
     this.switchView(DashboardView);
   },
 
-  app: function() {
-    this.switchView(AppView);
+  settings: function() {
+    this.switchView(SettingsView);
   },
 
   goal: function() {

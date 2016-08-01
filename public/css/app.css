@@ -124,7 +124,34 @@ ul.list li *:last-child {
 }
 
 /**
- * Token request screen
+ * Settings screen
+ */
+.forrest-settings {
+  padding: 2em;
+}
+
+.forrest-settings .sections {
+  padding-top: 2em;
+}
+
+.forrest-settings .sections > * {
+  flex: 0 0 16em;
+  border: 1px solid #d4d4d4;
+  background-color: #f4f4f4;
+  padding: 1em;
+}
+
+.forrest-settings .sections > * > h2 {
+  margin-top: 0;
+}
+
+.forrest-settings .code .security_code {
+  border: 1px solid #d8d8d8;
+  padding: 0.25em;
+}
+
+/**
+ * Token request view
  */
 
 .success {

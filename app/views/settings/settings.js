@@ -1,29 +1,35 @@
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
+var Goal = require('./goal');
 
 var View = Backbone.View.extend({
-  className: "screen column",
+  className: "screen forrest-settings",
 
   initialize: function() {
     this.securityCode = new SecurityCode();
+    this.goal = new Goal();
   },
 
   render: function() {
 
     this.$el.html(
-      "<div class='modal'>" +
-      "<div>" +
-      "<h1>1. Get the app</h1>" +
+      "<a href='#'><i class='fa fa-arrow-left'></i> Go back to the dashboard</a>" +
+      "<div class='sections row center'>" +
+      "<div class='download'>" +
+      "<h2>Download</h2>" +
+      "<p>Get the app</p>" +
       "<img src='images/Download_on_the_App_Store_Badge_US-UK_135x40.svg' alt='Download on the App Store'/>" +
-      "<h1>2. Enter a security code</h1>" +
-      "<div class='code'>" +
       "</div>" +
-      "</div>" +
+      "<div class='code'></div>" +
+      "<div class='goal'></div>" +
       "</div>"
     );
 
     this.securityCode.setElement(this.$('.code'));
     this.securityCode.render();
+
+    this.goal.setElement(this.$('.goal'));
+    this.goal.render();
 
     return this;
   },
