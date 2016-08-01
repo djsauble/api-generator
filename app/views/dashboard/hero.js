@@ -30,7 +30,7 @@ var View = Backbone.View.extend({
         percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
         goalThisWeek = round(1.1 * distanceLastWeek, 1),
         remainingThisWeek = round(goalThisWeek - distanceThisWeek, 1),
-        goalAmount = 40,
+        goalAmount = GOAL,
         trendingWeeks = 7,
         trendPercentString,
         trendDescriptionString,

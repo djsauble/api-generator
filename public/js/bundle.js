@@ -27,7 +27,7 @@ $(function() {
   });
 });
 
-},{"./models/runs":4,"./router":5,"backbone":16,"jquery":23}],2:[function(require,module,exports){
+},{"./models/runs":4,"./router":5,"backbone":16,"jquery":24}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (buffer) {
@@ -128,7 +128,7 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":16,"underscore":29}],5:[function(require,module,exports){
+},{"../helpers":2,"./run":3,"backbone":16,"underscore":31}],5:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -197,7 +197,7 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/app/app":6,"./views/dashboard/dashboard":8,"./views/goal/goal":15,"backbone":16,"jquery":23}],6:[function(require,module,exports){
+},{"./views/app/app":6,"./views/dashboard/dashboard":8,"./views/goal/goal":15,"backbone":16,"jquery":24}],6:[function(require,module,exports){
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
 
@@ -339,7 +339,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":16,"underscore":29}],8:[function(require,module,exports){
+},{"backbone":16,"underscore":31}],8:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
@@ -396,7 +396,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./footer":9,"./hero":10,"./viewer":14,"backbone":16,"underscore":29}],9:[function(require,module,exports){
+},{"./footer":9,"./hero":10,"./viewer":14,"backbone":16,"underscore":31}],9:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
@@ -446,7 +446,7 @@ var View = Backbone.View.extend({
         percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
         goalThisWeek = round(1.1 * distanceLastWeek, 1),
         remainingThisWeek = round(goalThisWeek - distanceThisWeek, 1),
-        goalAmount = 40,
+        goalAmount = GOAL,
         trendingWeeks = 7,
         trendPercentString,
         trendDescriptionString,
@@ -555,7 +555,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":16,"date-names":19,"date-prediction":20,"date-round":21,"float":22,"timeseries-aggregate":27,"timeseries-sum":28,"underscore":29}],11:[function(require,module,exports){
+},{"backbone":16,"date-names":20,"date-prediction":21,"date-round":22,"float":23,"timeseries-aggregate":28,"timeseries-sum":29,"underscore":31}],11:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -794,7 +794,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":16,"compute-distance":17,"jquery":23}],13:[function(require,module,exports){
+},{"../../helpers":2,"backbone":16,"compute-distance":18,"jquery":24}],13:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -855,7 +855,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":16,"date-names":19,"date-round":21}],14:[function(require,module,exports){
+},{"../../helpers":2,"backbone":16,"date-names":20,"date-round":22}],14:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -916,40 +916,136 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":11,"./map":12,"backbone":16,"underscore":29}],15:[function(require,module,exports){
+},{"./list":11,"./map":12,"backbone":16,"underscore":31}],15:[function(require,module,exports){
+var $ = require('jquery');
 var Backbone = require('backbone');
+var Cookie = require('tiny-cookie');
+var Training = require('base-building');
 
 var View = Backbone.View.extend({
   className: "screen column",
+
+  init: function() {
+  },
+
+  events: {
+    'input #today': 'updateToday',
+    'input #goal': 'updateGoal',
+    'click .set_goal': 'setGoal'
+  },
 
   render: function() {
 
     this.$el.html(
       "<div class='modal'>" +
-      "<form>" +
+      "<div>" +
       "<div class='field row'>" +
-      "<label for='miles_per_week'>Miles per week</label>" +
-      "<input id='miles_per_week' name='miles_per_mile' type='number'/>" +
+      "<label for='today'>I run</label>" +
+      "<output for='today' id='todayOutput'>10</output>" +
+      "<small class='expand'>miles per week</small>" +
+      "<input type='range' id='today' name='today' min='0' max='100' value='10'/>" +
       "</div>" +
       "<div class='field row'>" +
-      "<label for='minutes_per_mile'>Minutes per mile</label>" +
-      "<input id='minutes_per_mile' name='minutes_per_mile' type='number'/>" +
+      "<label for='goal'>My goal is</label>" +
+      "<output for='goal' id='goalOutput''>40</output>" +
+      "<small class='expand'>miles per week</small>" +
+      "<input type='range' id='goal' name='goal' min='0' max='100' value='40'/>" +
+      "</div>" +
+      "<div class='field row'>" +
+      "<label for='estimate'>I can meet my goal in</label>" +
+      "<output class='expand' id='estimate' name='estimate'>11 months</output>" +
       "</div>" +
       "<buttons>" +
       "<button class='set_goal'>Set goal</button> " +
       "<a href='#'>Nevermind, go back</a>" +
       "</buttons>" +
-      "</form>" +
+      "</div>" +
       "</div>"
     );
 
+    this.loadFromCookies();
+    this.updateEstimate();
+
     return this;
+  },
+
+  loadFromCookies: function() {
+    var todayMilesPerWeek = Cookie.get('todayMilesPerWeek');
+    if (todayMilesPerWeek) {
+      this.$('#today').val(todayMilesPerWeek);
+      this.updateToday();
+    }
+
+    var goalMilesPerWeek = Cookie.get('goalMilesPerWeek');
+    if (goalMilesPerWeek) {
+      this.$('#goal').val(goalMilesPerWeek);
+      this.updateGoal();
+    }
+  },
+
+  updateToday: function() {
+    var milesPerWeek = this.$('#today').val();
+    this.$('#todayOutput').val(milesPerWeek);
+    this.updateEstimate();
+    Cookie.set('todayMilesPerWeek', milesPerWeek);
+  },
+
+  updateGoal: function() {
+    var milesPerWeek = this.$('#goal').val();
+    this.$('#goalOutput').val(milesPerWeek);
+    this.updateEstimate();
+    Cookie.set('goalMilesPerWeek', milesPerWeek);
+  },
+
+  setGoal: function() {
+    var me = this;
+
+    this.ws = new WebSocket(WEBSOCKET_URL);
+
+    this.ws.onopen = function() {
+      me.ws.send(JSON.stringify({
+        type: 'set_goal',
+        miles: parseFloat(me.$('#goal').val()),
+        user: USER_ID,
+        token: USER_TOKEN
+      }));
+    };
+    this.ws.onmessage = function(data, flags) {
+      // Make sure this is something we know how to parse
+      console.log(data);
+      var message;
+      try {
+        message = JSON.parse(data.data);
+      } catch(err) {
+        // Do nothing
+        console.log(err);
+        return;
+      }
+      console.log("Was the operation successful?");
+
+      // Take appropriate action
+      if (message.status === 'success') {
+        console.log('Goal set successfully');
+      }
+      me.ws.close();
+    };
+  },
+
+  updateEstimate: function() {
+    this.$('#estimate').val(
+      Training.makeWeeksHuman(
+        Training.weeksToGoal(
+          parseFloat(this.$('#todayOutput').val()),
+          parseFloat(this.$('#goalOutput').val())
+        )
+      )
+    );
   }
 });
 
 module.exports = View;
 
-},{"backbone":16}],16:[function(require,module,exports){
+},{"backbone":16,"base-building":17,"jquery":24,"tiny-cookie":30}],16:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -2873,7 +2969,91 @@ module.exports = View;
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":23,"underscore":29}],17:[function(require,module,exports){
+},{"jquery":24,"underscore":31}],17:[function(require,module,exports){
+// Convert weeks to a more appropriate timescale
+function makeWeeksHuman(weeks) {
+  if (Math.round(weeks) === 1) {
+    return '1 week';
+  }
+  if (weeks < 13.035) {
+    return Math.round(weeks) + ' weeks';
+  }
+  else if (weeks < 52) {
+    return Math.round(weeks / 4.345) + ' months';
+  }
+  else {
+    return Math.round(10 * weeks / 52) / 10 + ' years';
+  }
+}
+
+// How many weeks to train at a given mileage before adding more?
+function weeksAtMileage(currentMileage) {
+  var func;
+
+  // Find the right training level for the current mileage
+  if (currentMileage < 3) { func = lessThan3; }
+  else if (currentMileage < 10) { func = lessThan10; }
+  else if (currentMileage < 20) { func = lessThan20; }
+  else { func = moreThan20; }
+
+  // Simulate the current training level
+  return func(currentMileage);
+}
+
+// Given a starting and ending mileage, calculate training time
+function weeksToGoal(currentMileage, goalMileage) {
+  var weekCount = 0;
+
+  while (currentMileage < goalMileage) {
+
+    // Simulate the current training level
+    var state = weeksAtMileage(currentMileage);
+    weekCount += state.weeksAtThisLevel;
+    currentMileage = state.milesAtNextLevel;
+  }
+
+  return weekCount;
+}
+
+// Never prescribe weekly mileage lower than 3
+function lessThan3(currentMileage) {
+  return {
+    milesAtNextLevel: 3,
+    weeksAtThisLevel: 1
+  };
+}
+
+// Increase weekly mileage by 1 until hitting 10 mpw
+function lessThan10(currentMileage) {
+  return {
+    milesAtNextLevel: currentMileage + 1,
+    weeksAtThisLevel: 1
+  };
+}
+
+// Increase weekly mileage by 10% per week until hitting 20 mpw
+function lessThan20(currentMileage) {
+  return {
+    milesAtNextLevel: currentMileage * 1.1,
+    weeksAtThisLevel: 1
+  };
+}
+
+// Increase weekly mileage at increasingly slow intervals after 20 mpw
+function moreThan20(currentMileage) {
+  return {
+    milesAtNextLevel: currentMileage * 1.1,
+    weeksAtThisLevel: 9.32002 * Math.log(0.0556632 * currentMileage)
+  };
+}
+
+module.exports = {
+  weeksToGoal: weeksToGoal,
+  weeksAtMileage: weeksAtMileage,
+  makeWeeksHuman: makeWeeksHuman
+};
+
+},{}],18:[function(require,module,exports){
 var sgeo = require('sgeo');
 
 // Smooth the run (e.g. ignore bouncing GPS tracks)
@@ -2943,7 +3123,7 @@ module.exports = {
   compute: computeDistance
 };
 
-},{"sgeo":26}],18:[function(require,module,exports){
+},{"sgeo":27}],19:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -2956,11 +3136,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],19:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":18}],20:[function(require,module,exports){
+},{"./en":19}],21:[function(require,module,exports){
 /**
  * Given an array of timeseries data ordered from oldest to
  * newest, predict when a future value is likely to be hit.
@@ -3029,7 +3209,7 @@ var predict = function(futureValue, series) {
 
 module.exports = predict;
 
-},{"regression":24}],21:[function(require,module,exports){
+},{"regression":25}],22:[function(require,module,exports){
 /**
  * Helpers to round dates to day, week, month, year boundaries.
  *
@@ -3198,7 +3378,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 /**
  * Credit: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
  */
@@ -3252,7 +3432,7 @@ module.exports = {
   }
 };
 
-},{}],23:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -13328,9 +13508,9 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],24:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":25}],25:[function(require,module,exports){
+},{"./src/regression":26}],26:[function(require,module,exports){
 /**
 * @license
 *
@@ -13580,7 +13760,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 
 //Original version of this module came from following website by Chris Veness
 //http://www.movable-type.co.uk/scripts/latlong.html
@@ -14255,7 +14435,7 @@ if (typeof String.prototype.trim == 'undefined') {
   }
 }
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 // Constants
 var MINUTE_IN_MS = 1000 * 60;
 var HOUR_IN_MS   = MINUTE_IN_MS * 60;
@@ -14313,7 +14493,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],28:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 // Calculate the sum of a half-closed Date interval
 var sum = function(startDate, endDate, series) {
   var sum = 0, point, i, t;
@@ -14353,7 +14533,153 @@ var sum = function(startDate, endDate, series) {
 
 module.exports = sum;
 
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
+/*!
+ * tiny-cookie - A tiny cookie manipulation plugin
+ * https://github.com/Alex1990/tiny-cookie
+ * Under the MIT license | (c) Alex Chao
+ */
+
+!(function(root, factory) {
+
+  // Uses CommonJS, AMD or browser global to create a jQuery plugin.
+  // See: https://github.com/umdjs/umd
+  if (typeof define === 'function' && define.amd) {
+    // Expose this plugin as an AMD module. Register an anonymous module.
+    define(factory);
+  } else if (typeof exports === 'object') {
+    // Node/CommonJS module
+    module.exports = factory();
+  } else {
+    // Browser globals 
+    root.Cookie = factory();
+  }
+
+}(this, function() {
+
+  'use strict';
+
+  // The public function which can get/set/remove cookie.
+  function Cookie(key, value, opts) {
+    if (value === void 0) {
+      return Cookie.get(key);
+    } else if (value === null) {
+      Cookie.remove(key);
+    } else {
+      Cookie.set(key, value, opts);
+    }
+  }
+
+  // Check if the cookie is enabled.
+  Cookie.enabled = function() {
+    var key = '__test_key';
+    var enabled;
+
+    document.cookie = key + '=1';
+    enabled = !!document.cookie;
+
+    if (enabled) Cookie.remove(key);
+
+    return enabled;
+  };
+
+  // Get the cookie value by the key.
+  Cookie.get = function(key, raw) {
+    if (typeof key !== 'string' || !key) return null;
+
+    key = '(?:^|; )' + escapeRe(key) + '(?:=([^;]*?))?(?:;|$)';
+
+    var reKey = new RegExp(key);
+    var res = reKey.exec(document.cookie);
+
+    return res !== null ? (raw ? res[1] : decodeURIComponent(res[1])) : null;
+  };
+
+  // Get the cookie's value without decoding.
+  Cookie.getRaw = function(key) {
+    return Cookie.get(key, true);
+  };
+
+  // Set a cookie.
+  Cookie.set = function(key, value, raw, opts) {
+    if (raw !== true) {
+      opts = raw;
+      raw = false;
+    }
+    opts = opts ? convert(opts) : convert({});
+    var cookie = key + '=' + (raw ? value : encodeURIComponent(value)) + opts;
+    document.cookie = cookie;
+  };
+
+  // Set a cookie without encoding the value.
+  Cookie.setRaw = function(key, value, opts) {
+    Cookie.set(key, value, true, opts);
+  };
+
+  // Remove a cookie by the specified key.
+  Cookie.remove = function(key) {
+    Cookie.set(key, 'a', { expires: new Date() });
+  };
+
+  // Helper function
+  // ---------------
+
+  // Escape special characters.
+  function escapeRe(str) {
+    return str.replace(/[.*+?^$|[\](){}\\-]/g, '\\$&');
+  }
+
+  // Convert an object to a cookie option string.
+  function convert(opts) {
+    var res = '';
+
+    for (var p in opts) {
+      if (opts.hasOwnProperty(p)) {
+
+        if (p === 'expires') {
+          var expires = opts[p];
+          if (typeof expires !== 'object') {
+            expires += typeof expires === 'number' ? 'D' : '';
+            expires = computeExpires(expires);
+          }
+          opts[p] = expires.toUTCString();
+        }
+
+        res += ';' + p + '=' + opts[p];
+      }
+    }
+
+    if (!opts.hasOwnProperty('path')) {
+      res += ';path=/';
+    }
+
+    return res;
+  }
+
+  // Return a future date by the given string.
+  function computeExpires(str) {
+    var expires = new Date();
+    var lastCh = str.charAt(str.length - 1);
+    var value = parseInt(str, 10);
+
+    switch (lastCh) {
+      case 'Y': expires.setFullYear(expires.getFullYear() + value); break;
+      case 'M': expires.setMonth(expires.getMonth() + value); break;
+      case 'D': expires.setDate(expires.getDate() + value); break;
+      case 'h': expires.setHours(expires.getHours() + value); break;
+      case 'm': expires.setMinutes(expires.getMinutes() + value); break;
+      case 's': expires.setSeconds(expires.getSeconds() + value); break;
+      default: expires = new Date(str);
+    }
+
+    return expires;
+  }
+
+  return Cookie;
+
+}));
+
+},{}],31:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors

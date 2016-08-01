@@ -142,6 +142,9 @@ app.ws('/ws', function(ws, req) {
     else if (request.type == 'get_weekly_goal') {
       getWeeklyGoal(ws, request.user, request.token);
     }
+    else if (request.type == 'set_goal') {
+      setGoal(ws, request.miles, request.user, request.token);
+    }
     else if (request.type == 'get_docs') {
       getDocs(ws, request.database, request.user, request.token);
     }
@@ -255,6 +258,31 @@ function useToken(ws, token) {
       // Inform the callee that the request has been finished
       sockets[token].close();
       delete sockets[token];
+    });
+  });
+}
+
+// Set weekly goal information
+function setGoal(ws, miles, user, token) {
+  var users = nano.db.use('users');
+  users.get(user, function(err, body) {
+    // Is this a valid request?
+    if (body.user_token != token) {
+      ws.send('{error: "Invalid request"}');
+      return;
+    }
+
+    // Set goal information
+    body.goal = miles;
+
+    // Update the user document
+    users.insert(body, function(err, body, header) {
+      if (err) {
+        ws.send('{error: "Failed to update the weekly goal"}');
+        return;
+      }
+
+      ws.send('{"message": "success"}');
     });
   });
 }
