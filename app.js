@@ -36,7 +36,8 @@ app.get('/', ensureAuthenticated, function(req, res) {
   res.render('index', {
     host: process.env.CALLBACK_URL,
     user: req.user,
-    wsUrl: process.env.WEBSOCKET_URL
+    wsUrl: process.env.WEBSOCKET_URL,
+    google_maps_api_key: process.env.GOOGLE_MAPS_API_KEY
   });
 });
 
