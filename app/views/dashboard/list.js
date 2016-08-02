@@ -60,7 +60,6 @@ var View = Backbone.View.extend({
     });
 
     // If no run is selected, select the first one in the new list
-    console.log("RENDER");
     if (this.selected) {
       this.$('#' + this.selected.id).addClass('selected');
     }

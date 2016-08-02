@@ -6,10 +6,6 @@ var Helpers = require('../helpers');
 var Runs = Backbone.Collection.extend({
   model: Run,
   initialize: function(options) {
-    this.url = options.host + '/api/' + options.database +
-               '?user=' + options.user +
-               '&token=' + options.token;
-
     // Pass events to the event bus
     this.on('sync', function() {
       Forrest.bus.trigger('runs:sync', this);

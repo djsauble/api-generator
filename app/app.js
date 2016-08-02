@@ -10,12 +10,7 @@ $(function() {
   Forrest = {};
 
   // Initialize the database
-  Forrest.runs = new Runs({
-    host: HOST,
-    database: DATABASE,
-    user: USER_ID,
-    token: USER_TOKEN
-  });
+  Forrest.runs = new Runs();
 
   // Initialize the event bus
   Forrest.bus = _.extend({}, Backbone.Events);

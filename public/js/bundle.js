@@ -11,12 +11,7 @@ $(function() {
   Forrest = {};
 
   // Initialize the database
-  Forrest.runs = new Runs({
-    host: HOST,
-    database: DATABASE,
-    user: USER_ID,
-    token: USER_TOKEN
-  });
+  Forrest.runs = new Runs();
 
   // Initialize the event bus
   Forrest.bus = _.extend({}, Backbone.Events);
@@ -86,10 +81,6 @@ var Helpers = require('../helpers');
 var Runs = Backbone.Collection.extend({
   model: Run,
   initialize: function(options) {
-    this.url = options.host + '/api/' + options.database +
-               '?user=' + options.user +
-               '&token=' + options.token;
-
     // Pass events to the event bus
     this.on('sync', function() {
       Forrest.bus.trigger('runs:sync', this);
@@ -436,7 +427,6 @@ var View = Backbone.View.extend({
     });
 
     // If no run is selected, select the first one in the new list
-    console.log("RENDER");
     if (this.selected) {
       this.$('#' + this.selected.id).addClass('selected');
     }

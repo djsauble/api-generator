@@ -47,17 +47,15 @@ app.get('/login', function(req, res) {
 });
 
 // Create a new record (extension point)
-app.put('/api/:database_id', function(req, res) {
-  var database = req.params.database_id;
+app.put('/api/runs', function(req, res) {
   var user = req.query.user;
   var token = req.query.token;
   var data = req.body;
 
-  // Does the given user own the specified database and token key?
+  // Is this a valid request?
   var users = nano.db.use('users');
   users.get(user, function(err, body) {
-    // Is this a valid request?
-    if (body.user_token != token || body.run_database != database) {
+    if (body.user_token != token) {
       return;
     }
 
@@ -127,7 +125,7 @@ app.get('/logout', function(req, res) {
 // Auth token (for token creation)
 var sockets = {};
 
-app.ws('/ws', function(ws, req) {
+app.ws('/api', function(ws, req) {
   console.log('Client connected');
   ws.on('message', function(data, flags) {
     var request = JSON.parse(data);
@@ -247,7 +245,7 @@ function useToken(ws, token) {
         return;
       }
 
-      ws.send(process.env.CALLBACK_URL + "/api/" + body.run_database + "?user=" + body._id + "&token=" + body.user_token);
+      ws.send(process.env.CALLBACK_URL + "/api/runs?user=" + body._id + "&token=" + body.user_token);
 
       // Delete the token doc
       tokens.destroy(token, tokenDoc._rev, function() {
