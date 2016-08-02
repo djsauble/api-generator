@@ -1,26 +1,32 @@
+var _ = require("underscore");
 var Backbone = require("backbone");
 var $ = require("jquery");
 var Runs = require("./models/runs");
 var Router = require("./router");
 
 $(function() {
-  // Initialize the app
-  var runs = new Runs({
+
+  // Global namespace
+  Forrest = {};
+
+  // Initialize the database
+  Forrest.runs = new Runs({
     host: HOST,
     database: DATABASE,
     user: USER_ID,
     token: USER_TOKEN
   });
 
+  // Initialize the event bus
+  Forrest.bus = _.extend({}, Backbone.Events);
+
   // Initialize the router
-  var router = new Router({
-    data: runs
-  });
+  Forrest.router = new Router();
   Backbone.history.start();
 
   // Log events
-  runs.once({
-    "sync": function(collection) {
+  Forrest.bus.once({
+    "runs:sync": function(collection) {
       console.log("App is loaded with " + collection.length + " records");
     }
   });

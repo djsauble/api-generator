@@ -5,27 +5,64 @@ var View = Backbone.View.extend({
   tagName: "ul",
   className: "list",
 
-  initialize: function(options) {
-    // Instance variables
-    this.options = options;
+  initialize: function() {
+    // Backing data
+    this.models = [];
+    this.selected = undefined;
 
     // Children
     this.runs = [];
+
+    // Data changed
+    this.listenTo(Forrest.bus, 'runs:sync', function(runs) {
+      this.models = runs;
+
+      // Select the first model in the set, if none selected
+      if (!this.selected && runs.length > 0) {
+        Forrest.bus.trigger('runs:selected', runs.at(runs.length - 1));
+
+        // NOTE: We postpone render until the selection event has fired
+      }
+      else {
+        this.render();
+      }
+    });
+
+    // Toggle selected style if a run is selected
+    this.listenTo(Forrest.bus, 'runs:selected', function(model) {
+      this.selected = model;
+      this.render();
+    });
   },
 
   render: function() {
-    // Tabulate the list of runs
-    for (var i = this.options.data.length - 1; i >= 0; --i) {
-      var run = this.options.data.at(i),
-          view = new RunView({
-            model: run,
-            attributes: {
-              parent: this.attributes.parent
-            }
-          });
+    var me = this;
 
-      this.$el.append(view.render().el);
-      this.runs.push(view);
+    // Remove any existing runs
+    for (var i = 0; i < this.runs.length; ++i) {
+      this.runs[i].remove();
+      this.runs[i] = undefined;
+    }
+
+    // Create new views
+    this.runs = this.models.map(function (r) {
+      return new RunView({
+        model: r,
+        attributes: {
+          id: r.id
+        }
+      });
+    }).reverse();
+
+    // Add the views to the DOM
+    this.runs.forEach(function(r) {
+      me.$el.append(r.render().el);
+    });
+
+    // If no run is selected, select the first one in the new list
+    console.log("RENDER");
+    if (this.selected) {
+      this.$('#' + this.selected.id).addClass('selected');
     }
 
     return this;

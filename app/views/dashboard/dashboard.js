@@ -6,29 +6,18 @@ var ViewerView = require('./viewer');
 var View = Backbone.View.extend({
   className: "screen column",
 
-  initialize: function(options) {
+  initialize: function() {
     // Child components
-    this.options = options;
-    this.hero = new HeroView(options);
-    this.viewer = new ViewerView(options);
+    this.hero = new HeroView();
+    this.viewer = new ViewerView();
   },
 
   render: function() {
-    if (this.options.data.length === 0) {
-      // Empty state
-      this.$el.html(
-        "<div class='modal'>" +
-        "<span><img class='spinner' src='images/loader.gif'/> Waiting for your first run&hellip;</span>" +
-        "</div>"
-      );
-    }
-    else {
-      // Show the hero component
-      this.$el.append(this.hero.render().el);
+    // Show the hero component
+    this.$el.append(this.hero.render().el);
 
-      // Show the viewer component
-      this.$el.append(this.viewer.render().el);
-    }
+    // Show the viewer component
+    this.$el.append(this.viewer.render().el);
 
     return this;
   },

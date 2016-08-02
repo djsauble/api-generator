@@ -1,33 +1,39 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+var _ = require("underscore");
 var Backbone = require("backbone");
 var $ = require("jquery");
 var Runs = require("./models/runs");
 var Router = require("./router");
 
 $(function() {
-  // Initialize the app
-  var runs = new Runs({
+
+  // Global namespace
+  Forrest = {};
+
+  // Initialize the database
+  Forrest.runs = new Runs({
     host: HOST,
     database: DATABASE,
     user: USER_ID,
     token: USER_TOKEN
   });
 
+  // Initialize the event bus
+  Forrest.bus = _.extend({}, Backbone.Events);
+
   // Initialize the router
-  var router = new Router({
-    data: runs
-  });
+  Forrest.router = new Router();
   Backbone.history.start();
 
   // Log events
-  runs.once({
-    "sync": function(collection) {
+  Forrest.bus.once({
+    "runs:sync": function(collection) {
       console.log("App is loaded with " + collection.length + " records");
     }
   });
 });
 
-},{"./models/runs":4,"./router":5,"backbone":15,"jquery":23}],2:[function(require,module,exports){
+},{"./models/runs":4,"./router":5,"backbone":15,"jquery":23,"underscore":30}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (buffer) {
@@ -84,6 +90,11 @@ var Runs = Backbone.Collection.extend({
                '?user=' + options.user +
                '&token=' + options.token;
 
+    // Pass events to the event bus
+    this.on('sync', function() {
+      Forrest.bus.trigger('runs:sync', this);
+    });
+
     this.fetch();
   },
   fetch: function() {
@@ -135,31 +146,17 @@ var DashboardView = require('./views/dashboard/dashboard');
 var SettingsView = require('./views/settings/settings');
 
 var Router = Backbone.Router.extend({
-  initialize: function(options) {
-    // Instance variables
-    this.currentView = null;
-    this.loadingData = true;
-    this.options = options;
-
+  initialize: function() {
     // Container for the app
     this.el = $(".main");
 
-    this.listenToOnce(options.data, "sync", function() {
-      // Let the app know that data is available for display
-      this.loadingData = false;
+    // Child screens
+    this.dashboardView = new DashboardView();
+    this.settingsView = new SettingsView();
 
+    this.listenToOnce(Forrest.bus, "runs:sync", function(runs) {
       // Remove the loading indicator
       $(".loading").remove();
-
-      if (options.data.length === 0) {
-        // Prompt people to install the app, if they haven't already
-        this.navigate("settings");
-        this.switchView(SettingsView);
-      }
-      else if (this.currentView) {
-        // Render the current view, if one has been set
-        this.el.html(this.currentView.render().el);
-      }
     });
   },
 
@@ -171,25 +168,18 @@ var Router = Backbone.Router.extend({
   switchView: function(view) {
     if (this.currentView) {
       this.currentView.remove();
-      this.currentView.unbind();
       this.currentView = null;
     }
-    this.currentView = new view(this.options);
-    if (!this.loadingData) {
-      this.el.html(this.currentView.render().el);
-    }
+    this.currentView = view;
+    this.el.html(this.currentView.render().el);
   },
 
   dashboard: function() {
-    this.switchView(DashboardView);
+    this.switchView(this.dashboardView);
   },
 
   settings: function() {
-    this.switchView(SettingsView);
-  },
-
-  goal: function() {
-    this.switchView(GoalView);
+    this.switchView(this.settingsView);
   }
 });
 
@@ -204,29 +194,18 @@ var ViewerView = require('./viewer');
 var View = Backbone.View.extend({
   className: "screen column",
 
-  initialize: function(options) {
+  initialize: function() {
     // Child components
-    this.options = options;
-    this.hero = new HeroView(options);
-    this.viewer = new ViewerView(options);
+    this.hero = new HeroView();
+    this.viewer = new ViewerView();
   },
 
   render: function() {
-    if (this.options.data.length === 0) {
-      // Empty state
-      this.$el.html(
-        "<div class='modal'>" +
-        "<span><img class='spinner' src='images/loader.gif'/> Waiting for your first run&hellip;</span>" +
-        "</div>"
-      );
-    }
-    else {
-      // Show the hero component
-      this.$el.append(this.hero.render().el);
+    // Show the hero component
+    this.$el.append(this.hero.render().el);
 
-      // Show the viewer component
-      this.$el.append(this.viewer.render().el);
-    }
+    // Show the viewer component
+    this.$el.append(this.viewer.render().el);
 
     return this;
   },
@@ -257,8 +236,19 @@ var round = require('float').round;
 var View = Backbone.View.extend({
   className: "hero dark row",
 
-  initialize: function(options) {
-    this.options = options;
+  initialize: function() {
+    this.runs = [];
+
+    // Data changed
+    this.listenTo(Forrest.bus, 'runs:sync', function(runs) {
+      this.runs = runs.map(function(r) {
+        return {
+          timestamp: r.get('timestamp'),
+          value: r.getMileage()
+        };
+      });
+      this.render();
+    });
   },
 
   render: function() {
@@ -266,14 +256,8 @@ var View = Backbone.View.extend({
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'), 
         runsByWeek = [],
-        rawData = this.options.data.map(function(r) {
-          return {
-            timestamp: r.get('timestamp'),
-            value: r.getMileage()
-          };
-        }),
-        distanceThisWeek = round(sum(startOfThisWeek, undefined, rawData), 1),
-        distanceLastWeek = round(sum(startOfLastWeek, startOfThisWeek, rawData), 1),
+        distanceThisWeek = round(sum(startOfThisWeek, undefined, this.runs), 1),
+        distanceLastWeek = round(sum(startOfLastWeek, startOfThisWeek, this.runs), 1),
         percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
         goalThisWeek = round(1.1 * distanceLastWeek, 1),
         remainingThisWeek = round(goalThisWeek - distanceThisWeek, 1),
@@ -295,7 +279,7 @@ var View = Backbone.View.extend({
     }
 
     // Compile run data for the last seven weeks
-    runsByWeek = DateAggregate.aggregate(startOfThisWeek, trendingWeeks, DateAggregate.WEEK_IN_MS, rawData);
+    runsByWeek = DateAggregate.aggregate(startOfThisWeek, trendingWeeks, DateAggregate.WEEK_IN_MS, this.runs);
 
     // Display the last day of the given week
     if (goalAmount) {
@@ -397,27 +381,64 @@ var View = Backbone.View.extend({
   tagName: "ul",
   className: "list",
 
-  initialize: function(options) {
-    // Instance variables
-    this.options = options;
+  initialize: function() {
+    // Backing data
+    this.models = [];
+    this.selected = undefined;
 
     // Children
     this.runs = [];
+
+    // Data changed
+    this.listenTo(Forrest.bus, 'runs:sync', function(runs) {
+      this.models = runs;
+
+      // Select the first model in the set, if none selected
+      if (!this.selected && runs.length > 0) {
+        Forrest.bus.trigger('runs:selected', runs.at(runs.length - 1));
+
+        // NOTE: We postpone render until the selection event has fired
+      }
+      else {
+        this.render();
+      }
+    });
+
+    // Toggle selected style if a run is selected
+    this.listenTo(Forrest.bus, 'runs:selected', function(model) {
+      this.selected = model;
+      this.render();
+    });
   },
 
   render: function() {
-    // Tabulate the list of runs
-    for (var i = this.options.data.length - 1; i >= 0; --i) {
-      var run = this.options.data.at(i),
-          view = new RunView({
-            model: run,
-            attributes: {
-              parent: this.attributes.parent
-            }
-          });
+    var me = this;
 
-      this.$el.append(view.render().el);
-      this.runs.push(view);
+    // Remove any existing runs
+    for (var i = 0; i < this.runs.length; ++i) {
+      this.runs[i].remove();
+      this.runs[i] = undefined;
+    }
+
+    // Create new views
+    this.runs = this.models.map(function (r) {
+      return new RunView({
+        model: r,
+        attributes: {
+          id: r.id
+        }
+      });
+    }).reverse();
+
+    // Add the views to the DOM
+    this.runs.forEach(function(r) {
+      me.$el.append(r.render().el);
+    });
+
+    // If no run is selected, select the first one in the new list
+    console.log("RENDER");
+    if (this.selected) {
+      this.$('#' + this.selected.id).addClass('selected');
     }
 
     return this;
@@ -442,13 +463,12 @@ var Distance = require('compute-distance');
 var View = Backbone.View.extend({
   className: "map",
 
-  initialize: function(options) {
+  initialize: function() {
 
     /**
      * Instance data
      */
 
-    this.options = options;
     this.overlays = [];
     this.timers = [];
     this.bounds = null;
@@ -456,6 +476,12 @@ var View = Backbone.View.extend({
     /**
      * Events
      */
+
+    // When a new run is selected, display it
+    this.listenTo(Forrest.bus, 'runs:selected', function(run) {
+      this.model = run;
+      this.render();
+    });
 
     // Resize the map whenever the window resizes
     $(window).bind("resize", this.fitMap);
@@ -642,7 +668,7 @@ var View = Backbone.View.extend({
   },
 
   clicked: function() {
-    this.attributes.parent.displayRun(this);
+    Forrest.bus.trigger('runs:selected', this.model);
   },
 
   render: function() {
@@ -698,29 +724,10 @@ var MapView = require('./map');
 var View = Backbone.View.extend({
   className: "viewer row expand",
 
-  initialize: function(options) {
+  initialize: function() {
     // Child components
-    this.map = new MapView(_.extend(_.clone(options), {
-      attributes: {
-        parent: this
-      }
-    }));
-    this.list = new ListView(_.extend(_.clone(options), {
-      attributes: {
-        parent: this
-      }
-    }));
-
-    // Helper methods
-    this.displayRun = function(view) {
-      // Set the selected class
-      this.$(".selected").removeClass("selected");
-      view.$el.addClass("selected");
-
-      // Display the run
-      this.map.model = view.model;
-      this.map.render();
-    };
+    this.map = new MapView();
+    this.list = new ListView();
   },
 
   render: function() {
@@ -729,10 +736,6 @@ var View = Backbone.View.extend({
 
     // Show the map
     this.$el.append(this.map.render().el);
-
-    if (this.list.runs.length > 0) {
-      this.displayRun(this.list.runs[0]);
-    }
 
     return this;
   },

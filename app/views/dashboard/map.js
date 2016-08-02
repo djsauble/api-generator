@@ -6,13 +6,12 @@ var Distance = require('compute-distance');
 var View = Backbone.View.extend({
   className: "map",
 
-  initialize: function(options) {
+  initialize: function() {
 
     /**
      * Instance data
      */
 
-    this.options = options;
     this.overlays = [];
     this.timers = [];
     this.bounds = null;
@@ -20,6 +19,12 @@ var View = Backbone.View.extend({
     /**
      * Events
      */
+
+    // When a new run is selected, display it
+    this.listenTo(Forrest.bus, 'runs:selected', function(run) {
+      this.model = run;
+      this.render();
+    });
 
     // Resize the map whenever the window resizes
     $(window).bind("resize", this.fitMap);

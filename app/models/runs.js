@@ -10,6 +10,11 @@ var Runs = Backbone.Collection.extend({
                '?user=' + options.user +
                '&token=' + options.token;
 
+    // Pass events to the event bus
+    this.on('sync', function() {
+      Forrest.bus.trigger('runs:sync', this);
+    });
+
     this.fetch();
   },
   fetch: function() {

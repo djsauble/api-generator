@@ -4,31 +4,17 @@ var DashboardView = require('./views/dashboard/dashboard');
 var SettingsView = require('./views/settings/settings');
 
 var Router = Backbone.Router.extend({
-  initialize: function(options) {
-    // Instance variables
-    this.currentView = null;
-    this.loadingData = true;
-    this.options = options;
-
+  initialize: function() {
     // Container for the app
     this.el = $(".main");
 
-    this.listenToOnce(options.data, "sync", function() {
-      // Let the app know that data is available for display
-      this.loadingData = false;
+    // Child screens
+    this.dashboardView = new DashboardView();
+    this.settingsView = new SettingsView();
 
+    this.listenToOnce(Forrest.bus, "runs:sync", function(runs) {
       // Remove the loading indicator
       $(".loading").remove();
-
-      if (options.data.length === 0) {
-        // Prompt people to install the app, if they haven't already
-        this.navigate("settings");
-        this.switchView(SettingsView);
-      }
-      else if (this.currentView) {
-        // Render the current view, if one has been set
-        this.el.html(this.currentView.render().el);
-      }
     });
   },
 
@@ -40,25 +26,18 @@ var Router = Backbone.Router.extend({
   switchView: function(view) {
     if (this.currentView) {
       this.currentView.remove();
-      this.currentView.unbind();
       this.currentView = null;
     }
-    this.currentView = new view(this.options);
-    if (!this.loadingData) {
-      this.el.html(this.currentView.render().el);
-    }
+    this.currentView = view;
+    this.el.html(this.currentView.render().el);
   },
 
   dashboard: function() {
-    this.switchView(DashboardView);
+    this.switchView(this.dashboardView);
   },
 
   settings: function() {
-    this.switchView(SettingsView);
-  },
-
-  goal: function() {
-    this.switchView(GoalView);
+    this.switchView(this.settingsView);
   }
 });
 

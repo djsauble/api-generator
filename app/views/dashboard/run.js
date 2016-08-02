@@ -11,7 +11,7 @@ var View = Backbone.View.extend({
   },
 
   clicked: function() {
-    this.attributes.parent.displayRun(this);
+    Forrest.bus.trigger('runs:selected', this.model);
   },
 
   render: function() {

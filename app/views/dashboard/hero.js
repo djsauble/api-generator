@@ -10,8 +10,19 @@ var round = require('float').round;
 var View = Backbone.View.extend({
   className: "hero dark row",
 
-  initialize: function(options) {
-    this.options = options;
+  initialize: function() {
+    this.runs = [];
+
+    // Data changed
+    this.listenTo(Forrest.bus, 'runs:sync', function(runs) {
+      this.runs = runs.map(function(r) {
+        return {
+          timestamp: r.get('timestamp'),
+          value: r.getMileage()
+        };
+      });
+      this.render();
+    });
   },
 
   render: function() {
@@ -19,14 +30,8 @@ var View = Backbone.View.extend({
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'), 
         runsByWeek = [],
-        rawData = this.options.data.map(function(r) {
-          return {
-            timestamp: r.get('timestamp'),
-            value: r.getMileage()
-          };
-        }),
-        distanceThisWeek = round(sum(startOfThisWeek, undefined, rawData), 1),
-        distanceLastWeek = round(sum(startOfLastWeek, startOfThisWeek, rawData), 1),
+        distanceThisWeek = round(sum(startOfThisWeek, undefined, this.runs), 1),
+        distanceLastWeek = round(sum(startOfLastWeek, startOfThisWeek, this.runs), 1),
         percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100),
         goalThisWeek = round(1.1 * distanceLastWeek, 1),
         remainingThisWeek = round(goalThisWeek - distanceThisWeek, 1),
@@ -48,7 +53,7 @@ var View = Backbone.View.extend({
     }
 
     // Compile run data for the last seven weeks
-    runsByWeek = DateAggregate.aggregate(startOfThisWeek, trendingWeeks, DateAggregate.WEEK_IN_MS, rawData);
+    runsByWeek = DateAggregate.aggregate(startOfThisWeek, trendingWeeks, DateAggregate.WEEK_IN_MS, this.runs);
 
     // Display the last day of the given week
     if (goalAmount) {
