@@ -340,8 +340,11 @@ function getWeeklyGoal(ws, data) {
           goalThisWeek = round(1.1 * distanceLastWeek, 1);
 
       ws.send(JSON.stringify({
-        distanceThisWeek: distanceThisWeek,
-        goalThisWeek: goalThisWeek
+        type: 'weekly_goal',
+        data: {
+          distanceThisWeek: distanceThisWeek,
+          goalThisWeek: goalThisWeek
+        }
       }));
     });
   });
