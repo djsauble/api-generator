@@ -7,17 +7,18 @@ var View = Backbone.View.extend({
     this.token = undefined;
     this.expires = new Date();
     this.nextRefresh = undefined;
+    this.canRequestToken = false;
 
     // Start listening for messages
     this.listenTo(Forrest.bus, 'socket:open', this.startListening);
+    this.listenTo(Forrest.bus, 'socket:close', this.stopListening);
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
   startListening: function(socket) {
-    socket.send(JSON.stringify({
-      type: 'get_token',
-      user: USER_ID,
-      token: USER_TOKEN
-    }));
+    this.canRequestToken = true;
+  },
+  stopListening: function(socket) {
+    this.canRequestToken = false;
   },
   processMessage: function(socket, message) {
     var me = this;
@@ -66,16 +67,24 @@ var View = Backbone.View.extend({
       token: this.token
     }));
 
+    // If no token exists, request one
+    if (!this.token) {
+      Forrest.bus.trigger('socket:send', 'get_token', {
+        user: USER_ID,
+        token: USER_TOKEN
+      });
+    }
+
     return this;
   },
 
   remove: function() {
     this.undelegateEvents();
     if (this.token) {
-      this.ws.send(JSON.stringify({
-        type: 'use_token',
+      Forrest.bus.trigger('socket:send', 'use_token', {
         token: this.token
-      }));
+      });
+      this.token = undefined;
     }
   },
 
@@ -89,12 +98,11 @@ var View = Backbone.View.extend({
   },
 
   refresh: function(me) {
-    me.ws.send(JSON.stringify({
-      type: 'refresh_token',
+    Forrest.bus.trigger('socket:send', 'refresh_token', {
       user: USER_ID,
       user_token: USER_TOKEN,
       old_token: me.token
-    }));
+    });
   }
 });
 

@@ -71,37 +71,11 @@ var View = Backbone.View.extend({
   },
 
   setGoal: function() {
-    var me = this;
-
-    this.ws = new WebSocket(WEBSOCKET_URL);
-
-    this.ws.onopen = function() {
-      me.ws.send(JSON.stringify({
-        type: 'set_goal',
-        miles: parseFloat(me.$('#goal').val()),
-        user: USER_ID,
-        token: USER_TOKEN
-      }));
-    };
-    this.ws.onmessage = function(data, flags) {
-      // Make sure this is something we know how to parse
-      console.log(data);
-      var message;
-      try {
-        message = JSON.parse(data.data);
-      } catch(err) {
-        // Do nothing
-        console.log(err);
-        return;
-      }
-      console.log("Was the operation successful?");
-
-      // Take appropriate action
-      if (message.status === 'success') {
-        console.log('Goal set successfully');
-      }
-      me.ws.close();
-    };
+    Forrest.bus.trigger('socket:send', 'set_goal', {
+      miles: parseFloat(me.$('#goal').val()),
+      user: USER_ID,
+      token: USER_TOKEN
+    });
   },
 
   updateEstimate: function() {

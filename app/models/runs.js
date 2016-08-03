@@ -16,12 +16,11 @@ var Runs = Backbone.Collection.extend({
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
   startListening: function(socket) {
-    socket.send(JSON.stringify({
-      type: 'get_docs',
+    Forrest.bus.trigger('socket:send', 'get_docs', {
       user: USER_ID,
       token: USER_TOKEN,
       database: DATABASE
-    }));
+    });
   },
   processMessage: function(socket, message) {
     // Filter out messages we can't handle

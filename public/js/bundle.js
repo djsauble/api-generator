@@ -103,12 +103,11 @@ var Runs = Backbone.Collection.extend({
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
   startListening: function(socket) {
-    socket.send(JSON.stringify({
-      type: 'get_docs',
+    Forrest.bus.trigger('socket:send', 'get_docs', {
       user: USER_ID,
       token: USER_TOKEN,
       database: DATABASE
-    }));
+    });
   },
   processMessage: function(socket, message) {
     // Filter out messages we can't handle
@@ -510,16 +509,15 @@ var View = Backbone.View.extend({
     this.overlays = [];
     this.timers = [];
     this.bounds = null;
+    this.route = null;
 
     /**
      * Events
      */
 
     // When a new run is selected, display it
-    this.listenTo(Forrest.bus, 'runs:selected', function(run) {
-      this.model = run;
-      this.render();
-    });
+    this.listenTo(Forrest.bus, 'runs:selected', this.fetchRun);
+    this.listenTo(Forrest.bus, 'socket:message', this.displayRun);
 
     // Resize the map whenever the window resizes
     $(window).bind("resize", this.fitMap);
@@ -532,6 +530,8 @@ var View = Backbone.View.extend({
   },
 
   render: function() {
+    var me = this;
+
     // Show the map
     if (!this.mapReference) {
       this.mapReference = new google.maps.Map(this.el, {
@@ -542,88 +542,80 @@ var View = Backbone.View.extend({
       });
     }
 
-    if (this.model) {
-      this.displayRun();
+    if (this.route) {
+
+      // Stop any existing routes from being drawn
+      this.stopAnimations();
+
+      // Draw the route
+      var filtered = Distance.filter(this.route);
+      var coords = filtered.map(function(f) {
+        return new google.maps.LatLng({
+          lat: parseFloat(f.latitude),
+          lng: parseFloat(f.longitude)
+        });
+      });
+
+      // Set the map boundaries
+      this.bounds = this.getBoundaries(coords);
+      this.fitMap();
+
+      // Animate the route
+      var draw = [];
+      var timer = this.startAnimation(function() {
+        if (coords.length === 0) {
+          me.stopAnimation(timer);
+          return;
+        }
+
+        // Add a point to the draw array
+        draw.push(coords.shift());
+
+        // Clear any existing overlays
+        me.removeAllOverlays();
+
+        // Construct the path
+        var path = new google.maps.Polyline({
+          path: draw,
+          geodesic: true,
+          strokeColor: "#ff0000",
+          strokeOpacity: 0.6,
+          strokeWeight: 2
+        });
+
+        // Draw the route thus far
+        me.addOverlay(path);
+      }, 5);
     }
 
     return this;
   },
 
-  remove: function() {
-    this.undelegateEvents();
-    $(window).unbind("resize", this.fitMap);
-    this.mapReference = null;
+  // Request the route from the server
+  fetchRun: function(model) {
+    Forrest.bus.trigger('socket:send', 'get_data', {
+      user: USER_ID,
+      token: USER_TOKEN,
+      database: DATABASE,
+      run: model.get('_id')
+    });
   },
 
-  displayRun: function() {
-    var me = this,
-        ws = new WebSocket(WEBSOCKET_URL);
+  displayRun: function(socket, message) {
+    // Filter out messages we can't handle
+    if (message.type !== 'route' || message.error) {
+      return;
+    }
 
-    // Animate the latest route
-    this.stopAnimations();
-    ws.onopen = function() {
-      ws.send(JSON.stringify({
-        type: 'get_data',
-        user: USER_ID,
-        token: USER_TOKEN,
-        database: DATABASE,
-        run: me.model.get('_id')
-      }));
-    };
-    ws.onmessage = function(data, flags) {
-      // Make sure this is something we know how to parse
-      var message;
-      try {
-        message = JSON.parse(data.data);
-      } catch(err) {
-        // Do nothing
-        ws.close();
-        return;
-      }
+    // Set the route
+    this.route = message.data;
+    this.render();
+  },
 
-      // Take appropriate action
-      if (!message.error) {
-        var filtered = Distance.filter(message);
-        var coords = filtered.map(function(f) {
-          return new google.maps.LatLng({
-            lat: parseFloat(f.latitude),
-            lng: parseFloat(f.longitude)
-          });
-        });
-
-        // Set the map boundaries
-        me.bounds = me.getBoundaries(coords);
-        me.fitMap();
-
-        // Animate the route
-        var draw = [];
-        var timer = me.startAnimation(function() {
-          if (coords.length === 0) {
-            me.stopAnimation(timer);
-            return;
-          }
-
-          // Add a point to the draw array
-          draw.push(coords.shift());
-
-          // Clear any existing overlays
-          me.removeAllOverlays();
-
-          // Construct the path
-          var path = new google.maps.Polyline({
-            path: draw,
-            geodesic: true,
-            strokeColor: "#ff0000",
-            strokeOpacity: 0.6,
-            strokeWeight: 2
-          });
-
-          // Draw the route thus far
-          me.addOverlay(path);
-        }, 5);
-      }
-      ws.close();
-    };
+  remove: function() {
+    this.undelegateEvents();
+    //$(window).unbind("resize", this.fitMap);
+    this.mapReference = null;
   },
 
   // Add an overlay to the map
@@ -801,17 +793,18 @@ var View = Backbone.View.extend({
     this.token = undefined;
     this.expires = new Date();
     this.nextRefresh = undefined;
+    this.canRequestToken = false;
 
     // Start listening for messages
     this.listenTo(Forrest.bus, 'socket:open', this.startListening);
+    this.listenTo(Forrest.bus, 'socket:close', this.stopListening);
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
   startListening: function(socket) {
-    socket.send(JSON.stringify({
-      type: 'get_token',
-      user: USER_ID,
-      token: USER_TOKEN
-    }));
+    this.canRequestToken = true;
+  },
+  stopListening: function(socket) {
+    this.canRequestToken = false;
   },
   processMessage: function(socket, message) {
     var me = this;
@@ -860,16 +853,24 @@ var View = Backbone.View.extend({
       token: this.token
     }));
 
+    // If no token exists, request one
+    if (!this.token) {
+      Forrest.bus.trigger('socket:send', 'get_token', {
+        user: USER_ID,
+        token: USER_TOKEN
+      });
+    }
+
     return this;
   },
 
   remove: function() {
     this.undelegateEvents();
     if (this.token) {
-      this.ws.send(JSON.stringify({
-        type: 'use_token',
+      Forrest.bus.trigger('socket:send', 'use_token', {
         token: this.token
-      }));
+      });
+      this.token = undefined;
     }
   },
 
@@ -883,12 +884,11 @@ var View = Backbone.View.extend({
   },
 
   refresh: function(me) {
-    me.ws.send(JSON.stringify({
-      type: 'refresh_token',
+    Forrest.bus.trigger('socket:send', 'refresh_token', {
       user: USER_ID,
       user_token: USER_TOKEN,
       old_token: me.token
-    }));
+    });
   }
 });
 
@@ -968,37 +968,11 @@ var View = Backbone.View.extend({
   },
 
   setGoal: function() {
-    var me = this;
-
-    this.ws = new WebSocket(WEBSOCKET_URL);
-
-    this.ws.onopen = function() {
-      me.ws.send(JSON.stringify({
-        type: 'set_goal',
-        miles: parseFloat(me.$('#goal').val()),
-        user: USER_ID,
-        token: USER_TOKEN
-      }));
-    };
-    this.ws.onmessage = function(data, flags) {
-      // Make sure this is something we know how to parse
-      console.log(data);
-      var message;
-      try {
-        message = JSON.parse(data.data);
-      } catch(err) {
-        // Do nothing
-        console.log(err);
-        return;
-      }
-      console.log("Was the operation successful?");
-
-      // Take appropriate action
-      if (message.status === 'success') {
-        console.log('Goal set successfully');
-      }
-      me.ws.close();
-    };
+    Forrest.bus.trigger('socket:send', 'set_goal', {
+      miles: parseFloat(me.$('#goal').val()),
+      user: USER_ID,
+      token: USER_TOKEN
+    });
   },
 
   updateEstimate: function() {
