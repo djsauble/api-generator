@@ -119,36 +119,30 @@ app.get('/logout', function(req, res) {
   res.redirect('/');
 });
 
-// List of all active sockets, indexed by:
-// User ID (for database GETs)
-// User token (for goal GETs)
-// Auth token (for token creation)
-var sockets = {};
-
 app.ws('/api', function(ws, req) {
   console.log('Client connected');
   ws.on('message', function(data, flags) {
     var request = JSON.parse(data);
     if (request.type == 'get_token') {
-      getToken(ws, request.user, request.token);
+      getToken(ws, request.data);
     }
     else if (request.type == 'refresh_token') {
-      refreshToken(ws, request.user, request.user_token, request.old_token);
+      refreshToken(ws, request.data);
     }
     else if (request.type == 'use_token') {
-      useToken(ws, request.token);
+      useToken(ws, request.data);
     }
     else if (request.type == 'get_weekly_goal') {
-      getWeeklyGoal(ws, request.user, request.token);
+      getWeeklyGoal(ws, request.data);
     }
     else if (request.type == 'set_goal') {
-      setGoal(ws, request.miles, request.user, request.token);
+      setGoal(ws, request.data);
     }
     else if (request.type == 'get_docs') {
-      getDocs(ws, request.database, request.user, request.token);
+      getDocs(ws, request.data);
     }
     else if (request.type == 'get_data') {
-      getData(ws, request.database, request.run, request.user, request.token);
+      getData(ws, request.data);
     }
     else {
       console.log("Unknown websockets request");
@@ -164,20 +158,22 @@ app.listen(app.get('port'), function() {
 });
 
 // Request an auth token (for connecting a mobile device)
-function getToken(ws, user, token) {
-  var users = nano.db.use('users');
-  users.get(user, function(err, body) {
-    // Is this a valid request?
-    if (body.user_token != token) {
-      ws.send('{error: "Invalid request"}');
+function getToken(ws, data) {
+  var error = JSON.stringify({
+        type: 'token',
+        error: 'Could not get a token'
+      }),
+      users = nano.db.use('users');
+
+  // Is this a valid request?
+  users.get(data.user, function(err, body) {
+    if (body.user_token != data.token) {
+      ws.send(error);
       return;
     }
 
     // Generate a unique identifier for the app token
     var appToken = uuid.v4().substr(0, 4);
-
-    // Save the socket for future use
-    sockets[appToken] = ws;
 
     // Generate an expiry time 15 minutes from now
     var expires = (new Date(Date.now() + (1000 * 60 * 15))).toString();
@@ -186,54 +182,70 @@ function getToken(ws, user, token) {
     var tokens = nano.db.use('tokens');
     tokens.insert({
         _id: appToken,
-        user: user,
+        user: data.user,
         expires: expires
       }, function(err, body) {
       if (err) {
-        ws.send('{error: "Could not create token"}');
+        ws.send(error);
         return;
       }
       console.log("App token set (expires " + expires);
       ws.send(JSON.stringify({
-        token: appToken,
-        expires: expires
+        type: 'token',
+        data: {
+          token: appToken,
+          expires: expires
+        }
       }));
     });
   });
 }
 
 // Refresh an outstanding token (one that is about to expire, for example)
-function refreshToken(ws, user, userToken, oldToken) {
-  var users = nano.db.use('users');
-  users.get(user, function(err, body) {
+function refreshToken(ws, data) {
+  var error = JSON.stringify({
+        type: 'error',
+        error: 'Could not refresh the token'
+      }),
+      users = nano.db.use('users');
+
+  console.log(data);
+  users.get(data.user, function(err, body) {
     // Is this a valid request?
-    if (body.user_token != userToken) {
-      ws.send('{error: "Invalid request"}');
+    if (body.user_token != data.user_token) {
+      ws.send(error);
       return;
     }
 
     // Delete the existing token
     var tokens = nano.db.use('tokens');
-    tokens.get(oldToken, function(err, tokenDoc) {
-      if (!err) {
-        tokens.destroy(oldToken, tokenDoc._rev, function() {
-          console.log('Old authentication token has been deleted');
-
-          // Create a new token
-          getToken(ws, user, userToken);
-        });
+    tokens.get(data.old_token, function(err, tokenDoc) {
+      if (err) {
+        ws.send(error);
+        return;
       }
+
+      tokens.destroy(data.old_token, tokenDoc._rev, function() {
+        console.log('Old authentication token has been deleted');
+
+        // Create a new token
+        getToken(ws, data.user, data.user_token);
+      });
     });
   });
 }
 
 // Consume an auth token
-function useToken(ws, token) {
-  var tokens = nano.db.use('tokens');
-  tokens.get(token, function(err, tokenDoc) {
+function useToken(ws, data) {
+  var error = JSON.stringify({
+        type: 'error',
+        error: 'Could not authenticate with the given token'
+      }),
+      tokens = nano.db.use('tokens');
+  tokens.get(data.token, function(err, tokenDoc) {
     // Is this a valid request?
     if (err || (new Date(tokenDoc.expires)).getTime() < Date.now()) {
-      ws.close();
+      ws.send(error);
       return;
     }
 
@@ -241,43 +253,47 @@ function useToken(ws, token) {
     var users = nano.db.use('users');
     users.get(tokenDoc.user, function(err, body) {
       if (err) {
-        ws.close();
+        ws.send(error);
         return;
       }
 
-      ws.send(process.env.CALLBACK_URL + "/api/runs?user=" + body._id + "&token=" + body.user_token);
+      // Return the API endpoint
+      ws.send(JSON.stringify({
+        type: 'api',
+        data: process.env.CALLBACK_URL + "/api/runs?user=" + body._id + "&token=" + body.user_token
+      }));
 
       // Delete the token doc
-      tokens.destroy(token, tokenDoc._rev, function() {
+      tokens.destroy(data.token, tokenDoc._rev, function() {
         if (!err) {
           console.log('Temporary auth token has been deleted');
         }
       });
-
-      // Inform the callee that the request has been finished
-      sockets[token].close();
-      delete sockets[token];
     });
   });
 }
 
 // Set weekly goal information
-function setGoal(ws, miles, user, token) {
-  var users = nano.db.use('users');
-  users.get(user, function(err, body) {
+function setGoal(ws, data) {
+  var error = JSON.stringify({
+        type: 'error',
+        error: 'Failed to update the weekly goal'
+      }),
+      users = nano.db.use('users');
+  users.get(data.user, function(err, body) {
     // Is this a valid request?
-    if (body.user_token != token) {
-      ws.send('{error: "Invalid request"}');
+    if (body.user_token != data.token) {
+      ws.send(error);
       return;
     }
 
     // Set goal information
-    body.goal = miles;
+    body.goal = data.miles;
 
     // Update the user document
     users.insert(body, function(err, body, header) {
       if (err) {
-        ws.send('{error: "Failed to update the weekly goal"}');
+        ws.send(error);
         return;
       }
 
@@ -287,12 +303,16 @@ function setGoal(ws, miles, user, token) {
 }
 
 // Retrieve weekly goal information
-function getWeeklyGoal(ws, user, token) {
-  var users = nano.db.use('users');
-  users.get(user, function(err, body) {
+function getWeeklyGoal(ws, data) {
+  var error = JSON.stringify({
+        type: 'error',
+        error: 'Could not retrieve weekly goal information'
+      }),
+      users = nano.db.use('users');
+  users.get(data.user, function(err, body) {
     // Is this a valid request?
-    if (body.user_token != token) {
-      ws.send('{error: "Invalid request"}');
+    if (body.user_token != data.token) {
+      ws.send(error);
       return;
     }
 
@@ -300,7 +320,7 @@ function getWeeklyGoal(ws, user, token) {
     var runs = nano.db.use(body.run_database);
     runs.list({include_docs: true}, function(err, body) {
       if (err) {
-        ws.send('{error: "Could not retrieve runs from the database"}');
+        ws.send(error);
         return;
       }
 
@@ -333,12 +353,17 @@ function getWeeklyGoal(ws, user, token) {
 //       timestamps, to make it possible to fetch a contiguous
 //       subset of all available documents without resorting
 //       to secondary indices.
-function getDocs(ws, database, user, token) {
-  var users = nano.db.use('users');
-  users.get(user, function(err, body) {
-    // Is this a valid request?
-    if (body.user_token != token || body.run_database != database) {
-      ws.send('{error: "Invalid request"}');
+function getDocs(ws, data) {
+  var error = JSON.stringify({
+        type: 'runs',
+        error: 'Could not retrieve runs'
+      }),
+      users = nano.db.use('users');
+
+  // Is this a valid request?
+  users.get(data.user, function(err, body) {
+    if (body.user_token != data.token || body.run_database != data.database) {
+      ws.send(error);
       return;
     }
 
@@ -346,41 +371,47 @@ function getDocs(ws, database, user, token) {
     var runs = nano.db.use(body.run_database);
     runs.list({include_docs: true}, function(err, body) {
       if (err) {
-        ws.send('{error: "Could not retrieve runs from the database"}');
+        ws.send(error);
         return;
       }
 
-      ws.send(JSON.stringify(
-        body.rows.map(function(r) {
+      // Send the list back to the client
+      ws.send(JSON.stringify({
+        type: 'runs',
+        data: body.rows.map(function(r) {
           r.doc.timestamp = new Date(r.doc.timestamp);
           return r.doc;
         }).sort(function(a,b) {
           return a.timestamp.getTime() - b.timestamp.getTime();
         })
-      ));
+      }));
     });
   });
 }
 
 // Fetch the data associated with a particular run
-function getData(ws, database, run, user, token) {
-  var users = nano.db.use('users');
-  users.get(user, function(err, body) {
+function getData(ws, data) {
+  var error = JSON.stringify({
+        type: 'error',
+        error: 'Could not retrieve run data'
+      }),
+      users = nano.db.use('users');
+  users.get(data.user, function(err, body) {
     // Is this a valid request?
-    if (body.user_token != token || body.run_database != database) {
-      ws.send('{error: "Invalid request"}');
+    if (body.user_token != data.token || body.run_database != data.database) {
+      ws.send(error);
       return;
     }
 
     // Fetch the run data
     var runs = nano.db.use(body.run_database);
-    runs.attachment.get(run, 'data.json', function(err, body) {
+    runs.attachment.get(data.run, 'data.json', function(err, body) {
       if (err) {
-        ws.send('{error: "Could not retrieve run data"}');
+        ws.send(error);
         return;
       }
 
-      ws.send(body.toString());
+      ws.send('{"type": "route", "data": ' + body.toString() + '}');
     });
   });
 }

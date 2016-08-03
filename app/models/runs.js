@@ -5,45 +5,32 @@ var Helpers = require('../helpers');
 
 var Runs = Backbone.Collection.extend({
   model: Run,
-  initialize: function(options) {
+  initialize: function() {
     // Pass events to the event bus
     this.on('sync', function() {
       Forrest.bus.trigger('runs:sync', this);
     });
 
-    this.fetch();
+    // Start listening for messages
+    this.listenTo(Forrest.bus, 'socket:open', this.startListening);
+    this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
-  fetch: function() {
-    var me = this,
-        ws = new WebSocket(WEBSOCKET_URL);
+  startListening: function(socket) {
+    Forrest.bus.trigger('socket:send', 'get_docs', {
+      user: USER_ID,
+      token: USER_TOKEN,
+      database: DATABASE
+    });
+  },
+  processMessage: function(socket, message) {
+    // Filter out messages we can't handle
+    if (message.type !== 'runs' || message.error) {
+      return;
+    }
 
-    ws.onopen = function() {
-      ws.send(JSON.stringify({
-        type: 'get_docs',
-        user: USER_ID,
-        token: USER_TOKEN,
-        database: DATABASE
-      }));
-    };
-    ws.onmessage = function(data, flags) {
-      // Make sure this is something we know how to parse
-      var message;
-      try {
-        message = JSON.parse(data.data);
-      } catch(err) {
-        // Do nothing
-        ws.close();
-        return;
-      }
-
-      // Take appropriate action
-      if (!message.error) {
-        var models = me.parse(message);
-        me.set(models);
-        me.trigger('sync', me, models);
-      }
-      ws.close();
-    };
+    // Set models
+    this.set(this.parse(message.data));
+    Forrest.bus.trigger('runs:sync', this, this.models);
   },
   parse: function(result) {
     return result.map(function(d) {

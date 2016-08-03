@@ -1,20 +1,29 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var _ = require("underscore");
-var Backbone = require("backbone");
-var $ = require("jquery");
-var Runs = require("./models/runs");
-var Router = require("./router");
+var $ = require('jquery');
+var _ = require('underscore');
+var Backbone = require('backbone');
+var Runs = require('./models/runs');
+var User = require('./models/user');
+var Router = require('./router');
+var Socket = require('./socket');
 
 $(function() {
 
   // Global namespace
   Forrest = {};
 
+  // Initialize the event bus
+  //
+  // NOTE: This is an event aggregator which allows for lose coupling of the
+  // different components in the app. Avoid referencing any other globals.
+  //
+  Forrest.bus = _.extend({}, Backbone.Events);
+
   // Initialize the database
   Forrest.runs = new Runs();
 
-  // Initialize the event bus
-  Forrest.bus = _.extend({}, Backbone.Events);
+  // Initialize the user model
+  Forrest.user = new User();
 
   // Initialize the router
   Forrest.router = new Router();
@@ -26,9 +35,12 @@ $(function() {
       console.log("App is loaded with " + collection.length + " records");
     }
   });
+
+  // Initialize a persistent session for real-time communication
+  Forrest.socket = new Socket();
 });
 
-},{"./models/runs":4,"./router":5,"backbone":15,"jquery":23,"underscore":30}],2:[function(require,module,exports){
+},{"./models/runs":4,"./models/user":5,"./router":6,"./socket":7,"backbone":17,"jquery":25,"underscore":32}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (buffer) {
@@ -72,7 +84,7 @@ var Run = Backbone.Model.extend({
 
 module.exports = Run;
 
-},{"backbone":15}],4:[function(require,module,exports){
+},{"backbone":17}],4:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var Run = require('./run');
@@ -80,45 +92,32 @@ var Helpers = require('../helpers');
 
 var Runs = Backbone.Collection.extend({
   model: Run,
-  initialize: function(options) {
+  initialize: function() {
     // Pass events to the event bus
     this.on('sync', function() {
       Forrest.bus.trigger('runs:sync', this);
     });
 
-    this.fetch();
+    // Start listening for messages
+    this.listenTo(Forrest.bus, 'socket:open', this.startListening);
+    this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
-  fetch: function() {
-    var me = this,
-        ws = new WebSocket(WEBSOCKET_URL);
+  startListening: function(socket) {
+    Forrest.bus.trigger('socket:send', 'get_docs', {
+      user: USER_ID,
+      token: USER_TOKEN,
+      database: DATABASE
+    });
+  },
+  processMessage: function(socket, message) {
+    // Filter out messages we can't handle
+    if (message.type !== 'runs' || message.error) {
+      return;
+    }
 
-    ws.onopen = function() {
-      ws.send(JSON.stringify({
-        type: 'get_docs',
-        user: USER_ID,
-        token: USER_TOKEN,
-        database: DATABASE
-      }));
-    };
-    ws.onmessage = function(data, flags) {
-      // Make sure this is something we know how to parse
-      var message;
-      try {
-        message = JSON.parse(data.data);
-      } catch(err) {
-        // Do nothing
-        ws.close();
-        return;
-      }
-
-      // Take appropriate action
-      if (!message.error) {
-        var models = me.parse(message);
-        me.set(models);
-        me.trigger('sync', me, models);
-      }
-      ws.close();
-    };
+    // Set models
+    this.set(this.parse(message.data));
+    Forrest.bus.trigger('runs:sync', this, this.models);
   },
   parse: function(result) {
     return result.map(function(d) {
@@ -130,7 +129,19 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":15,"underscore":30}],5:[function(require,module,exports){
+},{"../helpers":2,"./run":3,"backbone":17,"underscore":32}],5:[function(require,module,exports){
+var Backbone = require('backbone');
+
+var User = Backbone.Model.extend({
+  idAttribute: '_id',
+  initialize: function() {
+
+  }
+});
+
+module.exports = User;
+
+},{"backbone":17}],6:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -176,7 +187,43 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/dashboard/dashboard":6,"./views/settings/settings":14,"backbone":15,"jquery":23}],6:[function(require,module,exports){
+},{"./views/dashboard/dashboard":8,"./views/settings/settings":16,"backbone":17,"jquery":25}],7:[function(require,module,exports){
+var _ = require('underscore');
+var Backbone = require('backbone');
+
+var Socket = Backbone.Model.extend({
+
+  initialize: function() {
+    var ws = new WebSocket(WEBSOCKET_URL);
+
+    // Tie websocket events to the event bus
+    ws.onopen = function() {
+      Forrest.bus.trigger('socket:open', ws);
+    };
+    ws.onmessage = function(data, flags) {
+      var message = JSON.parse(data.data);
+      Forrest.bus.trigger('socket:message', ws, message);
+    };
+    ws.onclose = function() {
+      Forrest.bus.trigger('socket:close', ws);
+    };
+    ws.onerror = function(error, more) {
+      Forrest.bus.trigger('socket:error', ws, error);
+    };
+
+    // Listen for events
+    this.listenTo(Forrest.bus, 'socket:send', function(type, data) {
+      ws.send(JSON.stringify({
+        type: type,
+        data: data
+      }));
+    });
+  }
+});
+
+module.exports = Socket;
+
+},{"backbone":17,"underscore":32}],8:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
@@ -214,7 +261,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./hero":7,"./viewer":11,"backbone":15,"underscore":30}],7:[function(require,module,exports){
+},{"./hero":9,"./viewer":13,"backbone":17,"underscore":32}],9:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var DateNames = require('date-names');
@@ -364,7 +411,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":15,"date-names":19,"date-prediction":20,"date-round":21,"float":22,"timeseries-aggregate":27,"timeseries-sum":28,"underscore":30}],8:[function(require,module,exports){
+},{"backbone":17,"date-names":21,"date-prediction":22,"date-round":23,"float":24,"timeseries-aggregate":29,"timeseries-sum":30,"underscore":32}],10:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -444,7 +491,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":10,"backbone":15}],9:[function(require,module,exports){
+},{"./run":12,"backbone":17}],11:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -462,16 +509,15 @@ var View = Backbone.View.extend({
     this.overlays = [];
     this.timers = [];
     this.bounds = null;
+    this.route = null;
 
     /**
      * Events
      */
 
     // When a new run is selected, display it
-    this.listenTo(Forrest.bus, 'runs:selected', function(run) {
-      this.model = run;
-      this.render();
-    });
+    this.listenTo(Forrest.bus, 'runs:selected', this.fetchRun);
+    this.listenTo(Forrest.bus, 'socket:message', this.displayRun);
 
     // Resize the map whenever the window resizes
     $(window).bind("resize", this.fitMap);
@@ -484,6 +530,8 @@ var View = Backbone.View.extend({
   },
 
   render: function() {
+    var me = this;
+
     // Show the map
     if (!this.mapReference) {
       this.mapReference = new google.maps.Map(this.el, {
@@ -494,88 +542,80 @@ var View = Backbone.View.extend({
       });
     }
 
-    if (this.model) {
-      this.displayRun();
+    if (this.route) {
+
+      // Stop any existing routes from being drawn
+      this.stopAnimations();
+
+      // Draw the route
+      var filtered = Distance.filter(this.route);
+      var coords = filtered.map(function(f) {
+        return new google.maps.LatLng({
+          lat: parseFloat(f.latitude),
+          lng: parseFloat(f.longitude)
+        });
+      });
+
+      // Set the map boundaries
+      this.bounds = this.getBoundaries(coords);
+      this.fitMap();
+
+      // Animate the route
+      var draw = [];
+      var timer = this.startAnimation(function() {
+        if (coords.length === 0) {
+          me.stopAnimation(timer);
+          return;
+        }
+
+        // Add a point to the draw array
+        draw.push(coords.shift());
+
+        // Clear any existing overlays
+        me.removeAllOverlays();
+
+        // Construct the path
+        var path = new google.maps.Polyline({
+          path: draw,
+          geodesic: true,
+          strokeColor: "#ff0000",
+          strokeOpacity: 0.6,
+          strokeWeight: 2
+        });
+
+        // Draw the route thus far
+        me.addOverlay(path);
+      }, 5);
     }
 
     return this;
+  },
+
+  // Request the route from the server
+  fetchRun: function(model) {
+    Forrest.bus.trigger('socket:send', 'get_data', {
+      user: USER_ID,
+      token: USER_TOKEN,
+      database: DATABASE,
+      run: model.get('_id')
+    });
+  },
+
+  displayRun: function(socket, message) {
+    // Filter out messages we can't handle
+    if (message.type !== 'route' || message.error) {
+      return;
+    }
+
+    // Set the route
+    this.route = message.data;
+    this.render();
   },
 
   remove: function() {
     this.undelegateEvents();
     $(window).unbind("resize", this.fitMap);
     this.mapReference = null;
-  },
-
-  displayRun: function() {
-    var me = this,
-        ws = new WebSocket(WEBSOCKET_URL);
-
-    // Animate the latest route
-    this.stopAnimations();
-    ws.onopen = function() {
-      ws.send(JSON.stringify({
-        type: 'get_data',
-        user: USER_ID,
-        token: USER_TOKEN,
-        database: DATABASE,
-        run: me.model.get('_id')
-      }));
-    };
-    ws.onmessage = function(data, flags) {
-      // Make sure this is something we know how to parse
-      var message;
-      try {
-        message = JSON.parse(data.data);
-      } catch(err) {
-        // Do nothing
-        ws.close();
-        return;
-      }
-
-      // Take appropriate action
-      if (!message.error) {
-        var filtered = Distance.filter(message);
-        var coords = filtered.map(function(f) {
-          return new google.maps.LatLng({
-            lat: parseFloat(f.latitude),
-            lng: parseFloat(f.longitude)
-          });
-        });
-
-        // Set the map boundaries
-        me.bounds = me.getBoundaries(coords);
-        me.fitMap();
-
-        // Animate the route
-        var draw = [];
-        var timer = me.startAnimation(function() {
-          if (coords.length === 0) {
-            me.stopAnimation(timer);
-            return;
-          }
-
-          // Add a point to the draw array
-          draw.push(coords.shift());
-
-          // Clear any existing overlays
-          me.removeAllOverlays();
-
-          // Construct the path
-          var path = new google.maps.Polyline({
-            path: draw,
-            geodesic: true,
-            strokeColor: "#ff0000",
-            strokeOpacity: 0.6,
-            strokeWeight: 2
-          });
-
-          // Draw the route thus far
-          me.addOverlay(path);
-        }, 5);
-      }
-      ws.close();
-    };
   },
 
   // Add an overlay to the map
@@ -644,7 +684,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":15,"compute-distance":17,"jquery":23}],10:[function(require,module,exports){
+},{"../../helpers":2,"backbone":17,"compute-distance":19,"jquery":25}],12:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -705,7 +745,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":15,"date-names":19,"date-round":21}],11:[function(require,module,exports){
+},{"../../helpers":2,"backbone":17,"date-names":21,"date-round":23}],13:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -743,67 +783,51 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":8,"./map":9,"backbone":15,"underscore":30}],12:[function(require,module,exports){
+},{"./list":10,"./map":11,"backbone":17,"underscore":32}],14:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
 
   initialize: function() {
-    var me = this;
     this.token = undefined;
     this.expires = new Date();
     this.nextRefresh = undefined;
+    this.canRequestToken = false;
 
-    this.ws = new WebSocket(WEBSOCKET_URL);
+    // Start listening for messages
+    this.listenTo(Forrest.bus, 'socket:open', this.startListening);
+    this.listenTo(Forrest.bus, 'socket:close', this.stopListening);
+    this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
+  },
+  startListening: function(socket) {
+    this.canRequestToken = true;
+  },
+  stopListening: function(socket) {
+    this.canRequestToken = false;
+  },
+  processMessage: function(socket, message) {
+    var me = this;
 
-    this.ws.onopen = function() {
-      me.ws.send(JSON.stringify({
-        type: 'get_token',
-        user: USER_ID,
-        token: USER_TOKEN
-      }));
-    };
-    this.ws.onmessage = function(data, flags) {
-      // Make sure this is something we know how to parse
-      var message;
-      try {
-        message = JSON.parse(data.data);
-      } catch(err) {
-        // Do nothing
-        return;
-      }
+    // Filter out messages we can't handle
+    if (message.type !== 'token' || message.error) {
+      return;
+    }
 
-      // Take appropriate action
-      if (message.error) {
-        me.token = message.error;
-      }
-      else {
-        me.token = message.token;
-        me.expires = new Date(message.expires);
+    // Set token data
+    this.token = message.data.token;
+    this.expires = new Date(message.data.expires);
 
-        // Schedule the next token refresh
-        me.nextRefresh = setTimeout(
-          function() {
-            me.refresh(me);
-          },
-          me.expires.getTime() - Date.now()
-        );
-      }
-      me.render();
-    };
-    this.ws.onclose = function() {
-      me.token = undefined;
-      me.expires = undefined;
-      if (me.nextRefresh) {
-        clearTimeout(me.nextRefresh);
-        me.nextRefresh = undefined;
-      }
-      me.render();
-    };
-    this.ws.onerror = function(error, more) {
-      console.log(error);
-    };
+    // Schedule the next token refresh
+    this.nextRefresh = setTimeout(
+      function() {
+        me.refresh(me);
+      },
+      me.expires.getTime() - Date.now()
+    );
+
+    // Render the current token
+    this.render();
   },
 
   events: {
@@ -829,16 +853,24 @@ var View = Backbone.View.extend({
       token: this.token
     }));
 
+    // If no token exists, request one
+    if (!this.token) {
+      Forrest.bus.trigger('socket:send', 'get_token', {
+        user: USER_ID,
+        token: USER_TOKEN
+      });
+    }
+
     return this;
   },
 
   remove: function() {
     this.undelegateEvents();
     if (this.token) {
-      this.ws.send(JSON.stringify({
-        type: 'use_token',
+      Forrest.bus.trigger('socket:send', 'use_token', {
         token: this.token
-      }));
+      });
+      this.token = undefined;
     }
   },
 
@@ -852,18 +884,17 @@ var View = Backbone.View.extend({
   },
 
   refresh: function(me) {
-    me.ws.send(JSON.stringify({
-      type: 'refresh_token',
+    Forrest.bus.trigger('socket:send', 'refresh_token', {
       user: USER_ID,
       user_token: USER_TOKEN,
       old_token: me.token
-    }));
+    });
   }
 });
 
 module.exports = View;
 
-},{"backbone":15,"underscore":30}],13:[function(require,module,exports){
+},{"backbone":17,"underscore":32}],15:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Cookie = require('tiny-cookie');
@@ -937,37 +968,11 @@ var View = Backbone.View.extend({
   },
 
   setGoal: function() {
-    var me = this;
-
-    this.ws = new WebSocket(WEBSOCKET_URL);
-
-    this.ws.onopen = function() {
-      me.ws.send(JSON.stringify({
-        type: 'set_goal',
-        miles: parseFloat(me.$('#goal').val()),
-        user: USER_ID,
-        token: USER_TOKEN
-      }));
-    };
-    this.ws.onmessage = function(data, flags) {
-      // Make sure this is something we know how to parse
-      console.log(data);
-      var message;
-      try {
-        message = JSON.parse(data.data);
-      } catch(err) {
-        // Do nothing
-        console.log(err);
-        return;
-      }
-      console.log("Was the operation successful?");
-
-      // Take appropriate action
-      if (message.status === 'success') {
-        console.log('Goal set successfully');
-      }
-      me.ws.close();
-    };
+    Forrest.bus.trigger('socket:send', 'set_goal', {
+      miles: parseFloat(me.$('#goal').val()),
+      user: USER_ID,
+      token: USER_TOKEN
+    });
   },
 
   updateEstimate: function() {
@@ -984,7 +989,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":15,"base-building":16,"jquery":23,"tiny-cookie":29}],14:[function(require,module,exports){
+},{"backbone":17,"base-building":18,"jquery":25,"tiny-cookie":31}],16:[function(require,module,exports){
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
 var Goal = require('./goal');
@@ -1031,7 +1036,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./code":12,"./goal":13,"backbone":15}],15:[function(require,module,exports){
+},{"./code":14,"./goal":15,"backbone":17}],17:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -2955,7 +2960,7 @@ module.exports = View;
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":23,"underscore":30}],16:[function(require,module,exports){
+},{"jquery":25,"underscore":32}],18:[function(require,module,exports){
 // Convert weeks to a more appropriate timescale
 function makeWeeksHuman(weeks) {
   if (Math.round(weeks) === 1) {
@@ -3039,7 +3044,7 @@ module.exports = {
   makeWeeksHuman: makeWeeksHuman
 };
 
-},{}],17:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 var sgeo = require('sgeo');
 
 // Smooth the run (e.g. ignore bouncing GPS tracks)
@@ -3109,7 +3114,7 @@ module.exports = {
   compute: computeDistance
 };
 
-},{"sgeo":26}],18:[function(require,module,exports){
+},{"sgeo":28}],20:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -3122,11 +3127,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],19:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":18}],20:[function(require,module,exports){
+},{"./en":20}],22:[function(require,module,exports){
 /**
  * Given an array of timeseries data ordered from oldest to
  * newest, predict when a future value is likely to be hit.
@@ -3195,7 +3200,7 @@ var predict = function(futureValue, series) {
 
 module.exports = predict;
 
-},{"regression":24}],21:[function(require,module,exports){
+},{"regression":26}],23:[function(require,module,exports){
 /**
  * Helpers to round dates to day, week, month, year boundaries.
  *
@@ -3364,7 +3369,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],22:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 /**
  * Credit: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
  */
@@ -3418,7 +3423,7 @@ module.exports = {
   }
 };
 
-},{}],23:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -13494,9 +13499,9 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],24:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":25}],25:[function(require,module,exports){
+},{"./src/regression":27}],27:[function(require,module,exports){
 /**
 * @license
 *
@@ -13746,7 +13751,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],26:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 
 //Original version of this module came from following website by Chris Veness
 //http://www.movable-type.co.uk/scripts/latlong.html
@@ -14421,7 +14426,7 @@ if (typeof String.prototype.trim == 'undefined') {
   }
 }
 
-},{}],27:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 // Constants
 var MINUTE_IN_MS = 1000 * 60;
 var HOUR_IN_MS   = MINUTE_IN_MS * 60;
@@ -14479,7 +14484,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],28:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 // Calculate the sum of a half-closed Date interval
 var sum = function(startDate, endDate, series) {
   var sum = 0, point, i, t;
@@ -14519,7 +14524,7 @@ var sum = function(startDate, endDate, series) {
 
 module.exports = sum;
 
-},{}],29:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 /*!
  * tiny-cookie - A tiny cookie manipulation plugin
  * https://github.com/Alex1990/tiny-cookie
@@ -14665,7 +14670,7 @@ module.exports = sum;
 
 }));
 
-},{}],30:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
