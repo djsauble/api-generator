@@ -165,11 +165,15 @@ app.listen(app.get('port'), function() {
 
 // Request an auth token (for connecting a mobile device)
 function getToken(ws, user, token) {
-  var users = nano.db.use('users');
+  var error = JSON.stringify({
+        type: 'token',
+        error: 'Could not get a token'
+      }),
+      users = nano.db.use('users');
   users.get(user, function(err, body) {
     // Is this a valid request?
     if (body.user_token != token) {
-      ws.send('{error: "Invalid request"}');
+      ws.send(error);
       return;
     }
 
@@ -190,13 +194,16 @@ function getToken(ws, user, token) {
         expires: expires
       }, function(err, body) {
       if (err) {
-        ws.send('{error: "Could not create token"}');
+        ws.send(error);
         return;
       }
       console.log("App token set (expires " + expires);
       ws.send(JSON.stringify({
-        token: appToken,
-        expires: expires
+        type: 'token',
+        data: {
+          token: appToken,
+          expires: expires
+        }
       }));
     });
   });
@@ -334,11 +341,16 @@ function getWeeklyGoal(ws, user, token) {
 //       subset of all available documents without resorting
 //       to secondary indices.
 function getDocs(ws, database, user, token) {
-  var users = nano.db.use('users');
+  var error = JSON.stringify({
+        type: 'runs',
+        error: 'Could not retrieve runs'
+      }),
+      users = nano.db.use('users');
+
+  // Is this a valid request?
   users.get(user, function(err, body) {
-    // Is this a valid request?
     if (body.user_token != token || body.run_database != database) {
-      ws.send('{error: "Invalid request"}');
+      ws.send(error);
       return;
     }
 
@@ -346,18 +358,20 @@ function getDocs(ws, database, user, token) {
     var runs = nano.db.use(body.run_database);
     runs.list({include_docs: true}, function(err, body) {
       if (err) {
-        ws.send('{error: "Could not retrieve runs from the database"}');
+        ws.send(error);
         return;
       }
 
-      ws.send(JSON.stringify(
-        body.rows.map(function(r) {
+      // Send the list back to the client
+      ws.send(JSON.stringify({
+        type: 'runs',
+        data: body.rows.map(function(r) {
           r.doc.timestamp = new Date(r.doc.timestamp);
           return r.doc;
         }).sort(function(a,b) {
           return a.timestamp.getTime() - b.timestamp.getTime();
         })
-      ));
+      }));
     });
   });
 }
