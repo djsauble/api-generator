@@ -46,6 +46,45 @@ app.get('/login', function(req, res) {
   res.render('login', { user: req.user });
 });
 
+// GET /auth/strava
+//   Use passport.authenticate() as rout middleware to authenticate the
+//   request. The first step in Strava authentication will involve
+//   redirecting the user to strava.com. After authorization, Strava
+//   will redirect the user back to this application at /auth/strava/callback
+app.get('/auth/strava',
+  passport.authenticate('strava', { scope: ['public'] }),
+  function(req, res) {
+    // The request will be redirected to Strava for authentication, so this
+    // function will not be called.
+  }
+);
+
+// GET /auth/strava/callback
+//   Use passport.authenticate() as route middleware to authenticate the
+//   request. If authentication fails, the user will be redirected back to the
+//   login page. Otherwise, the primary route function will be called, which,
+//   in this example, will redirect the user to the home page.
+app.get('/auth/strava/callback',
+  passport.authenticate('strava', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home
+    res.redirect('/');
+  }
+);
+
+app.get('/logout', function(req, res) {
+  req.logout();
+  res.redirect('/');
+});
+
+app.listen(app.get('port'), function() {
+  console.log("Listening on port " + app.get('port'));
+});
+
+/************
+ * REST API *
+ ************/
+
 // Create a new record (extension point)
 app.put('/api/runs', function(req, res) {
   var user = req.query.user;
@@ -88,36 +127,9 @@ app.put('/api/runs', function(req, res) {
   res.status(200).end();
 });
 
-// GET /auth/strava
-//   Use passport.authenticate() as rout middleware to authenticate the
-//   request. The first step in Strava authentication will involve
-//   redirecting the user to strava.com. After authorization, Strava
-//   will redirect the user back to this application at /auth/strava/callback
-app.get('/auth/strava',
-  passport.authenticate('strava', { scope: ['public'] }),
-  function(req, res) {
-    // The request will be redirected to Strava for authentication, so this
-    // function will not be called.
-  }
-);
-
-// GET /auth/strava/callback
-//   Use passport.authenticate() as route middleware to authenticate the
-//   request. If authentication fails, the user will be redirected back to the
-//   login page. Otherwise, the primary route function will be called, which,
-//   in this example, will redirect the user to the home page.
-app.get('/auth/strava/callback',
-  passport.authenticate('strava', { failureRedirect: '/login' }),
-  function(req, res) {
-    // Successful authentication, redirect home
-    res.redirect('/');
-  }
-);
-
-app.get('/logout', function(req, res) {
-  req.logout();
-  res.redirect('/');
-});
+/*****************
+ * WebSocket API *
+ *****************/
 
 app.ws('/api', function(ws, req) {
   console.log('Client connected');
@@ -151,10 +163,6 @@ app.ws('/api', function(ws, req) {
   ws.on('close', function() {
     console.log('Client disconnected');
   });
-});
-
-app.listen(app.get('port'), function() {
-  console.log("Listening on port " + app.get('port'));
 });
 
 // Request an auth token (for connecting a mobile device)
