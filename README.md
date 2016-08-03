@@ -177,7 +177,11 @@ new device
 Enable passcodes for the specified user ID:
 
     {
-      type: 'passcodes:enable'
+      type: 'passcodes:enable',
+      data: {
+        user: 'your-user-id',
+        token: 'your-user-token'
+      }
     }
 
 A valid passcode will be returned as follows:
@@ -241,7 +245,7 @@ In addition, a message will be sent to the original connection which enabled
 passcodes, letting them know that a client failed to connect.
 
     {
-      type: 'passcodes:attempt'
+      type: 'passcodes:attempt',
       data: {
         passcode: 'a0c2'
       }
@@ -252,7 +256,11 @@ passcodes, letting them know that a client failed to connect.
 Disable passcodes for the specified user ID:
 
     {
-      type: 'passcodes:disable'
+      type: 'passcodes:disable',
+      data: {
+        user: 'your-user-id',
+        token: 'your-user-token'
+      }
     }
 
 Any outstanding passcodes will be invalidated.
@@ -286,7 +294,11 @@ speaking.
 Get a list of runs, including metadata but excluding the raw route data.
 
     {
-      type: 'raw:runs'
+      type: 'raw:runs',
+      data: {
+        user: 'your-user-id',
+        token: 'your-user-token'
+      }
     }
 
 The run data will be returned as follows:
@@ -311,7 +323,9 @@ To get the raw data for a specific run:
     {
       type: 'raw:run',
       data: {
-        run: 'run-id'
+        run: 'run-id',
+        user: 'your-user-id',
+        token: 'your-user-token'
       }
     }
 
@@ -354,7 +368,9 @@ To set the number of miles per week the user would like to be able to run:
     {
       type: 'future:goal',
       data: {
-        miles: 40.0
+        miles: 40.0,
+        user: 'your-user-id',
+        token: 'your-user-token'
       }
     }
 
@@ -372,7 +388,11 @@ When this value changes, the server will send the following to all clients:
 To get the number of miles to run this week, along with related information:
 
     {
-      type: 'future:week'
+      type: 'future:week',
+      data: {
+        user: 'your-user-id',
+        token: 'your-user-token'
+      }
     }
 
 The goal data will be returned (and whenever it changes), with:
