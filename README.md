@@ -1,5 +1,8 @@
 # Forrest Cruise
 
+Running is a journey, not a destination. Forrest Cruise is an app which helps
+you stay fit and focused over the years and decades of your running journey.
+
 ## Before you begin
 
 ### Dependencies
@@ -95,7 +98,7 @@ http[s] for REST calls and ws[s] for WebSocket calls.
 
 #### Submit a run to the service
 
-`PUT /api/runs`
+`PUT /api/runs?user=your-user-id&token=your-user-token`
 
 A run is represented as an array of objects. Each object consists of a
 timestamp, latitude, longitude, and other attributes for that point in time.
@@ -117,8 +120,8 @@ An example:
       "speed": "2.38087475514676",
     }
 
-When an array of these objects is submitted, a few additional pieces of
-information are calculated automatically.
+PUT an array of these objects to the URL above. A few additional pieces of
+information will be calculated automatically.
 
 **Upload timestamp**
 The date the run was uploaded
@@ -128,6 +131,9 @@ The ID of the user who uploaded the run
 
 **Distance**
 The distance represented by the timeseries data
+
+**NOTE: See the *Passcodes* section below for information about how to retrieve
+your user ID and user token programmatically.**
 
 ### WebSocket API
 
@@ -154,7 +160,7 @@ In addition, the server may send you messages to indicate unsolicited messages
 when things change on the server.  Be prepared to receive these messages the
 same as any other response.
 
-The only request which may be made unauthenticated is the *passcodes:use*
+The only request which may be made unauthenticated is the **passcodes:use**
 request, the usage of which is outlined in the following section.
 
 #### Passcodes
@@ -255,14 +261,14 @@ Any outstanding passcodes will be invalidated.
 
 There are multiple tiers of data that can be retrieved over the WebSocket API.
 
-1. Tier 1 is the raw data you submitted to the service (no analysis)
-2. Tier 2 is about your progress as a runner over time (historical analysis)
-3. Tier 3 is about how to get better as a runner (future analysis)
+1. **Tier 1** is the raw data you submitted to the service (no analysis)
+2. **Tier 2** is about your progress as a runner over time (historical analysis)
+3. **Tier 3** is about how to get better as a runner (future analysis)
 
 Unlike most running apps, which focus on tier 1 and tier 2 data, Forrest Cruise
 is almost entirely about this valuable tier 3 data. The reason the first two
 tiers exist is so that you have the ability to generate your own tier 3 data if
-you so desire, but we don't expect you to consume them heavily.
+you so desire, but we don't expect clients to consume them heavily.
 
 The other reason these tiers exist is that it reflects the flow of data within
 the service itself. For example, uploading a new run causes the historical and
@@ -270,7 +276,7 @@ future analysis to be recalculated, but altering your future goals has no impact
 on the raw data or historical analysis underlying them.
 
 As a developer this can help you intuitively understand the performance impact
-of making changes to a given tier. Tier 3 is the best place to be, generally
+of making changes to a given tier. Tier 3 is the best place to stay, generally
 speaking.
 
 ##### Tier 1 *Raw data*
