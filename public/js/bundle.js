@@ -614,7 +614,7 @@ var View = Backbone.View.extend({
 
   remove: function() {
     this.undelegateEvents();
-    //$(window).unbind("resize", this.fitMap);
+    $(window).unbind("resize", this.fitMap);
     this.mapReference = null;
   },
 
