@@ -93,8 +93,8 @@ app.put('/api/runs', function(req, res) {
 
   // Is this a valid request?
   var users = nano.db.use('users');
-  users.get(user, function(err, userBody) {
-    if (userBody.user_token != token) {
+  users.get(user, function(err, body) {
+    if (body.user_token != token) {
       return;
     }
 
@@ -102,7 +102,7 @@ app.put('/api/runs', function(req, res) {
     var runId = uuid.v4();
 
     // Create the run document
-    var runs = nano.db.use(userBody.run_database);
+    var runs = nano.db.use(body.run_database);
     runs.multipart.insert(
       {
         created_by: user,
@@ -123,20 +123,10 @@ app.put('/api/runs', function(req, res) {
           return;
         }
 
-        // Broadcast the updated run list
-        //
-        // TODO: Write a processing method to update data and broadcast
-        //       any changes to registered clients.
-        //
         console.log("Run uploaded");
-        getRuns(userBody.run_database, function(runs) {
-          if (runs) {
-            broadcast(user, {
-              type: 'run:list',
-              data: runs
-            });
-          }
-        });
+
+        // Analyze the data and push changes to registered clients
+        analyzeDataFor(user);
       }
     );
   });
@@ -739,6 +729,27 @@ function getDistance(data) {
       distance = Distance.compute(points);
 
   return distance;
+}
+
+// Crunch the data for a specific user and broadcast any updates
+function analyzeDataFor(user) {
+  var users = nano.db.use('users');
+
+  users.get(user, function(err, body) {
+    if (err) {
+      // User does not exist
+      return;
+    }
+
+    getRuns(body.run_database, function(runs) {
+      if (runs) {
+        broadcast(user, {
+          type: 'run:list',
+          data: runs
+        });
+      }
+    });
+  });
 }
 
 // Create a user with their email as the primary identifier (idempotent)
