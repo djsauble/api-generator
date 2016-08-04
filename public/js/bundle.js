@@ -103,7 +103,7 @@ var Runs = Backbone.Collection.extend({
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
   startListening: function(socket) {
-    Forrest.bus.trigger('socket:send', 'get_docs', {
+    Forrest.bus.trigger('socket:send', 'run:list', {
       user: USER_ID,
       token: USER_TOKEN,
       database: DATABASE
@@ -111,7 +111,7 @@ var Runs = Backbone.Collection.extend({
   },
   processMessage: function(socket, message) {
     // Filter out messages we can't handle
-    if (message.type !== 'runs' || message.error) {
+    if (message.type !== 'run:list' || message.error) {
       return;
     }
 
@@ -174,6 +174,17 @@ var Router = Backbone.Router.extend({
     }
     this.currentView = view;
     this.el.html(this.currentView.render().el);
+
+    //
+    // HACK: to make Google maps display correctly when you switch to the 
+    //       settings view then back to the dashboard view
+    //
+    if (this.currentView === this.dashboardView) {
+      var map = this.currentView.viewer.map;
+      if (map.bounds) {
+        map.fitMap(map);
+      }
+    }
   },
 
   dashboard: function() {
@@ -198,6 +209,10 @@ var Socket = Backbone.Model.extend({
 
     // Tie websocket events to the event bus
     ws.onopen = function() {
+      Forrest.bus.trigger('socket:send', 'client:register', {
+        user: USER_ID,
+        token: USER_TOKEN
+      });
       Forrest.bus.trigger('socket:open', ws);
     };
     ws.onmessage = function(data, flags) {
@@ -430,16 +445,7 @@ var View = Backbone.View.extend({
     // Data changed
     this.listenTo(Forrest.bus, 'runs:sync', function(runs) {
       this.models = runs;
-
-      // Select the first model in the set, if none selected
-      if (!this.selected && runs.length > 0) {
-        Forrest.bus.trigger('runs:selected', runs.at(runs.length - 1));
-
-        // NOTE: We postpone render until the selection event has fired
-      }
-      else {
-        this.render();
-      }
+      this.render();
     });
 
     // Toggle selected style if a run is selected
@@ -473,9 +479,13 @@ var View = Backbone.View.extend({
       me.$el.append(r.render().el);
     });
 
-    // If no run is selected, select the first one in the new list
+    // Select an item in the list
     if (this.selected) {
       this.$('#' + this.selected.id).addClass('selected');
+    }
+    // If no item has been selected, show the first by default
+    else if (this.models.length > 0) {
+      Forrest.bus.trigger('runs:selected', this.models.last());
     }
 
     return this;
@@ -518,15 +528,17 @@ var View = Backbone.View.extend({
     // When a new run is selected, display it
     this.listenTo(Forrest.bus, 'runs:selected', this.fetchRun);
     this.listenTo(Forrest.bus, 'socket:message', this.displayRun);
+  },
 
-    // Resize the map whenever the window resizes
-    $(window).bind("resize", this.fitMap);
+  onresize: function(event) {
+    event.data.scope.fitMap(event.data.scope);
+  },
 
-    var me = this;
-    this.fitMap = function() {
-      google.maps.event.trigger(me.mapReference, "resize");
-      me.mapReference.fitBounds(me.bounds);
-    };
+  // Resize the map and make it center around the current route
+  fitMap: function(scope) {
+    var me = scope || this;
+    google.maps.event.trigger(me.mapReference, "resize");
+    me.mapReference.fitBounds(me.bounds);
   },
 
   render: function() {
@@ -540,6 +552,7 @@ var View = Backbone.View.extend({
         scrollwheel: false,
         disableDoubleClickZoom: true
       });
+      $(window).bind("resize", {scope: this}, this.onresize);
     }
 
     if (this.route) {
@@ -593,7 +606,7 @@ var View = Backbone.View.extend({
 
   // Request the route from the server
   fetchRun: function(model) {
-    Forrest.bus.trigger('socket:send', 'get_data', {
+    Forrest.bus.trigger('socket:send', 'run:get', {
       user: USER_ID,
       token: USER_TOKEN,
       database: DATABASE,
@@ -603,7 +616,7 @@ var View = Backbone.View.extend({
 
   displayRun: function(socket, message) {
     // Filter out messages we can't handle
-    if (message.type !== 'route' || message.error) {
+    if (message.type !== 'run:get' || message.error) {
       return;
     }
 
@@ -614,7 +627,7 @@ var View = Backbone.View.extend({
 
   remove: function() {
     this.undelegateEvents();
-    $(window).unbind("resize", this.fitMap);
+    $(window).unbind("resize", this.onresize);
     this.mapReference = null;
   },
 
@@ -790,56 +803,40 @@ var Backbone = require('backbone');
 var View = Backbone.View.extend({
 
   initialize: function() {
-    this.token = undefined;
-    this.expires = new Date();
-    this.nextRefresh = undefined;
-    this.canRequestToken = false;
+    this.passcode = undefined;
+    this.expires = undefined;
 
     // Start listening for messages
-    this.listenTo(Forrest.bus, 'socket:open', this.startListening);
-    this.listenTo(Forrest.bus, 'socket:close', this.stopListening);
+    this.listenTo(Forrest.bus, 'socket:open', this.getPasscode);
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
-  startListening: function(socket) {
-    this.canRequestToken = true;
-  },
-  stopListening: function(socket) {
-    this.canRequestToken = false;
+  getPasscode: function() {
+    Forrest.bus.trigger('socket:send', 'passcode:get', {
+      user: USER_ID,
+      token: USER_TOKEN
+    });
   },
   processMessage: function(socket, message) {
     var me = this;
 
     // Filter out messages we can't handle
-    if (message.type !== 'token' || message.error) {
+    if (message.type !== 'passcode:current' || message.error) {
       return;
     }
 
-    // Set token data
-    this.token = message.data.token;
+    // Set passcode data
+    this.passcode = message.data.passcode;
     this.expires = new Date(message.data.expires);
 
-    // Schedule the next token refresh
-    this.nextRefresh = setTimeout(
-      function() {
-        me.refresh(me);
-      },
-      me.expires.getTime() - Date.now()
-    );
-
-    // Render the current token
+    // Render the current passcode
     this.render();
-  },
-
-  events: {
-    'click .refresh': 'clickRefresh'
   },
 
   template: _.template(
     "<h2>Connect</h2>" +
-    "<p>Provide the token below</p>" +
-    "<% if (token) { %>" +
-    "<h1><code class='security_code'><%= token %></code></h1>" +
-    "<button class='refresh'><i class='fa fa-refresh'></i> Refresh</button>" +
+    "<p>Provide the passcode below</p>" +
+    "<% if (passcode) { %>" +
+    "<h1><code class='security_code'><%= passcode %></code></h1>" +
     "<% } else { %>" +
     "<h2 class='success'>" +
     "<i class='fa fa-check-circle'></i> Connected to device." +
@@ -850,45 +847,15 @@ var View = Backbone.View.extend({
   render: function() {
 
     this.$el.html(this.template({
-      token: this.token
+      passcode: this.passcode
     }));
-
-    // If no token exists, request one
-    if (!this.token) {
-      Forrest.bus.trigger('socket:send', 'get_token', {
-        user: USER_ID,
-        token: USER_TOKEN
-      });
-    }
 
     return this;
   },
 
   remove: function() {
     this.undelegateEvents();
-    if (this.token) {
-      Forrest.bus.trigger('socket:send', 'use_token', {
-        token: this.token
-      });
-      this.token = undefined;
-    }
-  },
-
-  clickRefresh: function() {
-    if (this.nextRefresh) {
-      clearTimeout(this.nextRefresh);
-      this.nextRefresh = undefined;
-    }
-
-    this.refresh(this);
-  },
-
-  refresh: function(me) {
-    Forrest.bus.trigger('socket:send', 'refresh_token', {
-      user: USER_ID,
-      user_token: USER_TOKEN,
-      old_token: me.token
-    });
+    this.passcode = undefined;
   }
 });
 

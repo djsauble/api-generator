@@ -93,8 +93,8 @@ app.put('/api/runs', function(req, res) {
 
   // Is this a valid request?
   var users = nano.db.use('users');
-  users.get(user, function(err, body) {
-    if (body.user_token != token) {
+  users.get(user, function(err, userBody) {
+    if (userBody.user_token != token) {
       return;
     }
 
@@ -102,7 +102,7 @@ app.put('/api/runs', function(req, res) {
     var runId = uuid.v4();
 
     // Create the run document
-    var runs = nano.db.use(body.run_database);
+    var runs = nano.db.use(userBody.run_database);
     runs.multipart.insert(
       {
         created_by: user,
@@ -118,9 +118,25 @@ app.put('/api/runs', function(req, res) {
       ],
       runId,
       function(err, body) {
-        if (!err) {
-          console.log("Run uploaded");
+        if (err) {
+          // Error handling
+          return;
         }
+
+        // Broadcast the updated run list
+        //
+        // TODO: Write a processing method to update data and broadcast
+        //       any changes to registered clients.
+        //
+        console.log("Run uploaded");
+        getRuns(userBody.run_database, function(runs) {
+          if (runs) {
+            broadcast(user, {
+              type: 'run:list',
+              data: runs
+            });
+          }
+        });
       }
     );
   });
@@ -131,33 +147,48 @@ app.put('/api/runs', function(req, res) {
  * WebSocket API *
  *****************/
 
+// List of clients that have registered for updates of a given user
+var clients = {};
+
+// List of timers that are sending passcode updates 
+var timers = {};
+
 app.ws('/api', function(ws, req) {
   console.log('Client connected');
   ws.on('message', function(data, flags) {
     var request = JSON.parse(data);
-    if (request.type == 'get_token') {
-      getToken(ws, request.data);
+    if (request.type == 'client:register') {
+      registerClient(ws, request.data);
     }
-    else if (request.type == 'refresh_token') {
-      refreshToken(ws, request.data);
+    else if (request.type == 'client:unregister') {
+      unregisterClient(ws, request.data);
     }
-    else if (request.type == 'use_token') {
-      useToken(ws, request.data);
+    else if (request.type == 'passcode:get') {
+      getPasscode(ws, request.data);
     }
-    else if (request.type == 'get_weekly_goal') {
-      getWeeklyGoal(ws, request.data);
+    else if (request.type == 'passcode:use') {
+      usePasscode(ws, request.data);
     }
-    else if (request.type == 'set_goal') {
+    else if (request.type == 'run:list') {
+      listRuns(ws, request.data);
+    }
+    else if (request.type == 'run:get') {
+      getRun(ws, request.data);
+    }
+    //else if (request.type == 'goal:get') {
+    //  getGoal(ws, request.data);
+    //}
+    else if (request.type == 'goal:set') {
       setGoal(ws, request.data);
     }
-    else if (request.type == 'get_docs') {
-      getDocs(ws, request.data);
+    else if (request.type == 'weekly_goal:get') {
+      getWeeklyGoal(ws, request.data);
     }
-    else if (request.type == 'get_data') {
-      getData(ws, request.data);
-    }
+    //else if (request.type == 'weekly_goal:set') {
+    //  setWeeklyGoal(ws, request.data);
+    //}
     else {
-      console.log("Unknown websockets request");
+      console.log('Unknown websockets request: ' + request.type);
     }
   });
   ws.on('close', function() {
@@ -165,13 +196,85 @@ app.ws('/api', function(ws, req) {
   });
 });
 
-// Request an auth token (for connecting a mobile device)
-function getToken(ws, data) {
+// Register a client for unsolicited updates
+//
+// Idempotent
+//
+function registerClient(ws, data) {
+  var users = nano.db.use('users');
+
+  // Is this a valid request?
+  users.get(data.user, function(err, body) {
+    if (body.user_token !== data.token) {
+      ws.send(JSON.stringify({
+        type: 'client:register',
+        error: 'Could not register the client'
+      }));
+      return;
+    }
+
+    // Initialize the array for this client, if undefined
+    if (!clients[data.user]) {
+      clients[data.user] = [];
+    }
+
+    // Register the socket, if not already registered
+    var i = clients[data.user].indexOf(ws);
+    if (i === -1) {
+      clients[data.user].push(ws);
+    }
+
+    // Let the client know that registration succeeded
+    broadcast(data.user, {
+      type: 'client:registered'
+    });
+  });
+}
+
+// Unregister a client from unsolicited updates
+//
+// Idempotent
+//
+function unregisterClient(ws, data) {
   var error = JSON.stringify({
-        type: 'token',
-        error: 'Could not get a token'
+        type: 'client:unregister',
+        error: 'Could not unregister the client'
       }),
       users = nano.db.use('users');
+
+  // Is this a valid request?
+  users.get(data.user, function(err, body) {
+    if (body.user_token !== data.token) {
+      ws.send(error);
+      return;
+    }
+
+    // Unregister the socket, if not already unregistered
+    if (clients[data.user]) {
+      var i = clients[data.user].indexOf(ws);
+      if (i !== -1) {
+        clients[data.user].splice(i, 1);
+      }
+    }
+
+    // Let the clients know that an unregistration succeeded
+    broadcast(data.user, {
+      type: 'client:unregistered'
+    });
+  });
+}
+
+// Request a one-time use passcode (for connecting a mobile device)
+//
+// Idempotent
+//
+function getPasscode(ws, data) {
+  var error = JSON.stringify({
+        type: 'passcode:get',
+        error: 'Could not enable passcodes'
+      }),
+      users = nano.db.use('users'),
+      passcodes = nano.db.use('passcodes');
 
   // Is this a valid request?
   users.get(data.user, function(err, body) {
@@ -180,32 +283,117 @@ function getToken(ws, data) {
       return;
     }
 
-    // Generate a unique identifier for the app token
-    var appToken = uuid.v4().substr(0, 4);
+    // Are passcodes currently being generated?
+    if (!timers[data.user]) {
+      generatePasscode(data.user);
+      return;
+    }
 
-    // Generate an expiry time 15 minutes from now
-    var expires = (new Date(Date.now() + (1000 * 60 * 15))).toString();
+    // Does a valid passcode already exist?
+    if (body.passcode) {
+      passcodes.get(body.passcode, function(err, body) {
 
-    // Insert the token
-    var tokens = nano.db.use('tokens');
-    tokens.insert({
-        _id: appToken,
-        user: data.user,
-        expires: expires
-      }, function(err, body) {
-      if (err) {
-        ws.send(error);
-        return;
-      }
-      console.log("App token set (expires " + expires);
-      ws.send(JSON.stringify({
-        type: 'token',
-        data: {
-          token: appToken,
-          expires: expires
+        // Has the passcode been deleted?
+        if (err) {
+          generatePasscode(data.user);
+          return;
         }
-      }));
-    });
+
+        // Has the passcode expired?
+        var date = new Date(body.expires);
+        if (date.getTime() < Date.now()) {
+          generatePasscode(data.user);
+          return;
+        }
+
+        // Reply with the existing passcode
+        ws.send(JSON.stringify({
+          type: 'passcode:current',
+          data: {
+            passcode: body._id,
+            expires: body.expires
+          }
+        }));
+      });
+    }
+    else {
+      generatePasscode(data.user);
+      return;
+    }
+  });
+}
+
+// Generate a passcode (delete any existing passcodes that have expired)
+function generatePasscode(user) {
+  
+  var error = JSON.stringify({
+        type: 'passcode:current',
+        error: 'Could not generate a passcode'
+      }),
+      passcode = uuid.v4().substr(0, 4),
+      expires = new Date(Date.now() + (1000 * 60 * 5)),
+      //expires = new Date(Date.now() + (1000 * 5)),
+      users = nano.db.use('users'),
+      passcodes = nano.db.use('passcodes');
+
+  users.get(user, function(err, user_body) {
+    // Clear the old timer
+    if (timers[user]) {
+      clearTimeout(timers[user]);
+      timers[user] = undefined;
+    }
+
+    // Delete the old passcode
+    if (user_body.passcode) {
+      passcodes.get(user_body.passcode, function(err, body) {
+        if (err) {
+          // Passcode has already been deleted
+          return;
+        }
+
+        passcodes.destroy(body._id, body._rev, function(err, body) {
+          // Handle errors
+        });
+      });
+    }
+    // Insert the new passcode
+    passcodes.insert(
+      {
+        _id: passcode,
+        user: user,
+        expires: expires.toString()
+      },
+      function(err, body) {
+        if (err) {
+          ws.send(error);
+          return;
+        }
+        console.log("Passcode set (expires " + expires + ")");
+
+        // Broadcast the new passcode to clients
+        broadcast(user, {
+          type: 'passcode:current',
+          data: {
+            passcode: passcode,
+            expires: expires.toString()
+          }
+        });
+
+        // Set timer for the next passcode generation
+        timers[user] = setTimeout(
+          function() {
+            generatePasscode(user);
+          },
+          expires.getTime() - Date.now()
+        );
+
+        // Store the timer ID and current passcode in the user database
+        user_body.passcode = passcode;
+        users.insert(user_body, function() {
+          // Handle errors
+        });
+      }
+    );
   });
 }
 
@@ -217,9 +405,8 @@ function refreshToken(ws, data) {
       }),
       users = nano.db.use('users');
 
-  console.log(data);
+  // Is this a valid request?
   users.get(data.user, function(err, body) {
-    // Is this a valid request?
     if (body.user_token != data.user_token) {
       ws.send(error);
       return;
@@ -244,37 +431,65 @@ function refreshToken(ws, data) {
 }
 
 // Consume an auth token
-function useToken(ws, data) {
+function usePasscode(ws, data) {
   var error = JSON.stringify({
         type: 'error',
-        error: 'Could not authenticate with the given token'
+        error: 'Could not authenticate with the given passcode'
       }),
-      tokens = nano.db.use('tokens');
-  tokens.get(data.token, function(err, tokenDoc) {
-    // Is this a valid request?
-    if (err || (new Date(tokenDoc.expires)).getTime() < Date.now()) {
+      users = nano.db.use('users'),
+      passcodes = nano.db.use('passcodes');
+
+  // Is this a valid request?
+  passcodes.get(data.passcode, function(err, passcodeDoc) {
+    if (err) {
+      ws.send(error);
+      return;
+    }
+
+    // Has the passcode expired?
+    if ((new Date(passcodeDoc.expires)).getTime() < Date.now()) {
       ws.send(error);
       return;
     }
 
     // Fetch the associated user URL
-    var users = nano.db.use('users');
-    users.get(tokenDoc.user, function(err, body) {
+    users.get(passcodeDoc.user, function(err, body) {
       if (err) {
         ws.send(error);
         return;
       }
 
-      // Return the API endpoint
+      // Stop generating passcodes
+      if (timers[body._id]) {
+        clearTimeout(timers[body._id]);
+        timers[body._id] = undefined;
+      }
+
+      // Delete the old passcode
+      passcodes.destroy(passcodeDoc._id, passcodeDoc._rev, function(err, body) {
+        // Handle errors
+      });
+
+      // Delete reference to the old passcode
+      body.passcode = undefined;
+      users.insert(body, function() {
+        // Handle errors
+      });
+
+      // Return the user credentials
       ws.send(JSON.stringify({
-        type: 'api',
-        data: process.env.CALLBACK_URL + "/api/runs?user=" + body._id + "&token=" + body.user_token
+        type: 'passcode:authenticated',
+        data: {
+          user: body._id,
+          token: body.user_token
+        }
       }));
 
-      // Delete the token doc
-      tokens.destroy(data.token, tokenDoc._rev, function() {
-        if (!err) {
-          console.log('Temporary auth token has been deleted');
+      // Broadcast that a passcode was successfully used
+      broadcast(body._id, {
+        type: 'passcode:used',
+        data: {
+          passcode: data.passcode
         }
       });
     });
@@ -284,12 +499,13 @@ function useToken(ws, data) {
 // Set weekly goal information
 function setGoal(ws, data) {
   var error = JSON.stringify({
-        type: 'error',
+        type: 'goal:set',
         error: 'Failed to update the weekly goal'
       }),
       users = nano.db.use('users');
+
+  // Is this a valid request?
   users.get(data.user, function(err, body) {
-    // Is this a valid request?
     if (body.user_token != data.token) {
       ws.send(error);
       return;
@@ -304,8 +520,10 @@ function setGoal(ws, data) {
         ws.send(error);
         return;
       }
-
-      ws.send('{"message": "success"}');
+      ws.send(JSON.stringify({
+        type: 'goal:set',
+        success: 'Weekly goal set'
+      }));
     });
   });
 }
@@ -313,12 +531,13 @@ function setGoal(ws, data) {
 // Retrieve weekly goal information
 function getWeeklyGoal(ws, data) {
   var error = JSON.stringify({
-        type: 'error',
+        type: 'weekly_goal:get',
         error: 'Could not retrieve weekly goal information'
       }),
       users = nano.db.use('users');
+
+  // Is this a valid request?
   users.get(data.user, function(err, body) {
-    // Is this a valid request?
     if (body.user_token != data.token) {
       ws.send(error);
       return;
@@ -348,7 +567,7 @@ function getWeeklyGoal(ws, data) {
           goalThisWeek = round(1.1 * distanceLastWeek, 1);
 
       ws.send(JSON.stringify({
-        type: 'weekly_goal',
+        type: 'weekly_goal:get',
         data: {
           distanceThisWeek: distanceThisWeek,
           goalThisWeek: goalThisWeek
@@ -364,9 +583,9 @@ function getWeeklyGoal(ws, data) {
 //       timestamps, to make it possible to fetch a contiguous
 //       subset of all available documents without resorting
 //       to secondary indices.
-function getDocs(ws, data) {
+function listRuns(ws, data) {
   var error = JSON.stringify({
-        type: 'runs',
+        type: 'run:list',
         error: 'Could not retrieve runs'
       }),
       users = nano.db.use('users');
@@ -379,31 +598,25 @@ function getDocs(ws, data) {
     }
 
     // Fetch the run documents
-    var runs = nano.db.use(body.run_database);
-    runs.list({include_docs: true}, function(err, body) {
-      if (err) {
+    getRuns(body.run_database, function(runs) {
+      if (!runs) {
         ws.send(error);
         return;
       }
 
       // Send the list back to the client
       ws.send(JSON.stringify({
-        type: 'runs',
-        data: body.rows.map(function(r) {
-          r.doc.timestamp = new Date(r.doc.timestamp);
-          return r.doc;
-        }).sort(function(a,b) {
-          return a.timestamp.getTime() - b.timestamp.getTime();
-        })
+        type: 'run:list',
+        data: runs
       }));
     });
   });
 }
 
 // Fetch the data associated with a particular run
-function getData(ws, data) {
+function getRun(ws, data) {
   var error = JSON.stringify({
-        type: 'error',
+        type: 'run:get',
         error: 'Could not retrieve run data'
       }),
       users = nano.db.use('users');
@@ -422,7 +635,7 @@ function getData(ws, data) {
         return;
       }
 
-      ws.send('{"type": "route", "data": ' + body.toString() + '}');
+      ws.send('{"type": "run:get", "data": ' + body.toString() + '}');
     });
   });
 }
@@ -475,6 +688,48 @@ passport.use(new StravaStrategy({
 function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) { return next(); }
   res.redirect('/login');
+}
+
+// Broadcast a message to all registered clients for a user
+function broadcast(user, obj) {
+  if (!clients[user]) {
+    // No clients registered
+    return;
+  }
+
+  var i = 0;
+  while (i < clients[user].length) {
+    try {
+      clients[user][i].send(JSON.stringify(obj));
+    }
+    catch (err) {
+      // Disconnected: remove them from the list of registered clients
+      clients[user].splice(i, 1);
+      continue;
+    }
+    i += 1;
+  }
+}
+
+// Get a list of runs from the given database
+function getRuns(db, callback) {
+  var runs = nano.db.use(db);
+  runs.list({include_docs: true}, function(err, body) {
+    if (err) {
+      callback(null);
+      return;
+    }
+
+    // Pass data to the callback
+    callback(
+      body.rows.map(function(r) {
+        r.doc.timestamp = new Date(r.doc.timestamp);
+        return r.doc;
+      }).sort(function(a,b) {
+        return a.timestamp.getTime() - b.timestamp.getTime();
+      })
+    );
+  });
 }
 
 // Calculate distance for a run document

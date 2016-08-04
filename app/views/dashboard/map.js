@@ -24,15 +24,17 @@ var View = Backbone.View.extend({
     // When a new run is selected, display it
     this.listenTo(Forrest.bus, 'runs:selected', this.fetchRun);
     this.listenTo(Forrest.bus, 'socket:message', this.displayRun);
+  },
 
-    // Resize the map whenever the window resizes
-    $(window).bind("resize", this.fitMap);
+  onresize: function(event) {
+    event.data.scope.fitMap(event.data.scope);
+  },
 
-    var me = this;
-    this.fitMap = function() {
-      google.maps.event.trigger(me.mapReference, "resize");
-      me.mapReference.fitBounds(me.bounds);
-    };
+  // Resize the map and make it center around the current route
+  fitMap: function(scope) {
+    var me = scope || this;
+    google.maps.event.trigger(me.mapReference, "resize");
+    me.mapReference.fitBounds(me.bounds);
   },
 
   render: function() {
@@ -46,6 +48,7 @@ var View = Backbone.View.extend({
         scrollwheel: false,
         disableDoubleClickZoom: true
       });
+      $(window).bind("resize", {scope: this}, this.onresize);
     }
 
     if (this.route) {
@@ -99,7 +102,7 @@ var View = Backbone.View.extend({
 
   // Request the route from the server
   fetchRun: function(model) {
-    Forrest.bus.trigger('socket:send', 'get_data', {
+    Forrest.bus.trigger('socket:send', 'run:get', {
       user: USER_ID,
       token: USER_TOKEN,
       database: DATABASE,
@@ -109,7 +112,7 @@ var View = Backbone.View.extend({
 
   displayRun: function(socket, message) {
     // Filter out messages we can't handle
-    if (message.type !== 'route' || message.error) {
+    if (message.type !== 'run:get' || message.error) {
       return;
     }
 
@@ -120,7 +123,7 @@ var View = Backbone.View.extend({
 
   remove: function() {
     this.undelegateEvents();
-    $(window).unbind("resize", this.fitMap);
+    $(window).unbind("resize", this.onresize);
     this.mapReference = null;
   },
 

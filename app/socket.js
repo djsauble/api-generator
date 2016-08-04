@@ -8,6 +8,10 @@ var Socket = Backbone.Model.extend({
 
     // Tie websocket events to the event bus
     ws.onopen = function() {
+      Forrest.bus.trigger('socket:send', 'client:register', {
+        user: USER_ID,
+        token: USER_TOKEN
+      });
       Forrest.bus.trigger('socket:open', ws);
     };
     ws.onmessage = function(data, flags) {
