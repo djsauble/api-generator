@@ -93,8 +93,8 @@ app.put('/api/runs', function(req, res) {
 
   // Is this a valid request?
   var users = nano.db.use('users');
-  users.get(user, function(err, body) {
-    if (body.user_token != token) {
+  users.get(user, function(err, userBody) {
+    if (userBody.user_token != token) {
       return;
     }
 
@@ -102,7 +102,7 @@ app.put('/api/runs', function(req, res) {
     var runId = uuid.v4();
 
     // Create the run document
-    var runs = nano.db.use(body.run_database);
+    var runs = nano.db.use(userBody.run_database);
     runs.multipart.insert(
       {
         created_by: user,
@@ -118,9 +118,25 @@ app.put('/api/runs', function(req, res) {
       ],
       runId,
       function(err, body) {
-        if (!err) {
-          console.log("Run uploaded");
+        if (err) {
+          // Error handling
+          return;
         }
+
+        // Broadcast the updated run list
+        //
+        // TODO: Write a processing method to update data and broadcast
+        //       any changes to registered clients.
+        //
+        console.log("Run uploaded");
+        getRuns(userBody.run_database, function(runs) {
+          if (runs) {
+            broadcast(user, {
+              type: 'run:list',
+              data: runs
+            });
+          }
+        });
       }
     );
   });
@@ -582,9 +598,8 @@ function listRuns(ws, data) {
     }
 
     // Fetch the run documents
-    var runs = nano.db.use(body.run_database);
-    runs.list({include_docs: true}, function(err, body) {
-      if (err) {
+    getRuns(body.run_database, function(runs) {
+      if (!runs) {
         ws.send(error);
         return;
       }
@@ -592,12 +607,7 @@ function listRuns(ws, data) {
       // Send the list back to the client
       ws.send(JSON.stringify({
         type: 'run:list',
-        data: body.rows.map(function(r) {
-          r.doc.timestamp = new Date(r.doc.timestamp);
-          return r.doc;
-        }).sort(function(a,b) {
-          return a.timestamp.getTime() - b.timestamp.getTime();
-        })
+        data: runs
       }));
     });
   });
@@ -699,6 +709,27 @@ function broadcast(user, obj) {
     }
     i += 1;
   }
+}
+
+// Get a list of runs from the given database
+function getRuns(db, callback) {
+  var runs = nano.db.use(db);
+  runs.list({include_docs: true}, function(err, body) {
+    if (err) {
+      callback(null);
+      return;
+    }
+
+    // Pass data to the callback
+    callback(
+      body.rows.map(function(r) {
+        r.doc.timestamp = new Date(r.doc.timestamp);
+        return r.doc;
+      }).sort(function(a,b) {
+        return a.timestamp.getTime() - b.timestamp.getTime();
+      })
+    );
+  });
 }
 
 // Calculate distance for a run document
