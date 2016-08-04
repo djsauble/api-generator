@@ -8,13 +8,20 @@ var View = Backbone.View.extend({
     this.expires = undefined;
 
     // Start listening for messages
+    this.listenTo(Forrest.bus, 'socket:open', this.getPasscode);
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
+  },
+  getPasscode: function() {
+    Forrest.bus.trigger('socket:send', 'passcode:get', {
+      user: USER_ID,
+      token: USER_TOKEN
+    });
   },
   processMessage: function(socket, message) {
     var me = this;
 
     // Filter out messages we can't handle
-    if (message.type !== 'passcodes:current' || message.error) {
+    if (message.type !== 'passcode:current' || message.error) {
       return;
     }
 
@@ -44,26 +51,12 @@ var View = Backbone.View.extend({
       passcode: this.passcode
     }));
 
-    // If no passcode exists, request one
-    if (!this.passcode) {
-      Forrest.bus.trigger('socket:send', 'passcodes:enable', {
-        user: USER_ID,
-        token: USER_TOKEN
-      });
-    }
-
     return this;
   },
 
   remove: function() {
     this.undelegateEvents();
-    if (this.passcode) {
-      Forrest.bus.trigger('socket:send', 'passcodes:disable', {
-        user: USER_ID,
-        token: USER_TOKEN
-      });
-      this.passcode = undefined;
-    }
+    this.passcode = undefined;
   }
 });
 

@@ -16,7 +16,7 @@ var Runs = Backbone.Collection.extend({
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
   startListening: function(socket) {
-    Forrest.bus.trigger('socket:send', 'get_docs', {
+    Forrest.bus.trigger('socket:send', 'run:list', {
       user: USER_ID,
       token: USER_TOKEN,
       database: DATABASE
@@ -24,7 +24,7 @@ var Runs = Backbone.Collection.extend({
   },
   processMessage: function(socket, message) {
     // Filter out messages we can't handle
-    if (message.type !== 'runs' || message.error) {
+    if (message.type !== 'run:list' || message.error) {
       return;
     }
 

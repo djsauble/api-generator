@@ -103,7 +103,7 @@ var Runs = Backbone.Collection.extend({
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
   startListening: function(socket) {
-    Forrest.bus.trigger('socket:send', 'get_docs', {
+    Forrest.bus.trigger('socket:send', 'run:list', {
       user: USER_ID,
       token: USER_TOKEN,
       database: DATABASE
@@ -111,7 +111,7 @@ var Runs = Backbone.Collection.extend({
   },
   processMessage: function(socket, message) {
     // Filter out messages we can't handle
-    if (message.type !== 'runs' || message.error) {
+    if (message.type !== 'run:list' || message.error) {
       return;
     }
 
@@ -198,6 +198,10 @@ var Socket = Backbone.Model.extend({
 
     // Tie websocket events to the event bus
     ws.onopen = function() {
+      Forrest.bus.trigger('socket:send', 'client:register', {
+        user: USER_ID,
+        token: USER_TOKEN
+      });
       Forrest.bus.trigger('socket:open', ws);
     };
     ws.onmessage = function(data, flags) {
@@ -593,7 +597,7 @@ var View = Backbone.View.extend({
 
   // Request the route from the server
   fetchRun: function(model) {
-    Forrest.bus.trigger('socket:send', 'get_data', {
+    Forrest.bus.trigger('socket:send', 'run:get', {
       user: USER_ID,
       token: USER_TOKEN,
       database: DATABASE,
@@ -603,7 +607,7 @@ var View = Backbone.View.extend({
 
   displayRun: function(socket, message) {
     // Filter out messages we can't handle
-    if (message.type !== 'route' || message.error) {
+    if (message.type !== 'run:get' || message.error) {
       return;
     }
 
@@ -794,13 +798,20 @@ var View = Backbone.View.extend({
     this.expires = undefined;
 
     // Start listening for messages
+    this.listenTo(Forrest.bus, 'socket:open', this.getPasscode);
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
+  },
+  getPasscode: function() {
+    Forrest.bus.trigger('socket:send', 'passcode:get', {
+      user: USER_ID,
+      token: USER_TOKEN
+    });
   },
   processMessage: function(socket, message) {
     var me = this;
 
     // Filter out messages we can't handle
-    if (message.type !== 'passcodes:current' || message.error) {
+    if (message.type !== 'passcode:current' || message.error) {
       return;
     }
 
@@ -830,26 +841,12 @@ var View = Backbone.View.extend({
       passcode: this.passcode
     }));
 
-    // If no passcode exists, request one
-    if (!this.passcode) {
-      Forrest.bus.trigger('socket:send', 'passcodes:enable', {
-        user: USER_ID,
-        token: USER_TOKEN
-      });
-    }
-
     return this;
   },
 
   remove: function() {
     this.undelegateEvents();
-    if (this.passcode) {
-      Forrest.bus.trigger('socket:send', 'passcodes:disable', {
-        user: USER_ID,
-        token: USER_TOKEN
-      });
-      this.passcode = undefined;
-    }
+    this.passcode = undefined;
   }
 });
 

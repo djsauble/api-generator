@@ -99,7 +99,7 @@ var View = Backbone.View.extend({
 
   // Request the route from the server
   fetchRun: function(model) {
-    Forrest.bus.trigger('socket:send', 'get_data', {
+    Forrest.bus.trigger('socket:send', 'run:get', {
       user: USER_ID,
       token: USER_TOKEN,
       database: DATABASE,
@@ -109,7 +109,7 @@ var View = Backbone.View.extend({
 
   displayRun: function(socket, message) {
     // Filter out messages we can't handle
-    if (message.type !== 'route' || message.error) {
+    if (message.type !== 'run:get' || message.error) {
       return;
     }
 

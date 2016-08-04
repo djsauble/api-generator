@@ -147,32 +147,32 @@ app.ws('/api', function(ws, req) {
     else if (request.type == 'client:unregister') {
       unregisterClient(ws, request.data);
     }
-    else if (request.type == 'passcodes:get') {
+    else if (request.type == 'passcode:get') {
       getPasscode(ws, request.data);
     }
-    else if (request.type == 'passcodes:use') {
+    else if (request.type == 'passcode:use') {
       usePasscode(ws, request.data);
     }
-    else if (request.type == 'runs:list') {
-      getRuns(ws, request.data);
+    else if (request.type == 'run:list') {
+      listRuns(ws, request.data);
     }
-    else if (request.type == 'runs:get') {
+    else if (request.type == 'run:get') {
       getRun(ws, request.data);
     }
-    else if (request.type == 'goal:get') {
-      getGoal(ws, request.data);
-    }
+    //else if (request.type == 'goal:get') {
+    //  getGoal(ws, request.data);
+    //}
     else if (request.type == 'goal:set') {
       setGoal(ws, request.data);
     }
     else if (request.type == 'weekly_goal:get') {
       getWeeklyGoal(ws, request.data);
     }
-    else if (request.type == 'weekly_goal:set') {
-      setWeeklyGoal(ws, request.data);
-    }
+    //else if (request.type == 'weekly_goal:set') {
+    //  setWeeklyGoal(ws, request.data);
+    //}
     else {
-      console.log("Unknown websockets request");
+      console.log('Unknown websockets request: ' + request.type);
     }
   });
   ws.on('close', function() {
@@ -254,7 +254,7 @@ function unregisterClient(ws, data) {
 //
 function getPasscode(ws, data) {
   var error = JSON.stringify({
-        type: 'passcodes:enable',
+        type: 'passcode:get',
         error: 'Could not enable passcodes'
       }),
       users = nano.db.use('users'),
@@ -292,9 +292,9 @@ function getPasscode(ws, data) {
 
         // Reply with the existing passcode
         ws.send(JSON.stringify({
-          type: 'passcodes:current',
+          type: 'passcode:current',
           data: {
-            passcode: body.passcode,
+            passcode: body._id,
             expires: body.expires
           }
         }));
@@ -311,7 +311,7 @@ function getPasscode(ws, data) {
 function generatePasscode(user) {
   
   var error = JSON.stringify({
-        type: 'passcodes:current',
+        type: 'passcode:current',
         error: 'Could not generate a passcode'
       }),
       passcode = uuid.v4().substr(0, 4),
@@ -356,7 +356,7 @@ function generatePasscode(user) {
 
         // Broadcast the new passcode to clients
         broadcast(user, {
-          type: 'passcodes:current',
+          type: 'passcode:current',
           data: {
             passcode: passcode,
             expires: expires.toString()
@@ -462,7 +462,7 @@ function usePasscode(ws, data) {
 
       // Return the user credentials
       ws.send(JSON.stringify({
-        type: 'passcodes:authenticated',
+        type: 'passcode:authenticated',
         data: {
           user: body._id,
           token: body.user_token
@@ -471,7 +471,7 @@ function usePasscode(ws, data) {
 
       // Broadcast that a passcode was successfully used
       broadcast(body._id, {
-        type: 'passcodes:used',
+        type: 'passcode:used',
         data: {
           passcode: data.passcode
         }
@@ -483,12 +483,13 @@ function usePasscode(ws, data) {
 // Set weekly goal information
 function setGoal(ws, data) {
   var error = JSON.stringify({
-        type: 'error',
+        type: 'goal:set',
         error: 'Failed to update the weekly goal'
       }),
       users = nano.db.use('users');
+
+  // Is this a valid request?
   users.get(data.user, function(err, body) {
-    // Is this a valid request?
     if (body.user_token != data.token) {
       ws.send(error);
       return;
@@ -503,8 +504,10 @@ function setGoal(ws, data) {
         ws.send(error);
         return;
       }
-
-      ws.send('{"message": "success"}');
+      ws.send(JSON.stringify({
+        type: 'goal:set',
+        success: 'Weekly goal set'
+      }));
     });
   });
 }
@@ -512,12 +515,13 @@ function setGoal(ws, data) {
 // Retrieve weekly goal information
 function getWeeklyGoal(ws, data) {
   var error = JSON.stringify({
-        type: 'error',
+        type: 'weekly_goal:get',
         error: 'Could not retrieve weekly goal information'
       }),
       users = nano.db.use('users');
+
+  // Is this a valid request?
   users.get(data.user, function(err, body) {
-    // Is this a valid request?
     if (body.user_token != data.token) {
       ws.send(error);
       return;
@@ -547,7 +551,7 @@ function getWeeklyGoal(ws, data) {
           goalThisWeek = round(1.1 * distanceLastWeek, 1);
 
       ws.send(JSON.stringify({
-        type: 'weekly_goal',
+        type: 'weekly_goal:get',
         data: {
           distanceThisWeek: distanceThisWeek,
           goalThisWeek: goalThisWeek
@@ -563,9 +567,9 @@ function getWeeklyGoal(ws, data) {
 //       timestamps, to make it possible to fetch a contiguous
 //       subset of all available documents without resorting
 //       to secondary indices.
-function getRuns(ws, data) {
+function listRuns(ws, data) {
   var error = JSON.stringify({
-        type: 'runs',
+        type: 'run:list',
         error: 'Could not retrieve runs'
       }),
       users = nano.db.use('users');
@@ -587,7 +591,7 @@ function getRuns(ws, data) {
 
       // Send the list back to the client
       ws.send(JSON.stringify({
-        type: 'runs',
+        type: 'run:list',
         data: body.rows.map(function(r) {
           r.doc.timestamp = new Date(r.doc.timestamp);
           return r.doc;
@@ -602,7 +606,7 @@ function getRuns(ws, data) {
 // Fetch the data associated with a particular run
 function getRun(ws, data) {
   var error = JSON.stringify({
-        type: 'error',
+        type: 'run:get',
         error: 'Could not retrieve run data'
       }),
       users = nano.db.use('users');
@@ -621,7 +625,7 @@ function getRun(ws, data) {
         return;
       }
 
-      ws.send('{"type": "route", "data": ' + body.toString() + '}');
+      ws.send('{"type": "run:get", "data": ' + body.toString() + '}');
     });
   });
 }
@@ -683,9 +687,18 @@ function broadcast(user, obj) {
     return;
   }
 
-  clients[user].forEach(function(ws) {
-    ws.send(JSON.stringify(obj));
-  });
+  var i = 0;
+  while (i < clients[user].length) {
+    try {
+      clients[user][i].send(JSON.stringify(obj));
+    }
+    catch (err) {
+      // Disconnected: remove them from the list of registered clients
+      clients[user].splice(i, 1);
+      continue;
+    }
+    i += 1;
+  }
 }
 
 // Calculate distance for a run document
