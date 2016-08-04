@@ -223,8 +223,8 @@ client. The old passcode will then be invalidated and a new one generated.
       }
     }
 
-In addition, a message will be sent to the original connection which enabled
-passcodes, letting them know that a client successfully connected. 
+In addition, a message will be broadcast to all clients, letting them know that
+a passcode was successfully used.
 
     {
       type: 'passcodes:used',

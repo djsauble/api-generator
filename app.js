@@ -257,7 +257,8 @@ function getPasscode(ws, data) {
         type: 'passcodes:enable',
         error: 'Could not enable passcodes'
       }),
-      users = nano.db.use('users');
+      users = nano.db.use('users'),
+      passcodes = nano.db.use('passcodes');
 
   // Is this a valid request?
   users.get(data.user, function(err, body) {
@@ -266,8 +267,43 @@ function getPasscode(ws, data) {
       return;
     }
 
-    // Start generating passcodes
-    generatePasscode(data.user);
+    // Are passcodes currently being generated?
+    if (!timers[data.user]) {
+      generatePasscode(data.user);
+      return;
+    }
+
+    // Does a valid passcode already exist?
+    if (body.passcode) {
+      passcodes.get(body.passcode, function(err, body) {
+
+        // Has the passcode been deleted?
+        if (err) {
+          generatePasscode(data.user);
+          return;
+        }
+
+        // Has the passcode expired?
+        var date = new Date(body.expires);
+        if (date.getTime() < Date.now()) {
+          generatePasscode(data.user);
+          return;
+        }
+
+        // Reply with the existing passcode
+        ws.send(JSON.stringify({
+          type: 'passcodes:current',
+          data: {
+            passcode: body.passcode,
+            expires: body.expires
+          }
+        }));
+      });
+    }
+    else {
+      generatePasscode(data.user);
+      return;
+    }
   });
 }
 
@@ -279,8 +315,8 @@ function generatePasscode(user) {
         error: 'Could not generate a passcode'
       }),
       passcode = uuid.v4().substr(0, 4),
-      //expires = new Date(Date.now() + (1000 * 60 * 5)),
-      expires = new Date(Date.now() + (1000 * 5)),
+      expires = new Date(Date.now() + (1000 * 60 * 5)),
+      //expires = new Date(Date.now() + (1000 * 5)),
       users = nano.db.use('users'),
       passcodes = nano.db.use('passcodes');
 
@@ -319,19 +355,13 @@ function generatePasscode(user) {
         console.log("Passcode set (expires " + expires + ")");
 
         // Broadcast the new passcode to clients
-        if (clients[user]) {
-          clients[user].forEach(function(ws) {
-            if (ws.readyState === ws.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'passcodes:current',
-                data: {
-                  passcode: passcode,
-                  expires: expires.toString()
-                }
-              }));
-            }
-          });
-        }
+        broadcast(user, {
+          type: 'passcodes:current',
+          data: {
+            passcode: passcode,
+            expires: expires.toString()
+          }
+        });
 
         // Set timer for the next passcode generation
         timers[user] = setTimeout(
@@ -388,34 +418,62 @@ function refreshToken(ws, data) {
 function usePasscode(ws, data) {
   var error = JSON.stringify({
         type: 'error',
-        error: 'Could not authenticate with the given token'
+        error: 'Could not authenticate with the given passcode'
       }),
-      tokens = nano.db.use('tokens');
-  tokens.get(data.token, function(err, tokenDoc) {
-    // Is this a valid request?
-    if (err || (new Date(tokenDoc.expires)).getTime() < Date.now()) {
+      users = nano.db.use('users'),
+      passcodes = nano.db.use('passcodes');
+
+  // Is this a valid request?
+  passcodes.get(data.passcode, function(err, passcodeDoc) {
+    if (err) {
+      ws.send(error);
+      return;
+    }
+
+    // Has the passcode expired?
+    if ((new Date(passcodeDoc.expires)).getTime() < Date.now()) {
       ws.send(error);
       return;
     }
 
     // Fetch the associated user URL
-    var users = nano.db.use('users');
-    users.get(tokenDoc.user, function(err, body) {
+    users.get(passcodeDoc.user, function(err, body) {
       if (err) {
         ws.send(error);
         return;
       }
 
-      // Return the API endpoint
+      // Stop generating passcodes
+      if (timers[body._id]) {
+        clearTimeout(timers[body._id]);
+        timers[body._id] = undefined;
+      }
+
+      // Delete the old passcode
+      passcodes.destroy(passcodeDoc._id, passcodeDoc._rev, function(err, body) {
+        // Handle errors
+      });
+
+      // Delete reference to the old passcode
+      body.passcode = undefined;
+      users.insert(body, function() {
+        // Handle errors
+      });
+
+      // Return the user credentials
       ws.send(JSON.stringify({
-        type: 'api',
-        data: process.env.CALLBACK_URL + "/api/runs?user=" + body._id + "&token=" + body.user_token
+        type: 'passcodes:authenticated',
+        data: {
+          user: body._id,
+          token: body.user_token
+        }
       }));
 
-      // Delete the token doc
-      tokens.destroy(data.token, tokenDoc._rev, function() {
-        if (!err) {
-          console.log('Temporary auth token has been deleted');
+      // Broadcast that a passcode was successfully used
+      broadcast(body._id, {
+        type: 'passcodes:used',
+        data: {
+          passcode: data.passcode
         }
       });
     });
