@@ -142,23 +142,27 @@ performance and to enable the server to push updates to clients, rather than
 depending on poll.
 
 An initial connection is established by opening a WebSocket connection to
-`wss://your-domain/api`. To authenticate as a client, send the following
-request:
+`wss://your-domain/api`. At this point, the server will keep the connection
+open and you may send requests and receive responses from the server.
+
+If you want to receive unsolicited updates for a given user, register with the
+user's credentials by sending the following object.
 
     {
-      type: 'authenticate',
+      type: 'client:register',
       data: {
         user: 'your-user-id',
         token: 'your-user-token'
       }
     }
 
-At this point, the server will keep the connection open and you may send
-requests and receive responses from the server.
+Response on successful registration:
 
-In addition, the server may send you messages to indicate unsolicited messages
-when things change on the server.  Be prepared to receive these messages the
-same as any other response.
+    {
+      type: 'client:registered'
+    }
+
+These unsolicited messages allow you to track changes that occur on the server.
 
 The only request which may be made unauthenticated is the **passcodes:use**
 request, the usage of which is outlined in the following section.
@@ -251,20 +255,6 @@ passcodes, letting them know that a client failed to connect.
       }
     }
 
-##### Disable passcodes
-
-Disable passcodes for the specified user ID:
-
-    {
-      type: 'passcodes:disable',
-      data: {
-        user: 'your-user-id',
-        token: 'your-user-token'
-      }
-    }
-
-Any outstanding passcodes will be invalidated.
-
 #### Data
 
 There are multiple tiers of data that can be retrieved over the WebSocket API.
@@ -294,7 +284,7 @@ speaking.
 Get a list of runs, including metadata but excluding the raw route data.
 
     {
-      type: 'raw:runs',
+      type: 'runs:list',
       data: {
         user: 'your-user-id',
         token: 'your-user-token'
@@ -304,7 +294,7 @@ Get a list of runs, including metadata but excluding the raw route data.
 The run data will be returned as follows:
 
     {
-      type: 'raw:runs',
+      type: 'runs:list',
       data: [
         {
           _id: 'c7818cf0-8a2b-4ff8-8cd2-4098286128f9',
@@ -321,7 +311,7 @@ The run data will be returned as follows:
 To get the raw data for a specific run:
 
     {
-      type: 'raw:run',
+      type: 'runs:get',
       data: {
         run: 'run-id',
         user: 'your-user-id',
@@ -332,7 +322,7 @@ To get the raw data for a specific run:
 The run data will be returned as follows:
 
 {
-  type: 'raw:run',
+  type: 'runs:get',
   data: [
     {
       "timestamp": "2016-07-13 17:47:43 +0000",
@@ -366,7 +356,7 @@ TBD
 To set the number of miles per week the user would like to be able to run:
 
     {
-      type: 'future:goal',
+      type: 'goal:set',
       data: {
         miles: 40.0,
         user: 'your-user-id',
@@ -377,7 +367,7 @@ To set the number of miles per week the user would like to be able to run:
 When this value changes, the server will send the following to all clients:
 
     {
-      type: 'future:goal',
+      type: 'goal:change',
       data: {
         miles: 40.0
       }
@@ -388,7 +378,7 @@ When this value changes, the server will send the following to all clients:
 To get the number of miles to run this week, along with related information:
 
     {
-      type: 'future:week',
+      type: 'weekly_goal:get',
       data: {
         user: 'your-user-id',
         token: 'your-user-token'
@@ -398,7 +388,7 @@ To get the number of miles to run this week, along with related information:
 The goal data will be returned (and whenever it changes), with:
 
     {
-      type: 'future:week',
+      type: 'weekly_goal:change',
       data: {
         distanceThisWeek: 10.0,
         goalThisWeek: 20.0

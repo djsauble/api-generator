@@ -131,30 +131,45 @@ app.put('/api/runs', function(req, res) {
  * WebSocket API *
  *****************/
 
+// List of clients that have registered for updates of a given user
+var clients = {};
+
+// List of timers that are sending passcode updates 
+var timers = {};
+
 app.ws('/api', function(ws, req) {
   console.log('Client connected');
   ws.on('message', function(data, flags) {
     var request = JSON.parse(data);
-    if (request.type == 'get_token') {
-      getToken(ws, request.data);
+    if (request.type == 'client:register') {
+      registerClient(ws, request.data);
     }
-    else if (request.type == 'refresh_token') {
-      refreshToken(ws, request.data);
+    else if (request.type == 'client:unregister') {
+      unregisterClient(ws, request.data);
     }
-    else if (request.type == 'use_token') {
-      useToken(ws, request.data);
+    else if (request.type == 'passcodes:get') {
+      getPasscode(ws, request.data);
     }
-    else if (request.type == 'get_weekly_goal') {
-      getWeeklyGoal(ws, request.data);
+    else if (request.type == 'passcodes:use') {
+      usePasscode(ws, request.data);
     }
-    else if (request.type == 'set_goal') {
+    else if (request.type == 'runs:list') {
+      getRuns(ws, request.data);
+    }
+    else if (request.type == 'runs:get') {
+      getRun(ws, request.data);
+    }
+    else if (request.type == 'goal:get') {
+      getGoal(ws, request.data);
+    }
+    else if (request.type == 'goal:set') {
       setGoal(ws, request.data);
     }
-    else if (request.type == 'get_docs') {
-      getDocs(ws, request.data);
+    else if (request.type == 'weekly_goal:get') {
+      getWeeklyGoal(ws, request.data);
     }
-    else if (request.type == 'get_data') {
-      getData(ws, request.data);
+    else if (request.type == 'weekly_goal:set') {
+      setWeeklyGoal(ws, request.data);
     }
     else {
       console.log("Unknown websockets request");
@@ -165,11 +180,82 @@ app.ws('/api', function(ws, req) {
   });
 });
 
-// Request an auth token (for connecting a mobile device)
-function getToken(ws, data) {
+// Register a client for unsolicited updates
+//
+// Idempotent
+//
+function registerClient(ws, data) {
+  var users = nano.db.use('users');
+
+  // Is this a valid request?
+  users.get(data.user, function(err, body) {
+    if (body.user_token !== data.token) {
+      ws.send(JSON.stringify({
+        type: 'client:register',
+        error: 'Could not register the client'
+      }));
+      return;
+    }
+
+    // Initialize the array for this client, if undefined
+    if (!clients[data.user]) {
+      clients[data.user] = [];
+    }
+
+    // Register the socket, if not already registered
+    var i = clients[data.user].indexOf(ws);
+    if (i === -1) {
+      clients[data.user].push(ws);
+    }
+
+    // Let the client know that registration succeeded
+    broadcast(data.user, {
+      type: 'client:registered'
+    });
+  });
+}
+
+// Unregister a client from unsolicited updates
+//
+// Idempotent
+//
+function unregisterClient(ws, data) {
   var error = JSON.stringify({
-        type: 'token',
-        error: 'Could not get a token'
+        type: 'client:unregister',
+        error: 'Could not unregister the client'
+      }),
+      users = nano.db.use('users');
+
+  // Is this a valid request?
+  users.get(data.user, function(err, body) {
+    if (body.user_token !== data.token) {
+      ws.send(error);
+      return;
+    }
+
+    // Unregister the socket, if not already unregistered
+    if (clients[data.user]) {
+      var i = clients[data.user].indexOf(ws);
+      if (i !== -1) {
+        clients[data.user].splice(i, 1);
+      }
+    }
+
+    // Let the clients know that an unregistration succeeded
+    broadcast(data.user, {
+      type: 'client:unregistered'
+    });
+  });
+}
+
+// Request a one-time use passcode (for connecting a mobile device)
+//
+// Idempotent
+//
+function getPasscode(ws, data) {
+  var error = JSON.stringify({
+        type: 'passcodes:enable',
+        error: 'Could not enable passcodes'
       }),
       users = nano.db.use('users');
 
@@ -180,32 +266,88 @@ function getToken(ws, data) {
       return;
     }
 
-    // Generate a unique identifier for the app token
-    var appToken = uuid.v4().substr(0, 4);
+    // Start generating passcodes
+    generatePasscode(data.user);
+  });
+}
 
-    // Generate an expiry time 15 minutes from now
-    var expires = (new Date(Date.now() + (1000 * 60 * 15))).toString();
+// Generate a passcode (delete any existing passcodes that have expired)
+function generatePasscode(user) {
+  
+  var error = JSON.stringify({
+        type: 'passcodes:current',
+        error: 'Could not generate a passcode'
+      }),
+      passcode = uuid.v4().substr(0, 4),
+      //expires = new Date(Date.now() + (1000 * 60 * 5)),
+      expires = new Date(Date.now() + (1000 * 5)),
+      users = nano.db.use('users'),
+      passcodes = nano.db.use('passcodes');
 
-    // Insert the token
-    var tokens = nano.db.use('tokens');
-    tokens.insert({
-        _id: appToken,
-        user: data.user,
-        expires: expires
-      }, function(err, body) {
-      if (err) {
-        ws.send(error);
-        return;
-      }
-      console.log("App token set (expires " + expires);
-      ws.send(JSON.stringify({
-        type: 'token',
-        data: {
-          token: appToken,
-          expires: expires
+  users.get(user, function(err, user_body) {
+    // Clear the old timer
+    if (timers[user]) {
+      clearTimeout(timers[user]);
+      timers[user] = undefined;
+    }
+
+    // Delete the old passcode
+    if (user_body.passcode) {
+      passcodes.get(user_body.passcode, function(err, body) {
+        if (err) {
+          // Passcode has already been deleted
+          return;
         }
-      }));
-    });
+
+        passcodes.destroy(body._id, body._rev, function(err, body) {
+          // Handle errors
+        });
+      });
+    }
+    // Insert the new passcode
+    passcodes.insert(
+      {
+        _id: passcode,
+        user: user,
+        expires: expires.toString()
+      },
+      function(err, body) {
+        if (err) {
+          ws.send(error);
+          return;
+        }
+        console.log("Passcode set (expires " + expires + ")");
+
+        // Broadcast the new passcode to clients
+        if (clients[user]) {
+          clients[user].forEach(function(ws) {
+            if (ws.readyState === ws.OPEN) {
+              ws.send(JSON.stringify({
+                type: 'passcodes:current',
+                data: {
+                  passcode: passcode,
+                  expires: expires.toString()
+                }
+              }));
+            }
+          });
+        }
+
+        // Set timer for the next passcode generation
+        timers[user] = setTimeout(
+          function() {
+            generatePasscode(user);
+          },
+          expires.getTime() - Date.now()
+        );
+
+        // Store the timer ID and current passcode in the user database
+        user_body.passcode = passcode;
+        users.insert(user_body, function() {
+          // Handle errors
+        });
+      }
+    );
   });
 }
 
@@ -217,9 +359,8 @@ function refreshToken(ws, data) {
       }),
       users = nano.db.use('users');
 
-  console.log(data);
+  // Is this a valid request?
   users.get(data.user, function(err, body) {
-    // Is this a valid request?
     if (body.user_token != data.user_token) {
       ws.send(error);
       return;
@@ -244,7 +385,7 @@ function refreshToken(ws, data) {
 }
 
 // Consume an auth token
-function useToken(ws, data) {
+function usePasscode(ws, data) {
   var error = JSON.stringify({
         type: 'error',
         error: 'Could not authenticate with the given token'
@@ -364,7 +505,7 @@ function getWeeklyGoal(ws, data) {
 //       timestamps, to make it possible to fetch a contiguous
 //       subset of all available documents without resorting
 //       to secondary indices.
-function getDocs(ws, data) {
+function getRuns(ws, data) {
   var error = JSON.stringify({
         type: 'runs',
         error: 'Could not retrieve runs'
@@ -401,7 +542,7 @@ function getDocs(ws, data) {
 }
 
 // Fetch the data associated with a particular run
-function getData(ws, data) {
+function getRun(ws, data) {
   var error = JSON.stringify({
         type: 'error',
         error: 'Could not retrieve run data'
@@ -475,6 +616,18 @@ passport.use(new StravaStrategy({
 function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) { return next(); }
   res.redirect('/login');
+}
+
+// Broadcast a message to all registered clients for a user
+function broadcast(user, obj) {
+  if (!clients[user]) {
+    // No clients registered
+    return;
+  }
+
+  clients[user].forEach(function(ws) {
+    ws.send(JSON.stringify(obj));
+  });
 }
 
 // Calculate distance for a run document
