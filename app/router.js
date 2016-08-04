@@ -30,6 +30,17 @@ var Router = Backbone.Router.extend({
     }
     this.currentView = view;
     this.el.html(this.currentView.render().el);
+
+    //
+    // HACK: to make Google maps display correctly when you switch to the 
+    //       settings view then back to the dashboard view
+    //
+    if (this.currentView === this.dashboardView) {
+      var map = this.currentView.viewer.map;
+      if (map.bounds) {
+        map.fitMap(map);
+      }
+    }
   },
 
   dashboard: function() {
