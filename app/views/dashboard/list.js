@@ -16,16 +16,7 @@ var View = Backbone.View.extend({
     // Data changed
     this.listenTo(Forrest.bus, 'runs:sync', function(runs) {
       this.models = runs;
-
-      // Select the first model in the set, if none selected
-      if (!this.selected && runs.length > 0) {
-        Forrest.bus.trigger('runs:selected', runs.at(runs.length - 1));
-
-        // NOTE: We postpone render until the selection event has fired
-      }
-      else {
-        this.render();
-      }
+      this.render();
     });
 
     // Toggle selected style if a run is selected
@@ -59,9 +50,13 @@ var View = Backbone.View.extend({
       me.$el.append(r.render().el);
     });
 
-    // If no run is selected, select the first one in the new list
+    // Select an item in the list
     if (this.selected) {
       this.$('#' + this.selected.id).addClass('selected');
+    }
+    // If no item has been selected, show the first by default
+    else if (this.models.length > 0) {
+      Forrest.bus.trigger('runs:selected', this.models.last());
     }
 
     return this;
