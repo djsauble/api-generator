@@ -7,6 +7,7 @@ var Buffer = require('Buffer');
 var nano = require('nano')(process.env.COUCHDB_DATABASE_URL);
 var SocketServer = require('ws').Server;
 var sum = require('timeseries-sum');
+var DateAggregate = require('timeseries-aggregate');
 var DateRound = require('date-round');
 var round = require('float').round;
 var Distance = require('compute-distance');
@@ -164,6 +165,9 @@ app.ws('/api', function(ws, req) {
     }
     else if (request.type == 'run:get') {
       getRun(ws, request.data);
+    }
+    else if (request.type == 'trend:get') {
+      getTrend(ws, request.data);
     }
     //else if (request.type == 'goal:get') {
     //  getGoal(ws, request.data);
@@ -502,7 +506,7 @@ function getWeeklyGoal(ws, data) {
     // Fetch goal information
     getRuns(body.run_database, function(runs) {
       ws.send(JSON.stringify({
-        type: 'weekly_goal:change',
+        type: 'weekly_goal:get',
         data: computeWeeklyGoal(runs)
       }));
     });
@@ -552,9 +556,10 @@ function getRun(ws, data) {
         error: 'Could not retrieve run data'
       }),
       users = nano.db.use('users');
+
+  // Is this a valid request?
   users.get(data.user, function(err, body) {
-    // Is this a valid request?
-    if (body.user_token != data.token || body.run_database != data.database) {
+    if (body.user_token !== data.token || body.run_database !== data.database) {
       ws.send(error);
       return;
     }
@@ -568,6 +573,38 @@ function getRun(ws, data) {
       }
 
       ws.send('{"type": "run:get", "data": ' + body.toString() + '}');
+    });
+  });
+}
+
+// Fetch trending data
+function getTrend(ws, data) {
+  var error = JSON.stringify({
+        type: 'trend:get',
+        error: 'Could not retrieve trending data'
+      }),
+      users = nano.db.use('users');
+
+  // Is this a valid request?
+  users.get(data.user, function(err, body) {
+    if (body.user_token !== data.token) {
+      ws.send(error);
+      return;
+    }
+
+    // Fetch the run documents
+    getRuns(body.run_database, function(runs) {
+      if (!runs) {
+        ws.send(error);
+        return;
+      }
+
+      // Send trending information
+      var trend = computeTrendingData(runs, data.weeks);
+      ws.send(JSON.stringify({
+        type: 'trend:get',
+        data: trend
+      }));
     });
   });
 }
@@ -685,6 +722,27 @@ function computeWeeklyGoal(runs) {
   };
 }
 
+// Get trending data for the last number of weeks
+function computeTrendingData(runs, weeks) {
+  var rawData = runs.map(function(r) {
+        return {
+          timestamp: r.timestamp,
+          value: r.distance
+        };
+      }),
+      startOfToday = DateRound.floor(new Date()),
+      startOfThisWeek = DateRound.floor(startOfToday, 'week'),
+      runsByWeek = DateAggregate.aggregate(startOfThisWeek, weeks, DateAggregate.WEEK_IN_MS, rawData);
+
+  // Compile run data for the last few weeks
+  return {
+    runsByWeek: runsByWeek.map(function(w) {
+      w.sum = round(w.sum / 1609.344, 1);
+      return w;
+    })
+  };
+}
+
 // Calculate distance for a run document
 function getDistance(data) {
   var filtered = Distance.filter(data),
@@ -717,6 +775,12 @@ function analyzeDataFor(user) {
         broadcast(user, {
           type: 'weekly_goal:change',
           data: computeWeeklyGoal(runs)
+        });
+
+        // Broadcast the trending data
+        broadcast(user, {
+          type: 'trend:change',
+          data: computeTrendingData(runs, 7) // Hardcoded to 7, change this
         });
       }
     });

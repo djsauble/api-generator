@@ -18,10 +18,23 @@ var User = Backbone.Model.extend({
       token: USER_TOKEN,
       database: DATABASE
     });
+    Forrest.bus.trigger('socket:send', 'trend:get', {
+      user: USER_ID,
+      token: USER_TOKEN,
+      weeks: 7
+    });
   },
   processMessage: function(socket, message) {
     // Filter out messages we can't handle
-    if (message.type !== 'weekly_goal:change' || message.error) {
+    if (message.error) {
+      return;
+    }
+    if (
+        message.type !== 'weekly_goal:change' &&
+        message.type !== 'weekly_goal:get' &&
+        message.type !== 'trend:change' &&
+        message.type !== 'trend:get'
+       ) {
       return;
     }
 

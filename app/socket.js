@@ -32,7 +32,6 @@ var Socket = Backbone.Model.extend({
             Forrest.bus.trigger('socket:message', ws, message);
           },
         onclose = function() {
-            console.log("Closing the socket");
             Forrest.bus.trigger('socket:close', ws, currentRetryWait);
 
             // Kill the ping
@@ -40,7 +39,6 @@ var Socket = Backbone.Model.extend({
 
             // Schedule the next connection attempt
             setTimeout(function() {
-              console.log("Retrying...");
               ws = initSocket();
             }, currentRetryWait * 1000);
 
