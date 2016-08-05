@@ -40,7 +40,7 @@ $(function() {
   Forrest.socket = new Socket();
 });
 
-},{"./models/runs":4,"./models/user":5,"./router":6,"./socket":7,"backbone":17,"jquery":25,"underscore":32}],2:[function(require,module,exports){
+},{"./models/runs":4,"./models/user":5,"./router":6,"./socket":7,"backbone":18,"jquery":26,"underscore":33}],2:[function(require,module,exports){
 var Helpers = {
   // Get the run data from the given document (convert from base-64 to JSON)
   getRun: function (buffer) {
@@ -84,7 +84,7 @@ var Run = Backbone.Model.extend({
 
 module.exports = Run;
 
-},{"backbone":17}],4:[function(require,module,exports){
+},{"backbone":18}],4:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var Run = require('./run');
@@ -129,7 +129,7 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":17,"underscore":32}],5:[function(require,module,exports){
+},{"../helpers":2,"./run":3,"backbone":18,"underscore":33}],5:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var User = Backbone.Model.extend({
@@ -141,11 +141,12 @@ var User = Backbone.Model.extend({
 
 module.exports = User;
 
-},{"backbone":17}],6:[function(require,module,exports){
+},{"backbone":18}],6:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
 var SettingsView = require('./views/settings/settings');
+var ConnectedView = require('./views/connected');
 
 var Router = Backbone.Router.extend({
   initialize: function() {
@@ -155,6 +156,9 @@ var Router = Backbone.Router.extend({
     // Child screens
     this.dashboardView = new DashboardView();
     this.settingsView = new SettingsView();
+
+    // Global components (visible on all screens)
+    this.connectedView = new ConnectedView();
 
     this.listenToOnce(Forrest.bus, "runs:sync", function(runs) {
       // Remove the loading indicator
@@ -198,46 +202,88 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/dashboard/dashboard":8,"./views/settings/settings":16,"backbone":17,"jquery":25}],7:[function(require,module,exports){
+},{"./views/connected":8,"./views/dashboard/dashboard":9,"./views/settings/settings":17,"backbone":18,"jquery":26}],7:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
 var Socket = Backbone.Model.extend({
 
   initialize: function() {
-    var ws = new WebSocket(WEBSOCKET_URL),
-        keepAlive;
+    var ws = null,
+        minRetryWait = 1,
+        maxRetryWait = 32,
+        currentRetryWait = minRetryWait,
+        keepAlive = null,
+        onopen = function() {
+            // Register the client for server push notifications
+            Forrest.bus.trigger('socket:send', 'client:register', {
+              user: USER_ID,
+              token: USER_TOKEN
+            });
+
+            // Reset the retry wait duration
+            currentRetryWait = minRetryWait;
+
+            // Set up a ping every 30 seconds to keep the server alive (needed for Heroku)
+            keepAlive = setInterval(function() {
+              Forrest.bus.trigger('socket:send', 'client:ping', {});
+            }, 30000);
+
+            // Let the rest of the application know that the connection is ready for business
+            Forrest.bus.trigger('socket:open', ws);
+          },
+        onmessage = function(data, flags) {
+            var message = JSON.parse(data.data);
+            Forrest.bus.trigger('socket:message', ws, message);
+          },
+        onclose = function() {
+            console.log("Closing the socket");
+            Forrest.bus.trigger('socket:close', ws, currentRetryWait);
+
+            // Kill the ping
+            clearInterval(keepAlive);
+
+            // Schedule the next connection attempt
+            setTimeout(function() {
+              console.log("Retrying...");
+              ws = initSocket();
+            }, currentRetryWait * 1000);
+
+            // Increase the retry wait time exponentially
+            if (currentRetryWait * 2 <= maxRetryWait) {
+              currentRetryWait = currentRetryWait * 2;
+            }
+          },
+        onerror = function(error, more) {
+            Forrest.bus.trigger('socket:error', ws, error);
+          },
+        assignHandlers = function(ws) {
+            ws.onopen = onopen;
+            ws.onmessage = onmessage;
+            ws.onclose = onclose;
+            ws.onerror = onerror;
+          },
+        initSocket = function() {
+          Forrest.bus.trigger('socket:connecting', ws);
+
+          // Attempt to open a connection
+          var ws = null;
+          try {
+            ws = new WebSocket(WEBSOCKET_URL);
+          }
+          catch (err) {
+            console.log(err);
+            return null;
+          }
+
+          // Assign event handlers
+          assignHandlers(ws);
+
+          return ws;
+        };
 
     // Tie websocket events to the event bus
-    ws.onopen = function() {
-
-      // Register the client for server push notifications
-      Forrest.bus.trigger('socket:send', 'client:register', {
-        user: USER_ID,
-        token: USER_TOKEN
-      });
-
-      // Set up a ping every 30 seconds to keep the server alive (needed for Heroku)
-      keepAlive = setInterval(function() {
-        Forrest.bus.trigger('socket:send', 'client:ping', {});
-      }, 30000);
-
-      // Let the rest of the application know that the connection is ready for business
-      Forrest.bus.trigger('socket:open', ws);
-    };
-    ws.onmessage = function(data, flags) {
-      var message = JSON.parse(data.data);
-      Forrest.bus.trigger('socket:message', ws, message);
-    };
-    ws.onclose = function() {
-      Forrest.bus.trigger('socket:close', ws);
-
-      // Kill the ping
-      clearInterval(keepAlive);
-    };
-    ws.onerror = function(error, more) {
-      Forrest.bus.trigger('socket:error', ws, error);
-    };
+    ws = initSocket();
 
     // Listen for events
     this.listenTo(Forrest.bus, 'socket:send', function(type, data) {
@@ -251,7 +297,77 @@ var Socket = Backbone.Model.extend({
 
 module.exports = Socket;
 
-},{"backbone":17,"underscore":32}],8:[function(require,module,exports){
+},{"backbone":18,"underscore":33}],8:[function(require,module,exports){
+var _ = require('underscore');
+var $ = require('jquery');
+var Backbone = require('backbone');
+
+var ConnectedView = Backbone.View.extend({
+  el: '.footer',
+
+  initialize: function() {
+    var me = this;
+
+    // State
+    this.connection = 'connecting';
+    this.retry = null;
+    this.countdownTimer = null;
+
+    // Initialize events
+    this.listenTo(Forrest.bus, 'socket:open', function() {
+      this.connection = 'connected';
+      this.retry = null;
+      this.render();
+    });
+    this.listenTo(Forrest.bus, 'socket:close', function(socket, retry) {
+      this.connection = 'offline';
+      this.retry = retry;
+      this.render();
+
+      // Start the countdown
+      if (this.countdownTimer) {
+        clearInterval(this.countdownTimer);
+      }
+      this.countdownTimer = setInterval(function() {
+        me.retry -= 1;
+        me.render();
+
+        // Stop the timer when we hit zero
+        if (me.retry <= 0) {
+          clearInterval(me.countdownTimer);
+        }
+      }, 1000);
+    });
+    this.listenTo(Forrest.bus, 'socket:connecting', function(socket) {
+      this.connection = 'connecting';
+      this.retry = null;
+      this.render();
+    });
+
+    this.render();
+  },
+
+  template: _.template(
+    '<% if (connection === "connecting") { %>' +
+    '<span>Attempting to connect&hellip;</span>' +
+    '<% } else if (connection === "connected") { %>' +
+    '<span>Connected <i class="fa fa-check"></i></span>' +
+    '<% } else { %>' +
+    '<span>Offline, reconnecting in <%= retry %> second<%= retry == 1 ? "" : "s" %>&hellip;</span>' +
+    '<% } %>'
+  ),
+
+  render: function() {
+    this.$el.html(this.template({
+      connection: this.connection,
+      retry: this.retry
+    }));
+  }
+});
+
+module.exports = ConnectedView;
+
+},{"backbone":18,"jquery":26,"underscore":33}],9:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
@@ -289,7 +405,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./hero":9,"./viewer":13,"backbone":17,"underscore":32}],9:[function(require,module,exports){
+},{"./hero":10,"./viewer":14,"backbone":18,"underscore":33}],10:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var DateNames = require('date-names');
@@ -439,7 +555,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":17,"date-names":21,"date-prediction":22,"date-round":23,"float":24,"timeseries-aggregate":29,"timeseries-sum":30,"underscore":32}],10:[function(require,module,exports){
+},{"backbone":18,"date-names":22,"date-prediction":23,"date-round":24,"float":25,"timeseries-aggregate":30,"timeseries-sum":31,"underscore":33}],11:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -514,7 +630,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":12,"backbone":17}],11:[function(require,module,exports){
+},{"./run":13,"backbone":18}],12:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -710,7 +826,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":17,"compute-distance":19,"jquery":25}],12:[function(require,module,exports){
+},{"../../helpers":2,"backbone":18,"compute-distance":20,"jquery":26}],13:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -771,7 +887,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":17,"date-names":21,"date-round":23}],13:[function(require,module,exports){
+},{"../../helpers":2,"backbone":18,"date-names":22,"date-round":24}],14:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -809,7 +925,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":10,"./map":11,"backbone":17,"underscore":32}],14:[function(require,module,exports){
+},{"./list":11,"./map":12,"backbone":18,"underscore":33}],15:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -874,7 +990,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":17,"underscore":32}],15:[function(require,module,exports){
+},{"backbone":18,"underscore":33}],16:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Cookie = require('tiny-cookie');
@@ -969,7 +1085,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":17,"base-building":18,"jquery":25,"tiny-cookie":31}],16:[function(require,module,exports){
+},{"backbone":18,"base-building":19,"jquery":26,"tiny-cookie":32}],17:[function(require,module,exports){
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
 var Goal = require('./goal');
@@ -1016,7 +1132,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./code":14,"./goal":15,"backbone":17}],17:[function(require,module,exports){
+},{"./code":15,"./goal":16,"backbone":18}],18:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -2940,7 +3056,7 @@ module.exports = View;
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":25,"underscore":32}],18:[function(require,module,exports){
+},{"jquery":26,"underscore":33}],19:[function(require,module,exports){
 // Convert weeks to a more appropriate timescale
 function makeWeeksHuman(weeks) {
   if (Math.round(weeks) === 1) {
@@ -3024,7 +3140,7 @@ module.exports = {
   makeWeeksHuman: makeWeeksHuman
 };
 
-},{}],19:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 var sgeo = require('sgeo');
 
 // Smooth the run (e.g. ignore bouncing GPS tracks)
@@ -3094,7 +3210,7 @@ module.exports = {
   compute: computeDistance
 };
 
-},{"sgeo":28}],20:[function(require,module,exports){
+},{"sgeo":29}],21:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -3107,11 +3223,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],21:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":20}],22:[function(require,module,exports){
+},{"./en":21}],23:[function(require,module,exports){
 /**
  * Given an array of timeseries data ordered from oldest to
  * newest, predict when a future value is likely to be hit.
@@ -3180,7 +3296,7 @@ var predict = function(futureValue, series) {
 
 module.exports = predict;
 
-},{"regression":26}],23:[function(require,module,exports){
+},{"regression":27}],24:[function(require,module,exports){
 /**
  * Helpers to round dates to day, week, month, year boundaries.
  *
@@ -3349,7 +3465,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],24:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 /**
  * Credit: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
  */
@@ -3403,7 +3519,7 @@ module.exports = {
   }
 };
 
-},{}],25:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -13479,9 +13595,9 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":27}],27:[function(require,module,exports){
+},{"./src/regression":28}],28:[function(require,module,exports){
 /**
 * @license
 *
@@ -13731,7 +13847,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],28:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 
 //Original version of this module came from following website by Chris Veness
 //http://www.movable-type.co.uk/scripts/latlong.html
@@ -14406,7 +14522,7 @@ if (typeof String.prototype.trim == 'undefined') {
   }
 }
 
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 // Constants
 var MINUTE_IN_MS = 1000 * 60;
 var HOUR_IN_MS   = MINUTE_IN_MS * 60;
@@ -14464,7 +14580,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],30:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 // Calculate the sum of a half-closed Date interval
 var sum = function(startDate, endDate, series) {
   var sum = 0, point, i, t;
@@ -14504,7 +14620,7 @@ var sum = function(startDate, endDate, series) {
 
 module.exports = sum;
 
-},{}],31:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 /*!
  * tiny-cookie - A tiny cookie manipulation plugin
  * https://github.com/Alex1990/tiny-cookie
@@ -14650,7 +14766,7 @@ module.exports = sum;
 
 }));
 
-},{}],32:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors

@@ -2,6 +2,7 @@ var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
 var SettingsView = require('./views/settings/settings');
+var ConnectedView = require('./views/connected');
 
 var Router = Backbone.Router.extend({
   initialize: function() {
@@ -11,6 +12,9 @@ var Router = Backbone.Router.extend({
     // Child screens
     this.dashboardView = new DashboardView();
     this.settingsView = new SettingsView();
+
+    // Global components (visible on all screens)
+    this.connectedView = new ConnectedView();
 
     this.listenToOnce(Forrest.bus, "runs:sync", function(runs) {
       // Remove the loading indicator
