@@ -322,7 +322,6 @@ function generatePasscode(user) {
       }),
       passcode = uuid.v4().substr(0, 4),
       expires = new Date(Date.now() + (1000 * 60 * 5)),
-      //expires = new Date(Date.now() + (1000 * 5)),
       users = nano.db.use('users'),
       passcodes = nano.db.use('passcodes');
 
@@ -387,43 +386,10 @@ function generatePasscode(user) {
   });
 }
 
-// Refresh an outstanding token (one that is about to expire, for example)
-function refreshToken(ws, data) {
-  var error = JSON.stringify({
-        type: 'error',
-        error: 'Could not refresh the token'
-      }),
-      users = nano.db.use('users');
-
-  // Is this a valid request?
-  users.get(data.user, function(err, body) {
-    if (body.user_token != data.user_token) {
-      ws.send(error);
-      return;
-    }
-
-    // Delete the existing token
-    var tokens = nano.db.use('tokens');
-    tokens.get(data.old_token, function(err, tokenDoc) {
-      if (err) {
-        ws.send(error);
-        return;
-      }
-
-      tokens.destroy(data.old_token, tokenDoc._rev, function() {
-        console.log('Old authentication token has been deleted');
-
-        // Create a new token
-        getToken(ws, data.user, data.user_token);
-      });
-    });
-  });
-}
-
 // Consume an auth token
 function usePasscode(ws, data) {
   var error = JSON.stringify({
-        type: 'error',
+        type: 'passcode:use',
         error: 'Could not authenticate with the given passcode'
       }),
       users = nano.db.use('users'),
@@ -534,34 +500,10 @@ function getWeeklyGoal(ws, data) {
     }
 
     // Fetch goal information
-    var runs = nano.db.use(body.run_database);
-    runs.list({include_docs: true}, function(err, body) {
-      if (err) {
-        ws.send(error);
-        return;
-      }
-
-      var startOfToday = DateRound.floor(new Date()),
-          startOfThisWeek = DateRound.floor(startOfToday, 'week'),
-          startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'),
-          rawData = body.rows.map(function(r) {
-            return {
-              timestamp: new Date(r.doc.timestamp),
-              value: r.doc.distance / 1609.344
-            };
-          }).sort(function(a,b) {
-            return a.timestamp.getTime() - b.timestamp.getTime();
-          }),
-          distanceThisWeek = round(sum(startOfThisWeek, undefined, rawData), 1),
-          distanceLastWeek = round(sum(startOfLastWeek, startOfThisWeek, rawData), 1),
-          goalThisWeek = round(1.1 * distanceLastWeek, 1);
-
+    getRuns(body.run_database, function(runs) {
       ws.send(JSON.stringify({
-        type: 'weekly_goal:get',
-        data: {
-          distanceThisWeek: distanceThisWeek,
-          goalThisWeek: goalThisWeek
-        }
+        type: 'weekly_goal:change',
+        data: computeWeeklyGoal(runs)
       }));
     });
   });
@@ -722,6 +664,27 @@ function getRuns(db, callback) {
   });
 }
 
+// Get weekly goal data from a list of runs
+function computeWeeklyGoal(runs) {
+  var rawData = runs.map(function(r) {
+        return {
+          timestamp: r.timestamp,
+          value: r.distance
+        };
+      }),
+      startOfToday = DateRound.floor(new Date()),
+      startOfThisWeek = DateRound.floor(startOfToday, 'week'),
+      startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'),
+      distanceThisWeek = sum(startOfThisWeek, undefined, rawData),
+      distanceLastWeek = sum(startOfLastWeek, startOfThisWeek, rawData),
+      goalThisWeek = 1.1 * distanceLastWeek;
+
+  return {
+    distanceThisWeek: round(distanceThisWeek / 1609.344, 1),
+    goalThisWeek: round(goalThisWeek / 1609.344, 1)
+  };
+}
+
 // Calculate distance for a run document
 function getDistance(data) {
   var filtered = Distance.filter(data),
@@ -743,9 +706,17 @@ function analyzeDataFor(user) {
 
     getRuns(body.run_database, function(runs) {
       if (runs) {
+
+        // Broadcast the list of runs
         broadcast(user, {
           type: 'run:list',
           data: runs
+        });
+
+        // Broadcast the weekly goal
+        broadcast(user, {
+          type: 'weekly_goal:change',
+          data: computeWeeklyGoal(runs)
         });
       }
     });

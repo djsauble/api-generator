@@ -11,21 +11,29 @@ var View = Backbone.View.extend({
   className: "hero dark row",
 
   initialize: function() {
-    this.runs = [];
+    this.distanceThisWeek = 0;
+    this.goalThisWeek = 0;
+
+    //this.runs = [];
 
     // Data changed
-    this.listenTo(Forrest.bus, 'runs:sync', function(runs) {
-      this.runs = runs.map(function(r) {
+    this.listenTo(Forrest.bus, 'user:sync', function(data, attributes) {
+      console.log(data);
+      console.log(attributes);
+      this.distanceThisWeek = attributes.distanceThisWeek;
+      this.goalThisWeek = attributes.goalThisWeek;
+      /*this.runs = runs.map(function(r) {
         return {
           timestamp: r.get('timestamp'),
           value: r.getMileage()
         };
-      });
+      });*/
       this.render();
     });
   },
 
   render: function() {
+    /*
     var startOfToday = DateRound.floor(new Date()),
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'), 
@@ -68,28 +76,29 @@ var View = Backbone.View.extend({
 
     // Display run data for the last eight weeks
     chartHtml = this.getChartHtml(runsByWeek, distanceThisWeek);
+    */
 
     // Render stuff
     this.$el.html(this.template({
-      distanceThisWeek: distanceThisWeek,
-      goalThisWeek: goalThisWeek,
+      distanceThisWeek: this.distanceThisWeek,
+      goalThisWeek: this.goalThisWeek/*,
       trendPercentString: trendPercentString,
       trendDescriptionString: trendDescriptionString,
       goalAmount: goalAmount,
       goalDateString: goalDateString,
-      chartHtml: chartHtml
+      chartHtml: chartHtml*/
     }));
     
     return this;
   },
 
   template: _.template(
-    "<p><big><%= distanceThisWeek %></big> of <%= goalThisWeek %> miles this week.</p>" +
+    "<p><big><%= distanceThisWeek %></big> of <%= goalThisWeek %> miles this week.</p>"/* +
     "<p <%= goalAmount ? \"\" : \"class=\\\'expand\\\'\" %>><big><%= trendPercentString %></big> <%= trendDescriptionString %></p>" +
     "<% if (goalAmount) { %>" +
     "<p class='expand'><big><%= goalAmount %></big> miles per week by <%= goalDateString %></p>" +
     "<% } %>" +
-    "<div class='graph row'><%= chartHtml %></div>"
+    "<div class='graph row'><%= chartHtml %></div>"*/
   ),
 
   // Display the last day of the given week

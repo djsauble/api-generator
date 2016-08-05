@@ -19,7 +19,7 @@ $(function() {
   //
   Forrest.bus = _.extend({}, Backbone.Events);
 
-  // Initialize the database
+  // Initialize the run collection
   Forrest.runs = new Runs();
 
   // Initialize the user model
@@ -85,24 +85,17 @@ var Run = Backbone.Model.extend({
 module.exports = Run;
 
 },{"backbone":18}],4:[function(require,module,exports){
-var _ = require('underscore');
 var Backbone = require('backbone');
 var Run = require('./run');
-var Helpers = require('../helpers');
 
 var Runs = Backbone.Collection.extend({
   model: Run,
   initialize: function() {
-    // Pass events to the event bus
-    this.on('sync', function() {
-      Forrest.bus.trigger('runs:sync', this);
-    });
-
     // Start listening for messages
-    this.listenTo(Forrest.bus, 'socket:open', this.startListening);
+    this.listenTo(Forrest.bus, 'socket:open', this.fetchRunList);
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
-  startListening: function(socket) {
+  fetchRunList: function(socket) {
     Forrest.bus.trigger('socket:send', 'run:list', {
       user: USER_ID,
       token: USER_TOKEN,
@@ -129,13 +122,37 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"../helpers":2,"./run":3,"backbone":18,"underscore":33}],5:[function(require,module,exports){
+},{"./run":3,"backbone":18}],5:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var User = Backbone.Model.extend({
-  idAttribute: '_id',
+  defaults: function() {
+    return {
+      distanceThisWeek: 0,
+      goalThisWeek: 0
+    };
+  },
   initialize: function() {
+    // Start listening for messages
+    this.listenTo(Forrest.bus, 'socket:open', this.fetchRunList);
+    this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
+  },
+  fetchRunList: function(socket) {
+    Forrest.bus.trigger('socket:send', 'weekly_goal:get', {
+      user: USER_ID,
+      token: USER_TOKEN,
+      database: DATABASE
+    });
+  },
+  processMessage: function(socket, message) {
+    // Filter out messages we can't handle
+    if (message.type !== 'weekly_goal:change' || message.error) {
+      return;
+    }
 
+    // Set models
+    this.set(this.parse(message.data));
+    Forrest.bus.trigger('user:sync', this, this.attributes);
   }
 });
 
@@ -419,21 +436,29 @@ var View = Backbone.View.extend({
   className: "hero dark row",
 
   initialize: function() {
-    this.runs = [];
+    this.distanceThisWeek = 0;
+    this.goalThisWeek = 0;
+
+    //this.runs = [];
 
     // Data changed
-    this.listenTo(Forrest.bus, 'runs:sync', function(runs) {
-      this.runs = runs.map(function(r) {
+    this.listenTo(Forrest.bus, 'user:sync', function(data, attributes) {
+      console.log(data);
+      console.log(attributes);
+      this.distanceThisWeek = attributes.distanceThisWeek;
+      this.goalThisWeek = attributes.goalThisWeek;
+      /*this.runs = runs.map(function(r) {
         return {
           timestamp: r.get('timestamp'),
           value: r.getMileage()
         };
-      });
+      });*/
       this.render();
     });
   },
 
   render: function() {
+    /*
     var startOfToday = DateRound.floor(new Date()),
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'), 
@@ -476,28 +501,29 @@ var View = Backbone.View.extend({
 
     // Display run data for the last eight weeks
     chartHtml = this.getChartHtml(runsByWeek, distanceThisWeek);
+    */
 
     // Render stuff
     this.$el.html(this.template({
-      distanceThisWeek: distanceThisWeek,
-      goalThisWeek: goalThisWeek,
+      distanceThisWeek: this.distanceThisWeek,
+      goalThisWeek: this.goalThisWeek/*,
       trendPercentString: trendPercentString,
       trendDescriptionString: trendDescriptionString,
       goalAmount: goalAmount,
       goalDateString: goalDateString,
-      chartHtml: chartHtml
+      chartHtml: chartHtml*/
     }));
     
     return this;
   },
 
   template: _.template(
-    "<p><big><%= distanceThisWeek %></big> of <%= goalThisWeek %> miles this week.</p>" +
+    "<p><big><%= distanceThisWeek %></big> of <%= goalThisWeek %> miles this week.</p>"/* +
     "<p <%= goalAmount ? \"\" : \"class=\\\'expand\\\'\" %>><big><%= trendPercentString %></big> <%= trendDescriptionString %></p>" +
     "<% if (goalAmount) { %>" +
     "<p class='expand'><big><%= goalAmount %></big> miles per week by <%= goalDateString %></p>" +
     "<% } %>" +
-    "<div class='graph row'><%= chartHtml %></div>"
+    "<div class='graph row'><%= chartHtml %></div>"*/
   ),
 
   // Display the last day of the given week

@@ -145,8 +145,29 @@ An initial connection is established by opening a WebSocket connection to
 `wss://your-domain/api`. At this point, the server will keep the connection
 open and you may send requests and receive responses from the server.
 
-If you want to receive unsolicited updates for a given user, register with the
-user's credentials by sending the following object.
+The server supports both unicast and broadcast communication. If you send a
+request to the server, you will receive a response (or an error if the request
+could not be fulfilled).
+
+The server may also broadcast messages to all registered clients. This
+is to keep all clients in sync when data changes on the backend. For example, if
+you change goal information, all clients will be apprised of that change.
+
+Every request to the server must include user credentials, along with any other
+data required by the request. To make it easier to retrieve these credentials on
+mobile clients, we provide a one-time use passcode API, outlined in the sections
+below.
+
+#### Registration
+
+The server will only send you broadcast updates if you register for them.
+
+##### Register
+
+To register for broadcast updates, stringify the following JSON object and send
+it over the WebSocket connection:
+
+**Request**
 
     {
       type: 'client:register',
@@ -156,103 +177,105 @@ user's credentials by sending the following object.
       }
     }
 
-Response on successful registration:
+**Response** (broadcast to all registered clients)
 
     {
       type: 'client:registered'
     }
 
-These unsolicited messages allow you to track changes that occur on the server.
+##### Unregister
 
-The only request which may be made unauthenticated is the **passcodes:use**
-request, the usage of which is outlined in the following section.
+To unregister for broadcast updates, send the following JSON object:
 
-#### Passcodes
-
-To help bootstrap the process of getting the user token, users can create
-one-time use passcodes which expire after a short period of time. They return
-the full user token when used.
-
-To keep the account secure, passcodes should only be enabled while connecting a
-new device
-
-##### Enable passcodes
-
-Enable passcodes for the specified user ID:
+**Request**
 
     {
-      type: 'passcodes:enable',
+      type: 'client:unregister',
       data: {
         user: 'your-user-id',
         token: 'your-user-token'
       }
     }
 
-A valid passcode will be returned as follows:
+**Response** (broadcast to all registered clients)
 
     {
-      type: 'passcodes:current',
+      type: 'client:unregistered'
+    }
+
+#### Passcodes
+
+To help bootstrap the process of getting the user token, users can create
+one-time use passcodes which expire after a five minutes. They return
+the full user ID and token when used.
+
+First, you must enable passcodes. They will automatically refresh on expiry,
+and the new passcode will be broadcast to all clients. When a valid passcode is
+successfully used, passcode generation is disabled.
+
+##### Enable passcodes
+
+To enable passcodes for the specified user ID:
+
+**Request**
+
+    {
+      type: 'passcode:get',
+      data: {
+        user: 'your-user-id',
+        token: 'your-user-token'
+      }
+    }
+
+**Response** (broadcast immediately, and every five minutes therafter)
+
+    {
+      type: 'passcode:current',
       data: {
         passcode: 'a0c1',
         expires: 'Wed Aug 03 2016 13:26:52 GMT-0700 (PDT)'
       }
     }
 
-When the passcode expires, it will be invalidated and a new passcode sent. This
-will repeat until passcodes are disabled for the user.
+##### Use a passcode
 
-##### Use a passcode **unauthenticated**
+To use a valid passcode:
 
-To use a passcode, the client should send the following request:
+**Request**
 
     {
-      type: 'passcodes:use',
+      type: 'passcode:use',
       data: {
         passcode: 'a0c1'
       }
     }
 
-If the passcode is valid, the associated user ID and token will be sent to the
-client. The old passcode will then be invalidated and a new one generated.
+**Response**
 
     {
-      type: 'passcodes:authenticated',
+      type: 'passcode:authenticated',
       data: {
         user: 'your-user-id',
         token: 'your-user-token'
       }
     }
 
-In addition, a message will be broadcast to all clients, letting them know that
-a passcode was successfully used.
+**Response** (broadcast to all clients)
 
     {
-      type: 'passcodes:used',
+      type: 'passcode:used',
       data: {
         passcode: 'a0c1'
       }
     }
 
-For subsequent connection attempts, the client should use the user ID and token
-to authenticate.
+If an invalid passcode is used, the following message will be sent instead:
 
-If the passcode is invalid, the following message will be sent to the client.
-
-    {
-      type: 'passcodes:invalid',
-      data: {
-        error: 'Invalid passcode'
-      }
-    }
-
-In addition, a message will be sent to the original connection which enabled
-passcodes, letting them know that a client failed to connect.
+**Response**
 
     {
-      type: 'passcodes:attempt',
-      data: {
-        passcode: 'a0c2'
-      }
+      type: 'passcode:use',
+      error: 'Could not authenticate with the given passcode'
     }
 
 #### Data
@@ -283,18 +306,20 @@ speaking.
 
 Get a list of runs, including metadata but excluding the raw route data.
 
+**Request**
+
     {
-      type: 'runs:list',
+      type: 'run:list',
       data: {
         user: 'your-user-id',
         token: 'your-user-token'
       }
     }
 
-The run data will be returned as follows:
+**Response**
 
     {
-      type: 'runs:list',
+      type: 'run:list',
       data: [
         {
           _id: 'c7818cf0-8a2b-4ff8-8cd2-4098286128f9',
@@ -306,12 +331,18 @@ The run data will be returned as follows:
       ]
     }
 
+If the list of runs should change, a `run:list` message will be broadcast to all
+registered clients.
+
 ###### Run details
 
-To get the raw data for a specific run:
+Get the raw data for a specific run. This is an expensive request, and should only
+be made at the point of need.
+
+**Request**
 
     {
-      type: 'runs:get',
+      type: 'run:get',
       data: {
         run: 'run-id',
         user: 'your-user-id',
@@ -319,41 +350,88 @@ To get the raw data for a specific run:
       }
     }
 
-The run data will be returned as follows:
+**Response**
 
-{
-  type: 'runs:get',
-  data: [
     {
-      "timestamp": "2016-07-13 17:47:43 +0000",
-      "latitude": "45.445935388524"
-      "longitude": "-122.680137803176",
-      "accuracy": "4.47749902932385",
-      "speed": "2.38087475514676",
-    },
-    ...
-  ]
-}
+      type: 'run:get',
+      data: [
+        {
+          "timestamp": "2016-07-13 17:47:43 +0000",
+          "latitude": "45.445935388524"
+          "longitude": "-122.680137803176",
+          "accuracy": "4.47749902932385",
+          "speed": "2.38087475514676",
+        },
+        ...
+      ]
+    }
 
 ##### Tier 2 *Historical analysis*
 
 ###### Set start of training period
 
-TBD
+Set the effective date when training started for your current goal.
 
-###### Get distance over time
+**Request**
 
-TBD
+    {
+      type: 'trend:set',
+      data: {
+        startDate: 'Wed Aug 03 2016 13:26:52 GMT-0700 (PDT)'
+      }
+    }
 
-###### Get trend over time
+**Response**
 
-TBD
+    {
+      type: 'trend:set'
+      success: 'Data successfully set'
+    }
+
+**Response** (broadcast to all clients, whenever the value changes)
+
+    {
+      type: 'trend:change',
+      data: {
+        startDate: 'Wed Aug 03 2016 13:26:52 GMT-0700 (PDT)'
+      }
+    }
+
+###### Get recent trending data
+
+To get trending data for the last 10 weeks.
+
+**Request**
+
+    {
+      type: 'trend:get',
+      data: {
+        weeks: 10
+      }
+    }
+
+**Response**
+
+    {
+      type: 'trend:get',
+      data: {
+        [
+          period: 'Wed Aug 01 2016 00:00:00 GMT-0700 (PDT)', // Week start
+          sum: 8473.58374 // Distance in meters
+        ],
+        ...
+      }
+    }
+
+If the trend changes at any time, it will be broadcast with type `trend:change`.
 
 ##### Tier 3 *Future analysis*
 
 ###### Set long-term goal
 
-To set the number of miles per week the user would like to be able to run:
+Set the number of miles per week the user would like to be able to run.
+
+**Request**
 
     {
       type: 'goal:set',
@@ -364,7 +442,14 @@ To set the number of miles per week the user would like to be able to run:
       }
     }
 
-When this value changes, the server will send the following to all clients:
+**Response**
+
+    {
+      type: 'goal:set',
+      success: 'Data successfully set'
+    }
+
+**Response** (broadcast to all clients, whenever the value changes)
 
     {
       type: 'goal:change',
@@ -375,7 +460,9 @@ When this value changes, the server will send the following to all clients:
 
 ###### Get weekly goal
 
-To get the number of miles to run this week, along with related information:
+Get the number of miles to run this week, along with related information.
+
+**Request**
 
     {
       type: 'weekly_goal:get',
@@ -385,7 +472,17 @@ To get the number of miles to run this week, along with related information:
       }
     }
 
-The goal data will be returned (and whenever it changes), with:
+**Response**
+
+    {
+      type: 'weekly_goal:get',
+      data: {
+        distanceThisWeek: 10.0,
+        goalThisWeek: 20.0
+      }
+    }
+
+**Response** (broadcast to all cilents, whenever the value changes)
 
     {
       type: 'weekly_goal:change',

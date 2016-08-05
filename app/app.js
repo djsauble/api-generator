@@ -18,7 +18,7 @@ $(function() {
   //
   Forrest.bus = _.extend({}, Backbone.Events);
 
-  // Initialize the database
+  // Initialize the run collection
   Forrest.runs = new Runs();
 
   // Initialize the user model
