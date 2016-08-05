@@ -169,9 +169,9 @@ app.ws('/api', function(ws, req) {
     else if (request.type == 'trend:get') {
       getTrend(ws, request.data);
     }
-    //else if (request.type == 'goal:get') {
-    //  getGoal(ws, request.data);
-    //}
+    else if (request.type == 'goal:get') {
+      getGoal(ws, request.data);
+    }
     else if (request.type == 'goal:set') {
       setGoal(ws, request.data);
     }
@@ -456,22 +456,49 @@ function usePasscode(ws, data) {
   });
 }
 
-// Set weekly goal information
-function setGoal(ws, data) {
+// Get aspirational goal
+function getGoal(ws, data) {
   var error = JSON.stringify({
-        type: 'goal:set',
+        type: 'goal:get',
         error: 'Failed to update the weekly goal'
       }),
       users = nano.db.use('users');
 
   // Is this a valid request?
   users.get(data.user, function(err, body) {
-    if (body.user_token != data.token) {
+    if (body.user_token !== data.token) {
+      ws.send(error);
+      return;
+    }
+
+    // Send goal information
+    ws.send(JSON.stringify({
+      type: 'goal:get',
+      data: {
+        miles: body.goal ? body.goal : 0
+      }
+    }));
+  });
+}
+
+// Set aspirational goal
+function setGoal(ws, data) {
+  var error = JSON.stringify({
+        type: 'goal:set',
+        error: 'Failed to update the weekly goal'
+      }),
+      users = nano.db.use('users'),
+      changed = false;
+
+  // Is this a valid request?
+  users.get(data.user, function(err, body) {
+    if (body.user_token !== data.token) {
       ws.send(error);
       return;
     }
 
     // Set goal information
+    changed = (body.goal != data.miles);
     body.goal = data.miles;
 
     // Update the user document
@@ -480,10 +507,20 @@ function setGoal(ws, data) {
         ws.send(error);
         return;
       }
+
+      // Let the client know that the update was successful
       ws.send(JSON.stringify({
         type: 'goal:set',
-        success: 'Weekly goal set'
+        success: 'Data successfully set'
       }));
+
+      // Did a change occur? Broadcast it to all clients
+      broadcast(data.user, {
+        type: 'goal:change',
+        data: {
+          miles: data.miles
+        }
+      });
     });
   });
 }

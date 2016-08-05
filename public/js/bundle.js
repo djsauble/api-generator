@@ -123,21 +123,38 @@ var Runs = Backbone.Collection.extend({
 module.exports = Runs;
 
 },{"./run":3,"backbone":18}],5:[function(require,module,exports){
+var _ = require('underscore');
 var Backbone = require('backbone');
 
 var User = Backbone.Model.extend({
   defaults: function() {
     return {
       distanceThisWeek: 0,
-      goalThisWeek: 0
+      goalThisWeek: 0,
+      runsByWeek: [],
+      goal: 0
     };
   },
   initialize: function() {
+    // Pass change events to the application event bus
+    this.listenTo(this, 'change:distanceThisWeek', function(model, value) {
+      Forrest.bus.trigger('user:change:distanceThisWeek', model, value);
+    });
+    this.listenTo(this, 'change:goalThisWeek', function(model, value) {
+      Forrest.bus.trigger('user:change:goalThisWeek', model, value);
+    });
+    this.listenTo(this, 'change:runsByWeek', function(model, value) {
+      Forrest.bus.trigger('user:change:runsByWeek', model, value);
+    });
+    this.listenTo(this, 'change:goal', function(model, value) {
+      Forrest.bus.trigger('user:change:goal', model, value);
+    });
+
     // Start listening for messages
-    this.listenTo(Forrest.bus, 'socket:open', this.fetchRunList);
+    this.listenTo(Forrest.bus, 'socket:open', this.fetchGoals);
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
-  fetchRunList: function(socket) {
+  fetchGoals: function(socket) {
     Forrest.bus.trigger('socket:send', 'weekly_goal:get', {
       user: USER_ID,
       token: USER_TOKEN,
@@ -148,30 +165,38 @@ var User = Backbone.Model.extend({
       token: USER_TOKEN,
       weeks: 7
     });
+    Forrest.bus.trigger('socket:send', 'goal:get', {
+      user: USER_ID,
+      token: USER_TOKEN
+    });
   },
   processMessage: function(socket, message) {
     // Filter out messages we can't handle
     if (message.error) {
       return;
     }
-    if (
-        message.type !== 'weekly_goal:change' &&
-        message.type !== 'weekly_goal:get' &&
-        message.type !== 'trend:change' &&
-        message.type !== 'trend:get'
-       ) {
+
+    // Pass valid messages to the proper handler
+    if (_.contains(['weekly_goal:change', 'weekly_goal:get'], message.type)) {
+      this.set(message.data);
+    }
+    else if (_.contains(['trend:change', 'trend:get'], message.type)) {
+      this.set(message.data);
+    }
+    else if (_.contains(['goal:change', 'goal:get'], message.type)) {
+      this.set({
+        goal: message.data.miles
+      });
+    }
+    else {
       return;
     }
-
-    // Set models
-    this.set(this.parse(message.data));
-    Forrest.bus.trigger('user:sync', this, this.attributes);
   }
 });
 
 module.exports = User;
 
-},{"backbone":18}],6:[function(require,module,exports){
+},{"backbone":18,"underscore":33}],6:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -447,27 +472,24 @@ var View = Backbone.View.extend({
   className: "hero dark row",
 
   initialize: function() {
-    this.distanceThisWeek = 0;
-    this.goalThisWeek = 0;
-    this.runsByWeek = [];
-
     // Data changed
-    this.listenTo(Forrest.bus, 'user:sync', function(data, attributes) {
-      this.distanceThisWeek = attributes.distanceThisWeek;
-      this.goalThisWeek = attributes.goalThisWeek;
-      this.runsByWeek = attributes.runsByWeek;
-      this.render();
-    });
+    this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:runsByWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:goal', this.setModel);
   },
 
   render: function() {
     var startOfToday = DateRound.floor(new Date()),
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'),
-        goalAmount = (typeof GOAL === 'undefined' ? null : GOAL),
+        distanceThisWeek = null,
         distanceLastWeek = 0,
+        goalThisWeek = null,
+        goal = null,
         percentChange = 0,
         remainingThisWeek = 0,
+        runsByWeek = null,
         runArray,
         trendPercentString = null,
         trendDescriptionString = null,
@@ -475,10 +497,16 @@ var View = Backbone.View.extend({
         chartHtml = null;
 
     // Calculate trending information if we have the data
-    if (this.runsByWeek && this.runsByWeek.length > 0) {
-      distanceLastWeek = _.last(this.runsByWeek).sum;
-      percentChange = Math.round(((this.distanceThisWeek / distanceLastWeek) - 1) * 100);
-      remainingThisWeek = round(this.goalThisWeek - this.distanceThisWeek, 1);
+    if (this.model && this.model.get('runsByWeek').length > 0) {
+
+      distanceThisWeek = this.model.get('distanceThisWeek');
+      goalThisWeek = this.model.get('goalThisWeek');
+      runsByWeek = this.model.get('runsByWeek');
+      goal = this.model.get('goal');
+
+      distanceLastWeek = _.last(runsByWeek).sum;
+      percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100);
+      remainingThisWeek = round(goalThisWeek - distanceThisWeek, 1);
 
       // WoW change
       if (percentChange < 10) {
@@ -491,27 +519,27 @@ var View = Backbone.View.extend({
       }
 
       // Display the last day of the given week
-      if (goalAmount) {
-        goalDateString = this.getGoalDate(goalAmount, this.runsByWeek, startOfThisWeek);
+      if (goal) {
+        goalDateString = this.getGoalDate(goal, runsByWeek, startOfThisWeek);
       }
 
       // Display run data for the last eight weeks, including this week's goal
-      runArray = _.clone(this.runsByWeek);
+      runArray = _.clone(runsByWeek);
       runArray.push({
         period: startOfThisWeek,
-        sum: this.goalThisWeek
+        sum: goalThisWeek
       });
-      chartHtml = this.getChartHtml(runArray, this.distanceThisWeek);
+      chartHtml = this.getChartHtml(runArray, distanceThisWeek);
     }
 
     // Render stuff (including trending data, if we have it)
     this.$el.html(
       this.template({
-        distanceThisWeek: this.distanceThisWeek,
-        goalThisWeek: this.goalThisWeek,
+        distanceThisWeek: distanceThisWeek,
+        goalThisWeek: goalThisWeek,
         trendPercentString: trendPercentString,
         trendDescriptionString: trendDescriptionString,
-        goalAmount: goalAmount,
+        goalAmount: goal,
         goalDateString: goalDateString,
         chartHtml: chartHtml
       })
@@ -532,6 +560,14 @@ var View = Backbone.View.extend({
       "<div class='graph row'><%= chartHtml %></div>" +
     "<% } %>"
   ),
+
+  // Set the model for this view if needed, and trigger a render
+  setModel: function(model) {
+    if (!this.model) {
+      this.model = model;
+    }
+    this.render();
+  },
 
   // Display the last day of the given week
   getGoalDate: function(goalAmount, runsByWeek, startOfThisWeek) {
@@ -1024,6 +1060,7 @@ var View = Backbone.View.extend({
 module.exports = View;
 
 },{"backbone":18,"underscore":33}],16:[function(require,module,exports){
+var _ = require('underscore');
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Cookie = require('tiny-cookie');
@@ -1031,94 +1068,128 @@ var Training = require('base-building');
 
 var View = Backbone.View.extend({
 
+  initialize: function() {
+    this.currentMileage = 0;
+    this.goalMileage = 0;
+
+    // Listen for changes to weekly mileage
+    this.listenTo(Forrest.bus, 'user:change:runsByWeek', function(model, value) {
+      // Load last week's mileage
+      if (value && value.length > 0) {
+        this.currentMileage = Math.round(_.last(value).sum);
+
+        // Update the cookie so the landing page shows
+        // our current mileage, even when not logged in.
+        Cookie.set('todayMilesPerWeek', this.currentMileage);
+      }
+      else {
+        // Load from cookies if goal has not been set
+        this.currentMileage = this.loadFromCookie('todayMilesPerWeek');
+      }
+
+      this.render();
+    });
+
+    // Listen for changes to the goal
+    this.listenTo(Forrest.bus, 'user:change:goal', function(model, value) {
+      if (value > 0) {
+        this.goalMileage = value;
+      }
+      else {
+        // Load from cookies if goal has not been set
+        this.goalMileage = this.loadFromCookie('goalMilesPerWeek');
+      }
+
+      this.render();
+    });
+  },
+
   events: {
     'input #today': 'updateToday',
     'input #goal': 'updateGoal',
     'click .set_goal': 'setGoal'
   },
 
+  template: _.template(
+    "<h2>Goal</h2>" +
+    "<p>Set a fitness goal</p>" +
+    "<div class='field row'>" +
+    "<label for='today'>I run</label>" +
+    "<output for='today' id='todayOutput'><%= currentMileage %></output>" +
+    "<small class='expand'>miles per week</small>" +
+    "<input type='range' id='today' name='today' min='0' max='100' value='<%= currentMileage %>'/>" +
+    "</div>" +
+    "<div class='field row'>" +
+    "<label for='goal'>My goal is</label>" +
+    "<output for='goal' id='goalOutput''><%= goalMileage %></output>" +
+    "<small class='expand'>miles per week</small>" +
+    "<input type='range' id='goal' name='goal' min='0' max='100' value='<%= goalMileage %>'/>" +
+    "</div>" +
+    "<div class='field row'>" +
+    "<label for='estimate'>I can meet my goal in</label>" +
+    "<output class='expand' id='estimate' name='estimate'><%= estimate %></output>" +
+    "</div>" +
+    "<button class='set_goal'>Set goal</button> "
+  ),
+
   render: function() {
 
-    this.$el.html(
-      "<h2>Goal</h2>" +
-      "<p>Set a fitness goal</p>" +
-
-      "<div class='field row'>" +
-      "<label for='today'>I run</label>" +
-      "<output for='today' id='todayOutput'>10</output>" +
-      "<small class='expand'>miles per week</small>" +
-      "<input type='range' id='today' name='today' min='0' max='100' value='10'/>" +
-      "</div>" +
-      "<div class='field row'>" +
-      "<label for='goal'>My goal is</label>" +
-      "<output for='goal' id='goalOutput''>40</output>" +
-      "<small class='expand'>miles per week</small>" +
-      "<input type='range' id='goal' name='goal' min='0' max='100' value='40'/>" +
-      "</div>" +
-      "<div class='field row'>" +
-      "<label for='estimate'>I can meet my goal in</label>" +
-      "<output class='expand' id='estimate' name='estimate'>11 months</output>" +
-      "</div>" +
-      "<button class='set_goal'>Set goal</button> "
-    );
-
-    this.loadFromCookies();
-    this.updateEstimate();
+    this.$el.html(this.template({
+      currentMileage: this.currentMileage,
+      goalMileage: this.goalMileage,
+      estimate: this.getEstimate()
+    }));
 
     return this;
   },
 
-  loadFromCookies: function() {
-    var todayMilesPerWeek = Cookie.get('todayMilesPerWeek');
-    if (todayMilesPerWeek) {
-      this.$('#today').val(todayMilesPerWeek);
-      this.updateToday();
-    }
-
-    var goalMilesPerWeek = Cookie.get('goalMilesPerWeek');
-    if (goalMilesPerWeek) {
-      this.$('#goal').val(goalMilesPerWeek);
-      this.updateGoal();
-    }
-  },
-
   updateToday: function() {
-    var milesPerWeek = this.$('#today').val();
-    this.$('#todayOutput').val(milesPerWeek);
+    this.currentMileage = parseInt(this.$('#today').val());
+    this.$('#todayOutput').val(this.currentMileage);
     this.updateEstimate();
-    Cookie.set('todayMilesPerWeek', milesPerWeek);
   },
 
   updateGoal: function() {
-    var milesPerWeek = this.$('#goal').val();
-    this.$('#goalOutput').val(milesPerWeek);
+    this.goalMileage = parseInt(this.$('#goal').val());
+    this.$('#goalOutput').val(this.goalMileage);
     this.updateEstimate();
-    Cookie.set('goalMilesPerWeek', milesPerWeek);
   },
 
   setGoal: function() {
-    Forrest.bus.trigger('socket:send', 'set_goal', {
-      miles: parseFloat(me.$('#goal').val()),
+    // Update the backend
+    Forrest.bus.trigger('socket:send', 'goal:set', {
+      miles: this.goalMileage,
       user: USER_ID,
       token: USER_TOKEN
     });
+
+    // Update cookies (so the landing page shows our current goals,
+    // even when not logged in)
+    Cookie.set('goalMilesPerWeek', this.goalMileage);
+  },
+
+  getEstimate: function() {
+    return Training.makeWeeksHuman(
+      Training.weeksToGoal(
+        this.currentMileage,
+        this.goalMileage
+      )
+    );
   },
 
   updateEstimate: function() {
-    this.$('#estimate').val(
-      Training.makeWeeksHuman(
-        Training.weeksToGoal(
-          parseFloat(this.$('#todayOutput').val()),
-          parseFloat(this.$('#goalOutput').val())
-        )
-      )
-    );
+    this.$('#estimate').val(this.getEstimate());
+  },
+
+  loadFromCookie: function(str) {
+    var miles = Cookie.get(str);
+    return miles ? parseFloat(miles) : 0;
   }
 });
 
 module.exports = View;
 
-},{"backbone":18,"base-building":19,"jquery":26,"tiny-cookie":32}],17:[function(require,module,exports){
+},{"backbone":18,"base-building":19,"jquery":26,"tiny-cookie":32,"underscore":33}],17:[function(require,module,exports){
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
 var Goal = require('./goal');

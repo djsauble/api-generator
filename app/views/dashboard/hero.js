@@ -11,27 +11,24 @@ var View = Backbone.View.extend({
   className: "hero dark row",
 
   initialize: function() {
-    this.distanceThisWeek = 0;
-    this.goalThisWeek = 0;
-    this.runsByWeek = [];
-
     // Data changed
-    this.listenTo(Forrest.bus, 'user:sync', function(data, attributes) {
-      this.distanceThisWeek = attributes.distanceThisWeek;
-      this.goalThisWeek = attributes.goalThisWeek;
-      this.runsByWeek = attributes.runsByWeek;
-      this.render();
-    });
+    this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:runsByWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:goal', this.setModel);
   },
 
   render: function() {
     var startOfToday = DateRound.floor(new Date()),
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'),
-        goalAmount = (typeof GOAL === 'undefined' ? null : GOAL),
+        distanceThisWeek = null,
         distanceLastWeek = 0,
+        goalThisWeek = null,
+        goal = null,
         percentChange = 0,
         remainingThisWeek = 0,
+        runsByWeek = null,
         runArray,
         trendPercentString = null,
         trendDescriptionString = null,
@@ -39,10 +36,16 @@ var View = Backbone.View.extend({
         chartHtml = null;
 
     // Calculate trending information if we have the data
-    if (this.runsByWeek && this.runsByWeek.length > 0) {
-      distanceLastWeek = _.last(this.runsByWeek).sum;
-      percentChange = Math.round(((this.distanceThisWeek / distanceLastWeek) - 1) * 100);
-      remainingThisWeek = round(this.goalThisWeek - this.distanceThisWeek, 1);
+    if (this.model && this.model.get('runsByWeek').length > 0) {
+
+      distanceThisWeek = this.model.get('distanceThisWeek');
+      goalThisWeek = this.model.get('goalThisWeek');
+      runsByWeek = this.model.get('runsByWeek');
+      goal = this.model.get('goal');
+
+      distanceLastWeek = _.last(runsByWeek).sum;
+      percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100);
+      remainingThisWeek = round(goalThisWeek - distanceThisWeek, 1);
 
       // WoW change
       if (percentChange < 10) {
@@ -55,27 +58,27 @@ var View = Backbone.View.extend({
       }
 
       // Display the last day of the given week
-      if (goalAmount) {
-        goalDateString = this.getGoalDate(goalAmount, this.runsByWeek, startOfThisWeek);
+      if (goal) {
+        goalDateString = this.getGoalDate(goal, runsByWeek, startOfThisWeek);
       }
 
       // Display run data for the last eight weeks, including this week's goal
-      runArray = _.clone(this.runsByWeek);
+      runArray = _.clone(runsByWeek);
       runArray.push({
         period: startOfThisWeek,
-        sum: this.goalThisWeek
+        sum: goalThisWeek
       });
-      chartHtml = this.getChartHtml(runArray, this.distanceThisWeek);
+      chartHtml = this.getChartHtml(runArray, distanceThisWeek);
     }
 
     // Render stuff (including trending data, if we have it)
     this.$el.html(
       this.template({
-        distanceThisWeek: this.distanceThisWeek,
-        goalThisWeek: this.goalThisWeek,
+        distanceThisWeek: distanceThisWeek,
+        goalThisWeek: goalThisWeek,
         trendPercentString: trendPercentString,
         trendDescriptionString: trendDescriptionString,
-        goalAmount: goalAmount,
+        goalAmount: goal,
         goalDateString: goalDateString,
         chartHtml: chartHtml
       })
@@ -96,6 +99,14 @@ var View = Backbone.View.extend({
       "<div class='graph row'><%= chartHtml %></div>" +
     "<% } %>"
   ),
+
+  // Set the model for this view if needed, and trigger a render
+  setModel: function(model) {
+    if (!this.model) {
+      this.model = model;
+    }
+    this.render();
+  },
 
   // Display the last day of the given week
   getGoalDate: function(goalAmount, runsByWeek, startOfThisWeek) {
