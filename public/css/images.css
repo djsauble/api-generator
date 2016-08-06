@@ -1,0 +1,76 @@
+.five_k .hero {
+  background-image: url(../images/01_5k.jpg);
+  background-color: #e1f2fe;
+}
+
+.ten_k .hero {
+  background-image: url(../images/02_10k.jpg);
+  background-color: #7b6f5e;
+}
+.ten_k .calculator,
+.ten_k a {
+  color: #44500a;
+}
+
+.half_marathon .hero {
+  background-image: url(../images/03_half_marathon.jpg);
+  background-color: #484b51;
+}
+.half_marathon .calculator {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+.half_marathon .calculator,
+.half_marathon a {
+  color: #ffffff;
+}
+
+.marathon .hero {
+  background-image: url(../images/04_marathon.jpg);
+  background-color: #606772;
+}
+.marathon .calculator,
+.marathon a {
+  color: #fcc780;
+}
+
+.fifty_k .hero {
+  background-image: url(../images/05_50k.jpg);
+  background-color: #58413e;
+}
+.fifty_k .calculator,
+.fifty_k a {
+  color: #c5b8b4;
+}
+
+.fifty_mile .hero {
+  background-image: url(../images/06_50m.jpg);
+  background-color: #478acb;
+}
+.fifty_mile .calculator {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+.fifty_mile .calculator,
+.fifty_mile a {
+  color: #ffffff;
+}
+
+.hundred_k .hero {
+  background-image: url(../images/07_100k.jpg);
+  background-color: #a6aca6;
+}
+.hundred_k .calculator,
+.hundred_k a {
+  color: #accef1;
+}
+
+.hundred_mile .hero {
+  background-image: url(../images/08_100m.jpg);
+  background-color: #51510b;
+}
+.hundred_mile .calculator {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+.hundred_mile .calculator,
+.hundred_mile a {
+  color: #ebc653;
+}

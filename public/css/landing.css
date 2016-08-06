@@ -2,40 +2,28 @@
  * Page specific styles
  */
 
-.landing_page {
-  width: 500px;
-  margin: 0 auto;
+body {
+  font-size: 1.5em;
+  margin: 0;
 }
 
-.landing_page .row {
-  align-items: baseline;
+h1 {
+  margin-top: 0;
 }
 
-.landing_page h1 {
-  margin-bottom: 0.3em;
+a {
+  color: initial;
 }
 
-.landing_page label {
-  font-size: 30px;
-  padding: 7px;
+a .fa {
+  text-align: top;
 }
 
-.landing_page small {
-  margin-left: 0;
+a:hover .fa {
+  text-decoration: underline;
 }
 
-.landing_page output {
-  font-size: 30px;
-  margin-left: 0;
-  font-weight: bold;
-  padding: 5px 5px 5px 0;
-}
-
-.landing_page input[type=range] {
-  width: 150px;
-}
-
-.landing_page input[type=submit] {
+input[type=submit] {
   width: 159px;
   height: 31px;
   border: none;
@@ -45,7 +33,40 @@
   background-repeat: no-repeat;
 }
 
-.landing_page .set .field:last-child ,
-.landing_page .meet .field:last-child  {
-  margin-bottom: 0;
+.screen {
+  height: 100vh;
+}
+
+.hero {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.hero .calculator {
+  display: inline-block;
+  padding: 1em;
+  margin: 3em;
+  border-radius: 6px;
+}
+
+.calculator > div {
+  margin-bottom: 1em;
+}
+
+.calculator input#today {
+  border: none;
+  width: 2.3em;
+  font-size: 1em;
+  padding: 4px;
+}
+
+.calculator select#goal {
+  border: none;
+  font-size: 1em;
+}
+
+.calculator .estimate {
+  font-weight: bold;
+  font-size: 1.2em;
 }

@@ -3,7 +3,7 @@ var SecurityCode = require('./code');
 var Goal = require('./goal');
 
 var View = Backbone.View.extend({
-  className: "screen forrest-settings",
+  el: '.main',
 
   initialize: function() {
     this.securityCode = new SecurityCode();
@@ -39,6 +39,10 @@ var View = Backbone.View.extend({
     if (this.securityCode) {
       this.securityCode.remove();
     }
+    if (this.goal) {
+      this.goal.remove();
+    }
+    this.$el.html('');
   }
 });
 

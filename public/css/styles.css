@@ -4,17 +4,8 @@ body {
   color: #333333;
 }
 
-h1 {
-  font-size: 3em;
-}
-
 big {
   font-size: 2em;
-}
-
-form {
-  background-color: rgba(240, 240, 240, 0.8);
-  padding: 1em;
 }
 
 a {
@@ -51,17 +42,6 @@ a:hover {
 
 .light a:hover {
   color: #333333;
-}
-
-/* Right-align the input boxes */
-
-form .field {
-  justify-content: space-between;
-  margin-bottom: 1em;
-}
-
-form a {
-  font-size: 11px;
 }
 
 /**

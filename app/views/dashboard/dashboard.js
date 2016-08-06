@@ -4,7 +4,7 @@ var HeroView = require('./hero');
 var ViewerView = require('./viewer');
 
 var View = Backbone.View.extend({
-  className: "screen column",
+  el: '.main',
 
   initialize: function() {
     // Child components

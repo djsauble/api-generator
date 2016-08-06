@@ -205,9 +205,6 @@ var ConnectedView = require('./views/connected');
 
 var Router = Backbone.Router.extend({
   initialize: function() {
-    // Container for the app
-    this.el = $(".main");
-
     // Child screens
     this.dashboardView = new DashboardView();
     this.settingsView = new SettingsView();
@@ -232,7 +229,7 @@ var Router = Backbone.Router.extend({
       this.currentView = null;
     }
     this.currentView = view;
-    this.el.html(this.currentView.render().el);
+    this.currentView.render();
 
     //
     // HACK: to make Google maps display correctly when you switch to the 
@@ -427,7 +424,7 @@ var HeroView = require('./hero');
 var ViewerView = require('./viewer');
 
 var View = Backbone.View.extend({
-  className: "screen column",
+  el: '.main',
 
   initialize: function() {
     // Child components
@@ -1195,7 +1192,7 @@ var SecurityCode = require('./code');
 var Goal = require('./goal');
 
 var View = Backbone.View.extend({
-  className: "screen forrest-settings",
+  el: '.main',
 
   initialize: function() {
     this.securityCode = new SecurityCode();
@@ -1231,6 +1228,10 @@ var View = Backbone.View.extend({
     if (this.securityCode) {
       this.securityCode.remove();
     }
+    if (this.goal) {
+      this.goal.remove();
+    }
+    this.$el.html('');
   }
 });
 

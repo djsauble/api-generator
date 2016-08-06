@@ -6,9 +6,6 @@ var ConnectedView = require('./views/connected');
 
 var Router = Backbone.Router.extend({
   initialize: function() {
-    // Container for the app
-    this.el = $(".main");
-
     // Child screens
     this.dashboardView = new DashboardView();
     this.settingsView = new SettingsView();
@@ -33,7 +30,7 @@ var Router = Backbone.Router.extend({
       this.currentView = null;
     }
     this.currentView = view;
-    this.el.html(this.currentView.render().el);
+    this.currentView.render();
 
     //
     // HACK: to make Google maps display correctly when you switch to the 

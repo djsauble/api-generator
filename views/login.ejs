@@ -2,36 +2,63 @@
 <html>
   <head>
     <title>Forrest Cruise</title>
+
+    <!-- Preload images -->
+    <link rel="prefetch" href="images/01_5k.jpg">
+    <link rel="prefetch" href="images/02_10k.jpg">
+    <link rel="prefetch" href="images/03_half_marathon.jpg">
+    <link rel="prefetch" href="images/04_marathon.jpg">
+    <link rel="prefetch" href="images/05_50k.jpg">
+    <link rel="prefetch" href="images/06_50m.jpg">
+    <link rel="prefetch" href="images/07_100k.jpg">
+    <link rel="prefetch" href="images/08_100m.jpg">
+
+    <!-- Load styles -->
+    <link href='fonts/font-awesome-4.5.0/css/font-awesome.min.css' type='text/css' rel='Stylesheet'/>
     <link href='css/styles.css' type='text/css' rel='Stylesheet'/>
     <link href='css/landing.css' type='text/css' rel='Stylesheet'/>
+    <link href='css/images.css' type='text/css' rel='Stylesheet'/>
     <script src='js/bundle2.js' type='text/javascript'></script>
   </head>
-  <body class='landing_page'>
-    <h1>Set goals.</h1>
-    <form class='set'>
-      <div class='field row'>
-        <label for='today'>I run</label>
-        <output for='today' id='todayOutput'>10</output>
-        <small class='expand'>miles per week</small>
-        <input type='range' id='today' name='today' min='0' max='100' value='10'/>
+  <body>
+    <div class='screen hero'>
+      <div class='calculator'>
+        <h1>Train smart</h1>
+        <div>
+          <label for='goal'>I want to finish a</label>
+          <select id='goal' name='goal'>
+            <option value='10'>5 km</option>
+            <option value='20'>10 km</option>
+            <option value='30'>13.1 mile</option>
+            <option value='40'>26.2 mile</option>
+            <option value='50'>50 km</option>
+            <option value='60'>50 mile</option>
+            <option value='70'>100 km</option>
+            <option value='80'>100 mile</option>
+          </select>
+          <span>run</span>
+        </div>
+        <div>
+          <label for='today'>I run</label>
+          <input id='today' name='today' min='0' max='100' value='10'/>
+          <span>mile</span><span class='plural'>s</span><span> per week</span>
+        </div>
+        <div>
+          <label>I need to train for <a href='#learn'><span class='estimate'>11 months</span> <i class='fa fa-question-circle'></i></a></label>
+        </div>
+        <form action='/auth/strava' method='get'>
+          <input type='submit' value='Log in with Strava'/>
+        </form>
       </div>
-      <div class='field row'>
-        <label for='goal'>My goal is</label>
-        <output for='goal' id='goalOutput'>40</output>
-        <small class='expand'>miles per week</small>
-        <input type='range' id='goal' name='goal' min='0' max='100' value='40'/>
-      </div>
-    </form>
-    <h1>Meet them.</h1>
-    <form class='meet'>
-      <div class='field row'>
-        <label>I can meet my goal in</label>
-        <output class='expand' id='estimate'>11 months</output>
-      </div>
-    </form>
-    <h1>Get started.</h1>
-    <form action='/auth/strava' method='get'>
-      <input type='submit' value='Log in with Strava'/>
-    </form>
+    </div>
+    <div class='screen'>
+      <a href="#" name="learn"></a>
+      <form action='/auth/strava' method='get'>
+        <input type='submit' value='Log in with Strava'/>
+        <h1>Increase mileage in 10% increments</h1>
+        <h1>Track your current fitness level</h1>
+        <h1>Predict your future performance</h1>
+      </form>
+    </div>
   </body>
 </html>
