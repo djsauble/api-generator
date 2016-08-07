@@ -20,13 +20,20 @@ function loadFromCookies() {
   var todayMilesPerWeek = Cookie.get('todayMilesPerWeek');
   if (todayMilesPerWeek) {
     document.querySelector('#today').value = todayMilesPerWeek;
-    updateToday();
+  }
+  else {
+    // Hard default
+    document.querySelector('#today').value = '0';
   }
   var goalMilesPerWeek = Cookie.get('goalMilesPerWeek');
   if (goalMilesPerWeek) {
     document.querySelector('#goal').value = goalMilesPerWeek;
-    updateGoal();
   }
+  else {
+    document.querySelector('#goal').value = '10';
+  }
+  updateToday();
+  updateGoal();
   updateEstimate();
 }
 
