@@ -3,12 +3,14 @@ var Backbone = require('backbone');
 
 var View = Backbone.View.extend({
 
+  events: {
+    'click .get_passcode': 'getPasscode'
+  },
   initialize: function() {
     this.passcode = undefined;
     this.expires = undefined;
 
     // Start listening for messages
-    this.listenTo(Forrest.bus, 'socket:open', this.getPasscode);
     this.listenTo(Forrest.bus, 'socket:message', this.processMessage);
   },
   getPasscode: function() {
@@ -21,16 +23,22 @@ var View = Backbone.View.extend({
     var me = this;
 
     // Filter out messages we can't handle
-    if (message.type !== 'passcode:current' || message.error) {
+    if (message.error) {
       return;
     }
 
-    // Set passcode data
-    this.passcode = message.data.passcode;
-    this.expires = new Date(message.data.expires);
-
-    // Render the current passcode
-    this.render();
+    if (message.type === 'passcode:current') {
+      // Set passcode data
+      this.passcode = message.data.passcode;
+      this.expires = new Date(message.data.expires);
+      this.render();
+    }
+    else if (message.type === 'passcode:used') {
+      // Clear passcode
+      this.passcode = undefined;
+      this.expires = undefined;
+      this.render();
+    }
   },
 
   template: _.template(
@@ -39,8 +47,7 @@ var View = Backbone.View.extend({
     "<% if (passcode) { %>" +
     "<h1><code class='security_code'><%= passcode %></code></h1>" +
     "<% } else { %>" +
-    "<h2 class='success'>" +
-    "<i class='fa fa-check-circle'></i> Connected to device." +
+    "<button class='get_passcode'>Get passcode</button>" +
     "</h2>" +
     "<% } %>"
   ),
@@ -56,7 +63,6 @@ var View = Backbone.View.extend({
 
   remove: function() {
     this.undelegateEvents();
-    this.passcode = undefined;
   }
 });
 

@@ -363,8 +363,14 @@ function generatePasscode(user) {
         }
         console.log("Passcode set (expires " + expires + ")");
 
+        // Store the timer ID and current passcode in the user database
+        user_body.passcode = passcode;
+        users.insert(user_body, function() {
+          // Handle errors
+        });
+
         // Broadcast the new passcode to clients
-        broadcast(user, {
+        var success = broadcast(user, {
           type: 'passcode:current',
           data: {
             passcode: passcode,
@@ -372,19 +378,15 @@ function generatePasscode(user) {
           }
         });
 
-        // Set timer for the next passcode generation
-        timers[user] = setTimeout(
-          function() {
-            generatePasscode(user);
-          },
-          expires.getTime() - Date.now()
-        );
-
-        // Store the timer ID and current passcode in the user database
-        user_body.passcode = passcode;
-        users.insert(user_body, function() {
-          // Handle errors
-        });
+        if (success) {
+          // Set timer for the next passcode generation
+          timers[user] = setTimeout(
+            function() {
+              generatePasscode(user);
+            },
+            expires.getTime() - Date.now()
+          );
+        }
       }
     );
   });
@@ -704,9 +706,11 @@ function broadcast(user, obj) {
   }
 
   var i = 0;
+  var sent = 0;
   while (i < clients[user].length) {
     try {
       clients[user][i].send(JSON.stringify(obj));
+      ++sent;
     }
     catch (err) {
       // Disconnected: remove them from the list of registered clients
@@ -714,6 +718,13 @@ function broadcast(user, obj) {
       continue;
     }
     i += 1;
+  }
+
+  if (sent > 0) {
+    return true;
+  }
+  else {
+    return false;
   }
 }
 
