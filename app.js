@@ -11,6 +11,7 @@ var DateAggregate = require('timeseries-aggregate');
 var DateRound = require('date-round');
 var round = require('float').round;
 var Distance = require('compute-distance');
+var Training = require('base-building');
 var Helpers = require('./app/helpers');
 
 // Create a server instance
@@ -104,11 +105,13 @@ app.put('/api/runs', function(req, res) {
 
     // Create the run document
     var runs = nano.db.use(body.run_database);
+    var distance = getDistance(data);
+    var timestamp = (new Date()).toString();
     runs.multipart.insert(
       {
         created_by: user,
-        timestamp: (new Date()).toString(),
-        distance: getDistance(data)
+        timestamp: timestamp,
+        distance: distance
       },
       [
         {
@@ -546,7 +549,7 @@ function getWeeklyGoal(ws, data) {
     getRuns(body.run_database, function(runs) {
       ws.send(JSON.stringify({
         type: 'weekly_goal:get',
-        data: computeWeeklyGoal(runs)
+        data: computeWeeklyGoal(runs, body)
       }));
     });
   });
@@ -750,8 +753,9 @@ function getRuns(db, callback) {
 }
 
 // Get weekly goal data from a list of runs
-function computeWeeklyGoal(runs) {
-  var rawData = runs.map(function(r) {
+function computeWeeklyGoal(runs, user) {
+  var users = nano.db.use('users'),
+      rawData = runs.map(function(r) {
         return {
           timestamp: r.timestamp,
           value: r.distance
@@ -762,11 +766,65 @@ function computeWeeklyGoal(runs) {
       startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'),
       distanceThisWeek = sum(startOfThisWeek, undefined, rawData),
       distanceLastWeek = sum(startOfLastWeek, startOfThisWeek, rawData),
-      goalThisWeek = 1.1 * distanceLastWeek;
+      goalThisWeek = 1.1 * distanceLastWeek,
+      levelWeeks = 1,
+      trend,
+      plan,
+      i;
 
+  if (user.level)  {
+    // Determine how many weeks have elapsed since we started this level
+    i = new Date(startOfThisWeek);
+    while (i.getTime() > (new Date(user.level_start)).getTime()) {
+      i = new Date(i.getTime() - DateAggregate.WEEK_IN_MS);
+      levelWeeks += 1;
+    }
+
+    // TODO: If we've exceeded the number of weeks at this level, start the next level
+    plan = Training.weeksAtMileage(user.level);
+    if (levelWeeks > plan.weeksAtThisLevel) {
+      user.level = plan.milesAtNextLevel;
+      user.level_start = startOfThisWeek;
+      levelWeeks = 1;
+
+      users.insert(user, function(err, body) {
+        if (err) {
+          // Handle errors
+          return;
+        }
+      });
+    }
+
+    return {
+      distanceThisWeek: round(distanceThisWeek / 1609.344, 1),
+      goalThisWeek: round(Training.mileageAtWeek(levelWeeks, user.level), 1)
+    };
+  }
+  else if (rawData[0].timestamp.getTime() < startOfLastWeek) {
+    // We have enough information to set the level
+    trend = computeTrendingData(runs, 1);
+    plan = Training.weeksAtMileage(trend.runsByWeek[0].sum);
+    user.level = plan.milesAtNextLevel;
+    user.level_start = startOfThisWeek;
+
+    // Set the level
+    users.insert(user, function(err, body) {
+      if (err) {
+        // Handle errors
+        return;
+      }
+    });
+
+    return {
+      distanceThisWeek: round(distanceThisWeek / 1609.344, 1),
+      goalThisWeek: round(Training.mileageAtWeek(1, user.level), 1)
+    };
+  }
+
+  // We don't have enough history to compute a weekly goal
   return {
     distanceThisWeek: round(distanceThisWeek / 1609.344, 1),
-    goalThisWeek: round(goalThisWeek / 1609.344, 1)
+    goalThisWeek: null
   };
 }
 
@@ -819,16 +877,16 @@ function analyzeDataFor(user) {
           data: runs
         });
 
-        // Broadcast the weekly goal
-        broadcast(user, {
-          type: 'weekly_goal:change',
-          data: computeWeeklyGoal(runs)
-        });
-
         // Broadcast the trending data
         broadcast(user, {
           type: 'trend:change',
           data: computeTrendingData(runs, 7) // Hardcoded to 7, change this
+        });
+
+        // Broadcast the weekly goal
+        broadcast(user, {
+          type: 'weekly_goal:change',
+          data: computeWeeklyGoal(runs, body)
         });
       }
     });

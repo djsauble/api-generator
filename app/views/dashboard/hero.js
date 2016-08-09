@@ -36,7 +36,7 @@ var View = Backbone.View.extend({
         chartHtml = null;
 
     // Calculate trending information if we have the data
-    if (this.model && this.model.get('runsByWeek').length > 0) {
+    if (this.model && this.model.get('runsByWeek').length > 0 && this.model.get('goalThisWeek')) {
 
       distanceThisWeek = this.model.get('distanceThisWeek');
       goalThisWeek = this.model.get('goalThisWeek');
@@ -125,12 +125,12 @@ var View = Backbone.View.extend({
     }));
 
     // Is the prediction after today?
-    if (prediction.getTime() < Date.now()) {
+    if (goalAmount <= _.last(runsByWeek).sum) {
       return "today";
     }
 
     // Is the prediction less than three years in the future?
-    if (prediction.getTime() < max.getTime()) {
+    if (prediction.getTime() > Date.now() && prediction.getTime() < max.getTime()) {
       month = DateNames.months[prediction.getMonth()];
       day = prediction.getDate();
       return month + " " + day;

@@ -24,7 +24,7 @@ module.exports = function(grunt) {
 
     // JSHint configuration options.
     jshint: {
-      all: ['Gruntfile.js', 'app.js', 'app/**/*.js', 'test/**/*.js']
+      all: ['Gruntfile.js', 'app.js', 'app/**/*.js', 'website/**/*.js', 'test/**/*.js']
     },
 
     // Specify test locations for QUnit
@@ -39,7 +39,7 @@ module.exports = function(grunt) {
         dest: 'public/js/bundle.js'
       },
       login: {
-        src: 'app/landing.js',
+        src: 'website/app.js',
         dest: 'public/js/bundle2.js'
       }
     }

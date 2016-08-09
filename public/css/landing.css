@@ -23,7 +23,49 @@ a:hover .fa {
   text-decoration: underline;
 }
 
-input[type=submit] {
+.screen {
+  height: 100vh;
+}
+
+/********
+ * Hero *
+ ********/
+
+.hero {
+  background-size: cover;
+  background-position: top;
+  background-repeat: no-repeat;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hero h1 {
+  font-size: 16vw;
+  text-align: center;
+  color: #ffffff;
+  flex: 1;
+}
+
+.hero .calculator {
+  background-color: #ffffff;
+  padding: 1em 2em 1em 2em;
+  text-align: center;
+  border-top-left-radius: 1em;
+  border-top-right-radius: 1em;
+}
+
+.hero .calculator .goal {
+  border: 1px solid #a8a8a8;
+  font-size: 1em;
+}
+
+.hero .calculator a:hover {
+  opacity: 0.8;
+}
+
+a.primary {
+  display: inline-block;
   width: 159px;
   height: 31px;
   border: none;
@@ -31,42 +73,143 @@ input[type=submit] {
   background-image: url(../images/LogInWithStrava.png);
   background-color: transparent;
   background-repeat: no-repeat;
+  position: relative;
+  margin-left: 1.3em;
+  top: -2px;
 }
 
-.screen {
-  height: 100vh;
+.hero a.secondary {
+  font-size: 0.6em;
+  padding: 8px 8px 7px 8px;
+  color: #ffffff;
+  background-color: #00acff;
+  margin-left: 0.5em;
+  margin-right: 2em;
+  font-weight: bold;
+  position: relative;
+  border-radius: 3px;
+  top: -3px;
 }
 
-.hero {
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+/*********
+ * Learn *
+ *********/
+
+.learn {
+  background-color: #ffffff;
 }
 
-.hero .calculator {
+.learn h1 {
+  padding: 1em 0 0 1em;
+}
+
+.learn p {
+  padding: 0 2em 0 2em;
+}
+
+.learn .calculator {
   display: inline-block;
+  margin: 0 0 0 2em;
   padding: 1em;
-  margin: 3em;
-  border-radius: 6px;
+  border: 1px solid #a9a9a9;
+  border-radius: 1em;
 }
 
-.calculator > div {
+.learn .calculator > div {
   margin-bottom: 1em;
 }
 
-.calculator input#today {
-  border: none;
-  width: 2.3em;
+.learn .calculator > div:last-child {
+  margin-bottom: 0;
+}
+
+.learn .calculator input.today {
+  width: 1.7em;
   font-size: 1em;
   padding: 4px;
 }
 
-.calculator select#goal {
-  border: none;
+.learn .calculator select.goal {
+  border: 1px solid #a8a8a8;
   font-size: 1em;
 }
 
-.calculator .estimate {
+.learn .calculator .estimate {
   font-weight: bold;
   font-size: 1.2em;
+}
+
+.learn .plan {
+  padding: 0 2em 0 2em;
+  height: 33vh;
+  display: flex;
+  align-items: flex-end;
+}
+
+.learn .plan .bar {
+  flex: 1 1 auto;
+  border-width: 1px;
+  border-style: solid;
+}
+
+.learn .legend {
+  display: flex;
+  padding: 0 2em 0 2em;
+}
+
+.learn .legend > div:first-child {
+  flex: 1 1 auto;
+}
+
+/*******************
+ * The third panel *
+ *******************/
+
+.improve {
+  display: flex;
+  flex-direction: column;
+}
+
+.improve h1 {
+  padding: 1em 0 0 1em;
+}
+
+.improve p {
+  padding: 0 2em 0 2em;
+}
+
+.improve table {
+  padding: 0 0 1em 2em;
+}
+
+.improve table td,
+.improve table th {
+  padding-right: 2em;
+}
+
+.improve table td:last-child,
+.improve table th:last-child {
+  padding-right: 0;
+  text-align: left;
+}
+
+.improve table .dnc {
+  opacity: 0.5;
+}
+
+.improve .distance {
+  font-weight: bold;
+  width: 100px;
+  display: inline-block;
+}
+
+.improve .estimate {
+  font-size: 70%;
+  color: #666666;
+}
+
+.improve .footer {
+  background-color: #333333;
+  color: #ffffff;
+  padding: 1em 0 1em 2em;
 }

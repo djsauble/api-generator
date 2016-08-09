@@ -494,7 +494,7 @@ var View = Backbone.View.extend({
         chartHtml = null;
 
     // Calculate trending information if we have the data
-    if (this.model && this.model.get('runsByWeek').length > 0) {
+    if (this.model && this.model.get('runsByWeek').length > 0 && this.model.get('goalThisWeek')) {
 
       distanceThisWeek = this.model.get('distanceThisWeek');
       goalThisWeek = this.model.get('goalThisWeek');
@@ -583,12 +583,12 @@ var View = Backbone.View.extend({
     }));
 
     // Is the prediction after today?
-    if (prediction.getTime() < Date.now()) {
+    if (goalAmount <= _.last(runsByWeek).sum) {
       return "today";
     }
 
     // Is the prediction less than three years in the future?
-    if (prediction.getTime() < max.getTime()) {
+    if (prediction.getTime() > Date.now() && prediction.getTime() < max.getTime()) {
       month = DateNames.months[prediction.getMonth()];
       day = prediction.getDate();
       return month + " " + day;
@@ -3184,6 +3184,30 @@ function makeWeeksHuman(weeks) {
   }
 }
 
+// Calculate the number of miles to run during a specific week of
+// a training level
+function mileageAtWeek(week, startingMileage) {
+
+  // Subtract one from the week to make it zero-based
+  var mod = (week - 1) % 5;
+
+  if (mod === 0) {
+    return startingMileage;
+  }
+  else if (mod === 1) {
+    return startingMileage * 0.90;
+  }
+  else if (mod === 2) {
+    return startingMileage * 0.85;
+  }
+  else if (mod === 3) {
+    return startingMileage * 0.90;
+  }
+  else if (mod === 4) {
+    return startingMileage;
+  }
+}
+
 // How many weeks to train at a given mileage before adding more?
 function weeksAtMileage(currentMileage) {
   var func;
@@ -3213,7 +3237,7 @@ function weeksToGoal(currentMileage, goalMileage) {
   return weekCount;
 }
 
-// Never prescribe weekly mileage lower than 3
+// Never prescribe weekly mileage lower than 3 mpw
 function lessThan3(currentMileage) {
   return {
     milesAtNextLevel: 3,
@@ -3247,6 +3271,7 @@ function moreThan20(currentMileage) {
 
 module.exports = {
   weeksToGoal: weeksToGoal,
+  mileageAtWeek: mileageAtWeek,
   weeksAtMileage: weeksAtMileage,
   makeWeeksHuman: makeWeeksHuman
 };
