@@ -875,7 +875,7 @@ function getPace(data) {
 function getDuration(data) {
   var start = new Date(data[0].timestamp),
       end = new Date(data[data.length - 1].timestamp),
-      elapsed = (start.getTime() - end.getTime()) / (1000 * 60);
+      elapsed = (end.getTime() - start.getTime()) / (1000 * 60);
 
   // Duration in minutes
   return elapsed;
