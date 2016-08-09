@@ -105,13 +105,17 @@ app.put('/api/runs', function(req, res) {
 
     // Create the run document
     var runs = nano.db.use(body.run_database);
+    var timestamp = new Date(data[0].timestamp);
     var distance = getDistance(data);
-    var timestamp = (new Date()).toString();
+    var pace = getPace(data);
+    var duration = getDuration(data);
     runs.multipart.insert(
       {
         created_by: user,
         timestamp: timestamp,
-        distance: distance
+        distance: distance,
+        pace: pace,
+        duration: duration
       },
       [
         {
@@ -157,6 +161,9 @@ app.ws('/api', function(ws, req) {
     else if (request.type == 'client:unregister') {
       unregisterClient(ws, request.data);
     }
+    else if (request.type == 'client:ping') {
+      // Do nothing
+    }
     else if (request.type == 'passcode:get') {
       getPasscode(ws, request.data);
     }
@@ -181,9 +188,6 @@ app.ws('/api', function(ws, req) {
     else if (request.type == 'weekly_goal:get') {
       getWeeklyGoal(ws, request.data);
     }
-    //else if (request.type == 'weekly_goal:set') {
-    //  setWeeklyGoal(ws, request.data);
-    //}
     else {
       console.log('Unknown websockets request: ' + request.type);
     }
@@ -856,6 +860,25 @@ function getDistance(data) {
       distance = Distance.compute(points);
 
   return distance;
+}
+
+// Calculate average pace represented by a run document
+function getPace(data) {
+  var distance = getDistance(data) / 1609.344,
+      elapsed = getDuration(data);
+
+  // Pace in minutes per mile
+  return elapsed / distance;
+}
+
+// Calculate duration of the run
+function getDuration(data) {
+  var start = new Date(data[0].timestamp),
+      end = new Date(data[data.length - 1].timestamp),
+      elapsed = (start.getTime() - end.getTime()) / (1000 * 60);
+
+  // Duration in minutes
+  return elapsed;
 }
 
 // Crunch the data for a specific user and broadcast any updates
