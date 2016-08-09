@@ -106,9 +106,9 @@ app.put('/api/runs', function(req, res) {
     // Create the run document
     var runs = nano.db.use(body.run_database);
     var timestamp = new Date(data[0].timestamp);
-    var distance = getDistance(data);
-    var pace = getPace(data);
-    var duration = getDuration(data);
+    var distance = Helpers.getDistance(data);
+    var pace = Helpers.getPace(data);
+    var duration = Helpers.getDuration(data);
     runs.multipart.insert(
       {
         created_by: user,
@@ -735,27 +735,6 @@ function broadcast(user, obj) {
   }
 }
 
-// Get a list of runs from the given database
-function getRuns(db, callback) {
-  var runs = nano.db.use(db);
-  runs.list({include_docs: true}, function(err, body) {
-    if (err) {
-      callback(null);
-      return;
-    }
-
-    // Pass data to the callback
-    callback(
-      body.rows.map(function(r) {
-        r.doc.timestamp = new Date(r.doc.timestamp);
-        return r.doc;
-      }).sort(function(a,b) {
-        return a.timestamp.getTime() - b.timestamp.getTime();
-      })
-    );
-  });
-}
-
 // Get weekly goal data from a list of runs
 function computeWeeklyGoal(runs, user) {
   var users = nano.db.use('users'),
@@ -851,34 +830,6 @@ function computeTrendingData(runs, weeks) {
       return w;
     })
   };
-}
-
-// Calculate distance for a run document
-function getDistance(data) {
-  var filtered = Distance.filter(data),
-      points = Distance.map(filtered),
-      distance = Distance.compute(points);
-
-  return distance;
-}
-
-// Calculate average pace represented by a run document
-function getPace(data) {
-  var distance = getDistance(data) / 1609.344,
-      elapsed = getDuration(data);
-
-  // Pace in minutes per mile
-  return elapsed / distance;
-}
-
-// Calculate duration of the run
-function getDuration(data) {
-  var start = new Date(data[0].timestamp),
-      end = new Date(data[data.length - 1].timestamp),
-      elapsed = (end.getTime() - start.getTime()) / (1000 * 60);
-
-  // Duration in minutes
-  return elapsed;
 }
 
 // Crunch the data for a specific user and broadcast any updates

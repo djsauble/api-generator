@@ -24,7 +24,7 @@ module.exports = function(grunt) {
 
     // JSHint configuration options.
     jshint: {
-      all: ['Gruntfile.js', 'app.js', 'app/**/*.js', 'website/**/*.js', 'test/**/*.js']
+      all: ['Gruntfile.js', 'Jakefile.js', 'app.js', 'app/**/*.js', 'website/**/*.js', 'test/**/*.js']
     },
 
     // Specify test locations for QUnit
