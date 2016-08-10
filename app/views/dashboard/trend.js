@@ -1,5 +1,6 @@
 var _ = require('underscore');
 var Backbone = require('backbone');
+var DateNames = require('date-names');
 var DateRound = require('date-round');
 var Cookie = require('tiny-cookie');
 var predict = require('date-prediction');

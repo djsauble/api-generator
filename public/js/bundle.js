@@ -240,8 +240,7 @@ var User = Backbone.Model.extend({
     });
     Forrest.bus.trigger('socket:send', 'trend:get', {
       user: USER_ID,
-      token: USER_TOKEN,
-      weeks: 10
+      token: USER_TOKEN
     });
     Forrest.bus.trigger('socket:send', 'goal:get', {
       user: USER_ID,
@@ -969,6 +968,7 @@ module.exports = View;
 },{"../../helpers":2,"backbone":18,"date-names":21,"date-round":23}],14:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
+var DateNames = require('date-names');
 var DateRound = require('date-round');
 var Cookie = require('tiny-cookie');
 var predict = require('date-prediction');
@@ -1209,7 +1209,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":18,"date-prediction":22,"date-round":23,"tiny-cookie":29,"underscore":30}],15:[function(require,module,exports){
+},{"backbone":18,"date-names":21,"date-prediction":22,"date-round":23,"tiny-cookie":29,"underscore":30}],15:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');

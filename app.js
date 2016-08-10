@@ -646,7 +646,7 @@ function getTrend(ws, data) {
       }
 
       // Send trending information
-      var trend = computeTrendingData(runs, data.weeks);
+      var trend = computeTrendingData(runs, 52);
       ws.send(JSON.stringify({
         type: 'trend:get',
         data: trend
@@ -854,7 +854,7 @@ function analyzeDataFor(user) {
         // Broadcast the trending data
         broadcast(user, {
           type: 'trend:change',
-          data: computeTrendingData(runs, 7) // Hardcoded to 7, change this
+          data: computeTrendingData(runs, 52)
         });
 
         // Broadcast the weekly goal
