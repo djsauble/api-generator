@@ -178,8 +178,8 @@ var View = Backbone.View.extend({
       }
 
       // Show predictions if available
-      if (goal && runsByWeek.length > 0) {
-        estimate = this.getGoalDate(goal, runsByWeek, startOfThisWeek);
+      if (runsByWeek.length > 0) {
+        estimate = this.getGoalDate(i, runsByWeek, startOfThisWeek);
       }
       else {
         estimate = '';
@@ -219,9 +219,16 @@ var View = Backbone.View.extend({
 
     // Is the prediction less than three years in the future?
     if (prediction.getTime() > Date.now() && prediction.getTime() < max.getTime()) {
+      year = prediction.getYear() + 1900;
       month = DateNames.months[prediction.getMonth()];
       day = prediction.getDate();
-      return month + " " + day;
+
+      if (year > (new Date()).getYear() + 1900) {
+        return month + " " + day + ", " + year;
+      }
+      else {
+        return month + " " + day;
+      }
     }
 
     return null;
