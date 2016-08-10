@@ -38,7 +38,7 @@ var User = Backbone.Model.extend({
     Forrest.bus.trigger('socket:send', 'trend:get', {
       user: USER_ID,
       token: USER_TOKEN,
-      weeks: 7
+      weeks: 10
     });
     Forrest.bus.trigger('socket:send', 'goal:get', {
       user: USER_ID,

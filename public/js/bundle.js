@@ -40,7 +40,7 @@ $(function() {
   Forrest.socket = new Socket();
 });
 
-},{"./models/runs":4,"./models/user":5,"./router":6,"./socket":7,"backbone":18,"jquery":26,"underscore":33}],2:[function(require,module,exports){
+},{"./models/runs":4,"./models/user":5,"./router":6,"./socket":7,"backbone":19,"jquery":27,"underscore":32}],2:[function(require,module,exports){
 var Distance = require('compute-distance');
 
 // Get a list of runs from the given database
@@ -108,7 +108,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{"compute-distance":20}],3:[function(require,module,exports){
+},{"compute-distance":21}],3:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var Run = Backbone.Model.extend({
@@ -162,7 +162,7 @@ var Run = Backbone.Model.extend({
 
 module.exports = Run;
 
-},{"backbone":18}],4:[function(require,module,exports){
+},{"backbone":19}],4:[function(require,module,exports){
 var Backbone = require('backbone');
 var Run = require('./run');
 
@@ -200,7 +200,7 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"./run":3,"backbone":18}],5:[function(require,module,exports){
+},{"./run":3,"backbone":19}],5:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -241,7 +241,7 @@ var User = Backbone.Model.extend({
     Forrest.bus.trigger('socket:send', 'trend:get', {
       user: USER_ID,
       token: USER_TOKEN,
-      weeks: 7
+      weeks: 10
     });
     Forrest.bus.trigger('socket:send', 'goal:get', {
       user: USER_ID,
@@ -274,7 +274,7 @@ var User = Backbone.Model.extend({
 
 module.exports = User;
 
-},{"backbone":18,"underscore":33}],6:[function(require,module,exports){
+},{"backbone":19,"underscore":32}],6:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -332,7 +332,7 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/connected":8,"./views/dashboard/dashboard":9,"./views/settings/settings":17,"backbone":18,"jquery":26}],7:[function(require,module,exports){
+},{"./views/connected":8,"./views/dashboard/dashboard":9,"./views/settings/settings":18,"backbone":19,"jquery":27}],7:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -425,7 +425,7 @@ var Socket = Backbone.Model.extend({
 
 module.exports = Socket;
 
-},{"backbone":18,"underscore":33}],8:[function(require,module,exports){
+},{"backbone":19,"underscore":32}],8:[function(require,module,exports){
 var _ = require('underscore');
 var $ = require('jquery');
 var Backbone = require('backbone');
@@ -495,10 +495,11 @@ var ConnectedView = Backbone.View.extend({
 
 module.exports = ConnectedView;
 
-},{"backbone":18,"jquery":26,"underscore":33}],9:[function(require,module,exports){
+},{"backbone":19,"jquery":27,"underscore":32}],9:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
+var TrendView = require('./trend');
 var ViewerView = require('./viewer');
 
 var View = Backbone.View.extend({
@@ -507,12 +508,16 @@ var View = Backbone.View.extend({
   initialize: function() {
     // Child components
     this.hero = new HeroView();
+    this.trend = new TrendView();
     this.viewer = new ViewerView();
   },
 
   render: function() {
     // Show the hero component
     this.$el.append(this.hero.render().el);
+
+    // Show the trend component
+    this.$el.append(this.trend.render().el);
 
     // Show the viewer component
     this.$el.append(this.viewer.render().el);
@@ -525,6 +530,9 @@ var View = Backbone.View.extend({
     if (this.hero) {
       this.hero.remove();
     }
+    if (this.trend) {
+      this.trend.remove();
+    }
     if (this.viewer) {
       this.viewer.remove();
     }
@@ -533,13 +541,10 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./hero":10,"./viewer":14,"backbone":18,"underscore":33}],10:[function(require,module,exports){
+},{"./hero":10,"./trend":14,"./viewer":15,"backbone":19,"underscore":32}],10:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var DateNames = require('date-names');
-var sum = require('timeseries-sum');
-var DateAggregate = require('timeseries-aggregate');
-var predict = require('date-prediction');
 var DateRound = require('date-round');
 var round = require('float').round;
 
@@ -551,25 +556,20 @@ var View = Backbone.View.extend({
     this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:runsByWeek', this.setModel);
-    this.listenTo(Forrest.bus, 'user:change:goal', this.setModel);
   },
 
   render: function() {
     var startOfToday = DateRound.floor(new Date()),
-        startOfThisWeek = DateRound.floor(startOfToday, 'week'),
-        startOfLastWeek = DateRound.floor(startOfThisWeek.getTime() - 1, 'week'),
+        startOfNextWeek = DateRound.ceil(startOfToday, 'week'),
+        daysLeftThisWeek = Math.floor((startOfNextWeek.getTime() - startOfToday.getTime()) / DateRound.DAY_IN_MS),
         distanceThisWeek = null,
         distanceLastWeek = 0,
         goalThisWeek = null,
-        goal = null,
         percentChange = 0,
         remainingThisWeek = 0,
         runsByWeek = null,
-        runArray,
         trendPercentString = null,
-        trendDescriptionString = null,
-        goalDateString = null,
-        chartHtml = null;
+        trendDescriptionString = null;
 
     // Calculate trending information if we have the data
     if (this.model && this.model.get('runsByWeek').length > 0 && this.model.get('goalThisWeek')) {
@@ -577,7 +577,6 @@ var View = Backbone.View.extend({
       distanceThisWeek = this.model.get('distanceThisWeek');
       goalThisWeek = this.model.get('goalThisWeek');
       runsByWeek = this.model.get('runsByWeek');
-      goal = this.model.get('goal');
 
       distanceLastWeek = _.last(runsByWeek).sum;
       percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100);
@@ -586,37 +585,20 @@ var View = Backbone.View.extend({
       // WoW change
       if (percentChange < 10) {
         trendPercentString = remainingThisWeek;
-        trendDescriptionString = "miles to go this week.";
+        trendDescriptionString = "miles to go this week";
       }
       else {
         trendPercentString = percentChange + "%";
         trendDescriptionString = "more miles than last week.";
       }
-
-      // Display the last day of the given week
-      if (goal) {
-        goalDateString = this.getGoalDate(goal, runsByWeek, startOfThisWeek);
-      }
-
-      // Display run data for the last eight weeks, including this week's goal
-      runArray = _.clone(runsByWeek);
-      runArray.push({
-        period: startOfThisWeek,
-        sum: goalThisWeek
-      });
-      chartHtml = this.getChartHtml(runArray, distanceThisWeek);
     }
 
     // Render stuff (including trending data, if we have it)
     this.$el.html(
       this.template({
-        distanceThisWeek: distanceThisWeek,
-        goalThisWeek: goalThisWeek,
+        daysLeftThisWeek: daysLeftThisWeek,
         trendPercentString: trendPercentString,
-        trendDescriptionString: trendDescriptionString,
-        goalAmount: goal,
-        goalDateString: goalDateString,
-        chartHtml: chartHtml
+        trendDescriptionString: trendDescriptionString
       })
     );
     
@@ -624,16 +606,15 @@ var View = Backbone.View.extend({
   },
 
   template: _.template(
-    "<p><big><%= distanceThisWeek %></big> of <%= goalThisWeek %> miles this week.</p>" +
-    "<% if (trendPercentString) { %>" +
-      "<p <%= goalAmount ? \"\" : \"class=\\\'expand\\\'\" %>><big><%= trendPercentString %></big> <%= trendDescriptionString %></p>" +
-    "<% } %>" +
-    "<% if (goalAmount) { %>" +
-      "<p class='expand'><big><%= goalAmount %></big> miles per week by <%= goalDateString %></p>" +
-    "<% } %>" +
-    "<% if (chartHtml) { %>" +
-      "<div class='graph row'><%= chartHtml %></div>" +
-    "<% } %>"
+    "<p><big><%= daysLeftThisWeek %></big> days left this week</p>" +
+    "<p><big><%= trendPercentString %></big> <%= trendDescriptionString%></p>"+
+    "<p>" +
+    "5k <small>24:48</small> &middot; " +
+    "10k <small>52:42</small> &middot; " + 
+    "13.1mi <small>1:57:54</small> &middot; " +
+    "26.2mi <small>4:08:54</small> &middot; " +
+    "50k <small>5:10:00</small>" +
+    "</p>"
   ),
 
   // Set the model for this view if needed, and trigger a render
@@ -642,64 +623,13 @@ var View = Backbone.View.extend({
       this.model = model;
     }
     this.render();
-  },
-
-  // Display the last day of the given week
-  getGoalDate: function(goalAmount, runsByWeek, startOfThisWeek) {
-    var max, prediction, month, day;
-
-    // Set the max horizon for the prediction (three years in the future)
-    max = new Date();
-    max.setYear(max.getYear() + 1900 + 3);
-    
-    // Get the prediction
-    prediction = predict(goalAmount, runsByWeek.map(function(r) {
-      return {
-        timestamp: r.period,
-        value: r.sum
-      };
-    }));
-
-    // Is the prediction after today?
-    if (goalAmount <= _.last(runsByWeek).sum) {
-      return "today";
-    }
-
-    // Is the prediction less than three years in the future?
-    if (prediction.getTime() > Date.now() && prediction.getTime() < max.getTime()) {
-      month = DateNames.months[prediction.getMonth()];
-      day = prediction.getDate();
-      return month + " " + day;
-    }
-
-    return "&mdash;";
-  },
-
-  // Display run data for the last eight weeks
-  getChartHtml: function(runsByWeek, distanceThisWeek) {
-    var chartHtml = "";
-
-    maxDistance = _.max(
-      runsByWeek.map(function(w) {
-        return w.sum;
-      })
-    );
-    for (var i = 0; i < runsByWeek.length; ++i) {
-      chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].sum / maxDistance * 100) + "%;'>";
-      if (i == runsByWeek.length - 1) {
-        chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].sum * 100) + "%;'></div>";
-      }
-      chartHtml += "</div>";
-    }
-
-    return chartHtml;
   }
 
 });
 
 module.exports = View;
 
-},{"backbone":18,"date-names":22,"date-prediction":23,"date-round":24,"float":25,"timeseries-aggregate":30,"timeseries-sum":31,"underscore":33}],11:[function(require,module,exports){
+},{"backbone":19,"date-names":23,"date-round":25,"float":26,"underscore":32}],11:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -774,7 +704,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":13,"backbone":18}],12:[function(require,module,exports){
+},{"./run":13,"backbone":19}],12:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -970,7 +900,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":18,"compute-distance":20,"jquery":26}],13:[function(require,module,exports){
+},{"../../helpers":2,"backbone":19,"compute-distance":21,"jquery":27}],13:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -1036,7 +966,131 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":18,"date-names":22,"date-round":24}],14:[function(require,module,exports){
+},{"../../helpers":2,"backbone":19,"date-names":23,"date-round":25}],14:[function(require,module,exports){
+var _ = require('underscore');
+var Backbone = require('backbone');
+var DateRound = require('date-round');
+var predict = require('date-prediction');
+
+var View = Backbone.View.extend({
+  className: "trend dark row",
+
+  initialize: function() {
+    this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:goal', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:runsByWeek', this.setModel);
+  },
+
+  render: function() {
+    var startOfToday = DateRound.floor(new Date()),
+        startOfThisWeek = DateRound.floor(startOfToday, 'week'),
+        runArray,
+        goal = 0,
+        goalDateString = '&mdash;',
+        chartHtml = '';
+
+    if (this.model && this.model.get('runsByWeek').length > 0 && this.model.get('goalThisWeek')) {
+      // Copy the weekly summary
+      runArray = _.clone(this.model.get('runsByWeek'));
+
+      // Include this week's goal, if available
+      runArray.push({
+        period: startOfThisWeek,
+        sum: this.model.get('goalThisWeek')
+      });
+
+      // If a goal has been set, display our prediction
+      if (this.model.get('goal')) {
+        goalDateString = this.getGoalDate(
+          this.model.get('goal'),
+          this.model.get('runsByWeek'),
+          startOfThisWeek
+        );
+      }
+
+      // Get the chart HTML
+      chartHtml = this.getChartHtml(runArray, this.model.get('distanceThisWeek'));
+    }
+
+    this.$el.html(
+      this.template({
+        chartHtml: chartHtml,
+        goalDateString: goalDateString
+      })
+    );
+
+    return this;
+  },
+
+  template: _.template(
+    "<div class='graph row'><%= chartHtml %></div>" +
+    "<p>On track to hit goal by <big><%= goalDateString %></p>"
+  ),
+
+  // Set the model for this view if needed, and trigger a render
+  setModel: function(model) {
+    if (!this.model) {
+      this.model = model;
+    }
+    this.render();
+  },
+
+  // Display run data for the last eight weeks
+  getChartHtml: function(runsByWeek, distanceThisWeek) {
+    var chartHtml = "";
+
+    maxDistance = _.max(
+      runsByWeek.map(function(w) {
+        return w.sum;
+      })
+    );
+    for (var i = 0; i < runsByWeek.length; ++i) {
+      chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].sum / maxDistance * 100) + "%;'>";
+      if (i == runsByWeek.length - 1) {
+        chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].sum * 100) + "%;'></div>";
+      }
+      chartHtml += "</div>";
+    }
+
+    return chartHtml;
+  },
+
+  // Display the last day of the given week
+  getGoalDate: function(goalAmount, runsByWeek, startOfThisWeek) {
+    var max, prediction, month, day;
+
+    // Set the max horizon for the prediction (three years in the future)
+    max = new Date();
+    max.setYear(max.getYear() + 1900 + 3);
+    
+    // Get the prediction
+    prediction = predict(goalAmount, runsByWeek.map(function(r) {
+      return {
+        timestamp: r.period,
+        value: r.sum
+      };
+    }));
+
+    // Is the prediction after today?
+    if (goalAmount <= _.last(runsByWeek).sum) {
+      return "today";
+    }
+
+    // Is the prediction less than three years in the future?
+    if (prediction.getTime() > Date.now() && prediction.getTime() < max.getTime()) {
+      month = DateNames.months[prediction.getMonth()];
+      day = prediction.getDate();
+      return month + " " + day;
+    }
+
+    return "&mdash;";
+  },
+});
+
+module.exports = View;
+
+},{"backbone":19,"date-prediction":24,"date-round":25,"underscore":32}],15:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -1074,7 +1128,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":11,"./map":12,"backbone":18,"underscore":33}],15:[function(require,module,exports){
+},{"./list":11,"./map":12,"backbone":19,"underscore":32}],16:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -1145,7 +1199,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":18,"underscore":33}],16:[function(require,module,exports){
+},{"backbone":19,"underscore":32}],17:[function(require,module,exports){
 var _ = require('underscore');
 var $ = require('jquery');
 var Backbone = require('backbone');
@@ -1275,7 +1329,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":18,"base-building":19,"jquery":26,"tiny-cookie":32,"underscore":33}],17:[function(require,module,exports){
+},{"backbone":19,"base-building":20,"jquery":27,"tiny-cookie":31,"underscore":32}],18:[function(require,module,exports){
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
 var Goal = require('./goal');
@@ -1326,7 +1380,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./code":15,"./goal":16,"backbone":18}],18:[function(require,module,exports){
+},{"./code":16,"./goal":17,"backbone":19}],19:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -3250,7 +3304,7 @@ module.exports = View;
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":26,"underscore":33}],19:[function(require,module,exports){
+},{"jquery":27,"underscore":32}],20:[function(require,module,exports){
 // Convert weeks to a more appropriate timescale
 function makeWeeksHuman(weeks) {
   if (Math.round(weeks) === 1) {
@@ -3359,7 +3413,7 @@ module.exports = {
   makeWeeksHuman: makeWeeksHuman
 };
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 var sgeo = require('sgeo');
 
 // Smooth the run (e.g. ignore bouncing GPS tracks)
@@ -3429,7 +3483,7 @@ module.exports = {
   compute: computeDistance
 };
 
-},{"sgeo":29}],21:[function(require,module,exports){
+},{"sgeo":30}],22:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -3442,11 +3496,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":21}],23:[function(require,module,exports){
+},{"./en":22}],24:[function(require,module,exports){
 /**
  * Given an array of timeseries data ordered from oldest to
  * newest, predict when a future value is likely to be hit.
@@ -3515,7 +3569,7 @@ var predict = function(futureValue, series) {
 
 module.exports = predict;
 
-},{"regression":27}],24:[function(require,module,exports){
+},{"regression":28}],25:[function(require,module,exports){
 /**
  * Helpers to round dates to day, week, month, year boundaries.
  *
@@ -3684,7 +3738,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],25:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 /**
  * Credit: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
  */
@@ -3738,7 +3792,7 @@ module.exports = {
   }
 };
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -13814,9 +13868,9 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":28}],28:[function(require,module,exports){
+},{"./src/regression":29}],29:[function(require,module,exports){
 /**
 * @license
 *
@@ -14066,7 +14120,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 
 //Original version of this module came from following website by Chris Veness
 //http://www.movable-type.co.uk/scripts/latlong.html
@@ -14741,105 +14795,7 @@ if (typeof String.prototype.trim == 'undefined') {
   }
 }
 
-},{}],30:[function(require,module,exports){
-// Constants
-var MINUTE_IN_MS = 1000 * 60;
-var HOUR_IN_MS   = MINUTE_IN_MS * 60;
-var DAY_IN_MS    = HOUR_IN_MS * 24;
-var WEEK_IN_MS   = DAY_IN_MS * 7;
-
-// Calculate an array of sums over the specified periods
-var aggregate = function(endDate, numPeriods, periodDurationInMs, series) {
-  var iterator = new Date(endDate.getTime() - periodDurationInMs),
-      sumByPeriod = [],
-      obj = {
-        period: iterator,
-        sum: 0
-      },
-      point,
-      t;
-
-  for (var i = series.length - 1; i >= 0; --i) {
-    point = series[i];
-    t = point.timestamp;
-
-    // Skip runs that are after the ending date
-    if (t >= endDate) {
-      continue;
-    }
-
-    // Skip runs older than the cutoff
-    if (t < endDate - (periodDurationInMs * numPeriods)) {
-      break;
-    }
-
-    // Account for periods with no data at all
-    while (t < iterator) {
-      iterator = new Date(iterator.getTime() - periodDurationInMs);
-      sumByPeriod.unshift(obj);
-      obj = {
-        period: iterator,
-        sum: 0
-      };
-    }
-
-    // Add value to the week object
-    obj.sum += point.value;
-  }
-  sumByPeriod.unshift(obj);
-
-  return sumByPeriod;
-};
-
-module.exports = {
-  aggregate: aggregate,
-  MINUTE_IN_MS: MINUTE_IN_MS,
-  HOUR_IN_MS: HOUR_IN_MS,
-  DAY_IN_MS: DAY_IN_MS,
-  WEEK_IN_MS: WEEK_IN_MS
-};
-
 },{}],31:[function(require,module,exports){
-// Calculate the sum of a half-closed Date interval
-var sum = function(startDate, endDate, series) {
-  var sum = 0, point, i, t;
-
-  for (i = series.length - 1; i >= 0; --i) {
-    point = series[i];
-    t = point.timestamp;
-
-    // Interval check
-    if (endDate && startDate) {
-      if (t >= startDate && t < endDate) {
-        sum += point.value;
-      }
-    }
-    else if (startDate) {
-      if (t >= startDate) {
-        sum += point.value;
-      }
-    }
-    else if (endDate) {
-      if (t < endDate) {
-        sum += point.value;
-      }
-    }
-    else {
-      sum += point.value;
-    }
-
-    // Break early if possible
-    if (t < startDate) {
-      break;
-    }
-  }
-
-  return sum;
-};
-
-module.exports = sum;
-
-},{}],32:[function(require,module,exports){
 /*!
  * tiny-cookie - A tiny cookie manipulation plugin
  * https://github.com/Alex1990/tiny-cookie
@@ -14985,7 +14941,7 @@ module.exports = sum;
 
 }));
 
-},{}],33:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors

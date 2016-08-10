@@ -99,6 +99,12 @@ ul.list li:last-child {
  * Trending graph
  */
 
+.trend {
+  flex-shrink: 0;
+  background-color: #2f2fb7;
+  padding: 1em 2em 1em 2em;
+}
+
 .graph {
   align-items: flex-end;
   height: 2em;
