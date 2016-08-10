@@ -103,24 +103,33 @@ ul.list li:last-child {
   flex-shrink: 0;
   background-color: #2f2fb7;
   padding: 1em 2em 1em 2em;
+  align-items: flex-end;
+  line-height: 9px;
 }
 
-.graph {
+.trend p {
+  margin-bottom: 0;
+}
+
+.trend .graph {
   align-items: flex-end;
   height: 2em;
-  margin-top: 1em;
-  margin-bottom: 1em;
 }
 
-.bar {
+.trend .bar {
   background-color: rgba(255, 255, 255, 0.6);
   width: 1em;
   display: flex;
   flex-direction: column-reverse;
 }
 
-.progress {
+.trend .progress {
   background-color: #ffffff;
+}
+
+.trend select.goal {
+  border: 1px solid #a8a8a8;
+  font-size: 1.4em;
 }
 
 /**

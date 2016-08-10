@@ -1,16 +1,27 @@
 var _ = require('underscore');
 var Backbone = require('backbone');
 var DateRound = require('date-round');
+var Cookie = require('tiny-cookie');
 var predict = require('date-prediction');
 
 var View = Backbone.View.extend({
   className: "trend dark row",
 
   initialize: function() {
+    // Mode
+    this.mode = 'view';
+
+    // Events
     this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goal', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:runsByWeek', this.setModel);
+  },
+
+  events: {
+    'click .change_goal': 'onChange',
+    'click .save_goal': 'onSave',
+    'click .cancel_change': 'onCancel'
   },
 
   render: function() {
@@ -18,36 +29,50 @@ var View = Backbone.View.extend({
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         runArray,
         goal = 0,
+        runsByWeek,
+        goalThisWeek,
+        distanceThisWeek,
+        goalString,
         goalDateString = '&mdash;',
         chartHtml = '';
 
     if (this.model && this.model.get('runsByWeek').length > 0 && this.model.get('goalThisWeek')) {
+
+      goal = this.model.get('goal');
+      runsByWeek = this.model.get('runsByWeek');
+      goalThisWeek = this.model.get('goalThisWeek');
+      distanceThisWeek = this.model.get('distanceThisWeek');
+
       // Copy the weekly summary
-      runArray = _.clone(this.model.get('runsByWeek'));
+      runArray = _.clone(runsByWeek);
 
       // Include this week's goal, if available
       runArray.push({
         period: startOfThisWeek,
-        sum: this.model.get('goalThisWeek')
+        sum: goalThisWeek
       });
 
       // If a goal has been set, display our prediction
-      if (this.model.get('goal')) {
+      if (goal) {
+        goalString = this.getGoalString(goal);
         goalDateString = this.getGoalDate(
-          this.model.get('goal'),
-          this.model.get('runsByWeek'),
+          goal,
+          runsByWeek,
           startOfThisWeek
         );
       }
 
       // Get the chart HTML
-      chartHtml = this.getChartHtml(runArray, this.model.get('distanceThisWeek'));
+      chartHtml = this.getChartHtml(runArray, distanceThisWeek);
     }
 
     this.$el.html(
       this.template({
         chartHtml: chartHtml,
-        goalDateString: goalDateString
+        selectHtml: this.getSelectHtml(),
+        goalString: goalString,
+        goalDateString: goalDateString,
+        mode: this.mode
       })
     );
 
@@ -56,7 +81,20 @@ var View = Backbone.View.extend({
 
   template: _.template(
     "<div class='graph row'><%= chartHtml %></div>" +
-    "<p>On track to hit goal by <big><%= goalDateString %></p>"
+    "<% if (mode === 'view') { %>" +
+    "<p><big><%= goalString %></big>" +
+    "<% if (goalDateString) { %>" +
+    " by <%= goalDateString %>" +
+    "<% } else { %>" +
+    " goal" +
+    "<% } %>" +
+    "</p>" +
+    "<a href='#' class='change_goal'>Change goal</a>" +
+    "<% } else if (mode === 'change') { %>" +
+    "<%= selectHtml %>" +
+    "<a href='#' class='save_goal'>Save goal</a>" +
+    "<a href='#' class='cancel_change'>Cancel</a>" +
+    "<% } %>"
   ),
 
   // Set the model for this view if needed, and trigger a render
@@ -64,6 +102,38 @@ var View = Backbone.View.extend({
     if (!this.model) {
       this.model = model;
     }
+    this.render();
+  },
+
+  // Switch to change mode
+  onChange: function() {
+    this.mode = 'change';
+    this.render();
+  },
+
+  // Save the new goal
+  onSave: function(el) {
+    var value = this.$('.goal').val();
+
+    // Switch back to read-only mode
+    this.mode = 'view';
+    this.render();
+
+    // Update the backend
+    Forrest.bus.trigger('socket:send', 'goal:set', {
+      miles: value,
+      user: USER_ID,
+      token: USER_TOKEN
+    });
+
+    // Update cookies
+    // (so the landing page shows our current goals, even when not logged in)
+    Cookie.set('goalMilesPerWeek', value);
+  },
+
+  // Cancel the change
+  onCancel: function() {
+    this.mode = 'view';
     this.render();
   },
 
@@ -85,6 +155,44 @@ var View = Backbone.View.extend({
     }
 
     return chartHtml;
+  },
+
+  // Get the select control for changing your goal
+  getSelectHtml: function() {
+    var startOfThisWeek = DateRound.floor(new Date(), 'week'),
+        runsByWeek = this.model ? this.model.get('runsByWeek') : [],
+        goal = this.model ? this.model.get('goal') : null,
+        tag,
+        estimate,
+        html = "<select class='goal'>";
+
+    for (var i = 10; i <= 80; i += 10) {
+
+      // Select the current goal for starters
+      if (i === parseInt(goal)) {
+        tag = 'selected';
+      }
+      else {
+        tag = '';
+      }
+
+      // Show predictions if available
+      if (goal && runsByWeek.length > 0) {
+        estimate = this.getGoalDate(goal, runsByWeek, startOfThisWeek);
+      }
+      else {
+        estimate = '';
+      }
+
+      // Generate the HTML for each option
+      html += "<option value='" + i + "' " + tag + ">" +
+              this.getGoalString(i) + (estimate ? ' by ' + estimate : '') +
+              "</option>";
+    }
+
+    html += "</select>";
+
+    return html;
   },
 
   // Display the last day of the given week
@@ -115,8 +223,19 @@ var View = Backbone.View.extend({
       return month + " " + day;
     }
 
-    return "&mdash;";
+    return null;
   },
+
+  getGoalString: function(goal) {
+         if (goal >= 80) { return '100 mi';  }
+    else if (goal >= 70) { return '100 km';  }
+    else if (goal >= 60) { return '50 mi';   }
+    else if (goal >= 50) { return '50 km';   }
+    else if (goal >= 40) { return '26.2 mi'; }
+    else if (goal >= 30) { return '13.1 mi'; }
+    else if (goal >= 20) { return '10 km';   }
+    else                 { return '5 km';    }
+  }
 });
 
 module.exports = View;

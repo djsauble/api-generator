@@ -40,7 +40,7 @@ $(function() {
   Forrest.socket = new Socket();
 });
 
-},{"./models/runs":4,"./models/user":5,"./router":6,"./socket":7,"backbone":19,"jquery":27,"underscore":32}],2:[function(require,module,exports){
+},{"./models/runs":4,"./models/user":5,"./router":6,"./socket":7,"backbone":18,"jquery":25,"underscore":30}],2:[function(require,module,exports){
 var Distance = require('compute-distance');
 
 // Get a list of runs from the given database
@@ -108,7 +108,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{"compute-distance":21}],3:[function(require,module,exports){
+},{"compute-distance":19}],3:[function(require,module,exports){
 var Backbone = require('backbone');
 
 var Run = Backbone.Model.extend({
@@ -162,7 +162,7 @@ var Run = Backbone.Model.extend({
 
 module.exports = Run;
 
-},{"backbone":19}],4:[function(require,module,exports){
+},{"backbone":18}],4:[function(require,module,exports){
 var Backbone = require('backbone');
 var Run = require('./run');
 
@@ -200,7 +200,7 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"./run":3,"backbone":19}],5:[function(require,module,exports){
+},{"./run":3,"backbone":18}],5:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -274,7 +274,7 @@ var User = Backbone.Model.extend({
 
 module.exports = User;
 
-},{"backbone":19,"underscore":32}],6:[function(require,module,exports){
+},{"backbone":18,"underscore":30}],6:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -332,7 +332,7 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/connected":8,"./views/dashboard/dashboard":9,"./views/settings/settings":18,"backbone":19,"jquery":27}],7:[function(require,module,exports){
+},{"./views/connected":8,"./views/dashboard/dashboard":9,"./views/settings/settings":17,"backbone":18,"jquery":25}],7:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -425,7 +425,7 @@ var Socket = Backbone.Model.extend({
 
 module.exports = Socket;
 
-},{"backbone":19,"underscore":32}],8:[function(require,module,exports){
+},{"backbone":18,"underscore":30}],8:[function(require,module,exports){
 var _ = require('underscore');
 var $ = require('jquery');
 var Backbone = require('backbone');
@@ -495,7 +495,7 @@ var ConnectedView = Backbone.View.extend({
 
 module.exports = ConnectedView;
 
-},{"backbone":19,"jquery":27,"underscore":32}],9:[function(require,module,exports){
+},{"backbone":18,"jquery":25,"underscore":30}],9:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
@@ -541,7 +541,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./hero":10,"./trend":14,"./viewer":15,"backbone":19,"underscore":32}],10:[function(require,module,exports){
+},{"./hero":10,"./trend":14,"./viewer":15,"backbone":18,"underscore":30}],10:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var DateNames = require('date-names');
@@ -629,7 +629,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":19,"date-names":23,"date-round":25,"float":26,"underscore":32}],11:[function(require,module,exports){
+},{"backbone":18,"date-names":21,"date-round":23,"float":24,"underscore":30}],11:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -704,7 +704,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":13,"backbone":19}],12:[function(require,module,exports){
+},{"./run":13,"backbone":18}],12:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -900,7 +900,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":19,"compute-distance":21,"jquery":27}],13:[function(require,module,exports){
+},{"../../helpers":2,"backbone":18,"compute-distance":19,"jquery":25}],13:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -966,20 +966,31 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":19,"date-names":23,"date-round":25}],14:[function(require,module,exports){
+},{"../../helpers":2,"backbone":18,"date-names":21,"date-round":23}],14:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var DateRound = require('date-round');
+var Cookie = require('tiny-cookie');
 var predict = require('date-prediction');
 
 var View = Backbone.View.extend({
   className: "trend dark row",
 
   initialize: function() {
+    // Mode
+    this.mode = 'view';
+
+    // Events
     this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goal', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:runsByWeek', this.setModel);
+  },
+
+  events: {
+    'click .change_goal': 'onChange',
+    'click .save_goal': 'onSave',
+    'click .cancel_change': 'onCancel'
   },
 
   render: function() {
@@ -987,36 +998,50 @@ var View = Backbone.View.extend({
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         runArray,
         goal = 0,
+        runsByWeek,
+        goalThisWeek,
+        distanceThisWeek,
+        goalString,
         goalDateString = '&mdash;',
         chartHtml = '';
 
     if (this.model && this.model.get('runsByWeek').length > 0 && this.model.get('goalThisWeek')) {
+
+      goal = this.model.get('goal');
+      runsByWeek = this.model.get('runsByWeek');
+      goalThisWeek = this.model.get('goalThisWeek');
+      distanceThisWeek = this.model.get('distanceThisWeek');
+
       // Copy the weekly summary
-      runArray = _.clone(this.model.get('runsByWeek'));
+      runArray = _.clone(runsByWeek);
 
       // Include this week's goal, if available
       runArray.push({
         period: startOfThisWeek,
-        sum: this.model.get('goalThisWeek')
+        sum: goalThisWeek
       });
 
       // If a goal has been set, display our prediction
-      if (this.model.get('goal')) {
+      if (goal) {
+        goalString = this.getGoalString(goal);
         goalDateString = this.getGoalDate(
-          this.model.get('goal'),
-          this.model.get('runsByWeek'),
+          goal,
+          runsByWeek,
           startOfThisWeek
         );
       }
 
       // Get the chart HTML
-      chartHtml = this.getChartHtml(runArray, this.model.get('distanceThisWeek'));
+      chartHtml = this.getChartHtml(runArray, distanceThisWeek);
     }
 
     this.$el.html(
       this.template({
         chartHtml: chartHtml,
-        goalDateString: goalDateString
+        selectHtml: this.getSelectHtml(),
+        goalString: goalString,
+        goalDateString: goalDateString,
+        mode: this.mode
       })
     );
 
@@ -1025,7 +1050,20 @@ var View = Backbone.View.extend({
 
   template: _.template(
     "<div class='graph row'><%= chartHtml %></div>" +
-    "<p>On track to hit goal by <big><%= goalDateString %></p>"
+    "<% if (mode === 'view') { %>" +
+    "<p><big><%= goalString %></big>" +
+    "<% if (goalDateString) { %>" +
+    " by <%= goalDateString %>" +
+    "<% } else { %>" +
+    " goal" +
+    "<% } %>" +
+    "</p>" +
+    "<a href='#' class='change_goal'>Change goal</a>" +
+    "<% } else if (mode === 'change') { %>" +
+    "<%= selectHtml %>" +
+    "<a href='#' class='save_goal'>Save goal</a>" +
+    "<a href='#' class='cancel_change'>Cancel</a>" +
+    "<% } %>"
   ),
 
   // Set the model for this view if needed, and trigger a render
@@ -1033,6 +1071,38 @@ var View = Backbone.View.extend({
     if (!this.model) {
       this.model = model;
     }
+    this.render();
+  },
+
+  // Switch to change mode
+  onChange: function() {
+    this.mode = 'change';
+    this.render();
+  },
+
+  // Save the new goal
+  onSave: function(el) {
+    var value = this.$('.goal').val();
+
+    // Switch back to read-only mode
+    this.mode = 'view';
+    this.render();
+
+    // Update the backend
+    Forrest.bus.trigger('socket:send', 'goal:set', {
+      miles: value,
+      user: USER_ID,
+      token: USER_TOKEN
+    });
+
+    // Update cookies
+    // (so the landing page shows our current goals, even when not logged in)
+    Cookie.set('goalMilesPerWeek', value);
+  },
+
+  // Cancel the change
+  onCancel: function() {
+    this.mode = 'view';
     this.render();
   },
 
@@ -1054,6 +1124,44 @@ var View = Backbone.View.extend({
     }
 
     return chartHtml;
+  },
+
+  // Get the select control for changing your goal
+  getSelectHtml: function() {
+    var startOfThisWeek = DateRound.floor(new Date(), 'week'),
+        runsByWeek = this.model ? this.model.get('runsByWeek') : [],
+        goal = this.model ? this.model.get('goal') : null,
+        tag,
+        estimate,
+        html = "<select class='goal'>";
+
+    for (var i = 10; i <= 80; i += 10) {
+
+      // Select the current goal for starters
+      if (i === parseInt(goal)) {
+        tag = 'selected';
+      }
+      else {
+        tag = '';
+      }
+
+      // Show predictions if available
+      if (goal && runsByWeek.length > 0) {
+        estimate = this.getGoalDate(goal, runsByWeek, startOfThisWeek);
+      }
+      else {
+        estimate = '';
+      }
+
+      // Generate the HTML for each option
+      html += "<option value='" + i + "' " + tag + ">" +
+              this.getGoalString(i) + (estimate ? ' by ' + estimate : '') +
+              "</option>";
+    }
+
+    html += "</select>";
+
+    return html;
   },
 
   // Display the last day of the given week
@@ -1084,13 +1192,24 @@ var View = Backbone.View.extend({
       return month + " " + day;
     }
 
-    return "&mdash;";
+    return null;
   },
+
+  getGoalString: function(goal) {
+         if (goal >= 80) { return '100 mi';  }
+    else if (goal >= 70) { return '100 km';  }
+    else if (goal >= 60) { return '50 mi';   }
+    else if (goal >= 50) { return '50 km';   }
+    else if (goal >= 40) { return '26.2 mi'; }
+    else if (goal >= 30) { return '13.1 mi'; }
+    else if (goal >= 20) { return '10 km';   }
+    else                 { return '5 km';    }
+  }
 });
 
 module.exports = View;
 
-},{"backbone":19,"date-prediction":24,"date-round":25,"underscore":32}],15:[function(require,module,exports){
+},{"backbone":18,"date-prediction":22,"date-round":23,"tiny-cookie":29,"underscore":30}],15:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -1128,7 +1247,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":11,"./map":12,"backbone":19,"underscore":32}],16:[function(require,module,exports){
+},{"./list":11,"./map":12,"backbone":18,"underscore":30}],16:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -1199,147 +1318,15 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":19,"underscore":32}],17:[function(require,module,exports){
-var _ = require('underscore');
-var $ = require('jquery');
-var Backbone = require('backbone');
-var Cookie = require('tiny-cookie');
-var Training = require('base-building');
-
-var View = Backbone.View.extend({
-
-  initialize: function() {
-    this.currentMileage = 0;
-    this.goalMileage = 0;
-
-    // Listen for changes to weekly mileage
-    this.listenTo(Forrest.bus, 'user:change:runsByWeek', function(model, value) {
-      // Load last week's mileage
-      if (value && value.length > 0) {
-        this.currentMileage = Math.round(_.last(value).sum);
-
-        // Update the cookie so the landing page shows
-        // our current mileage, even when not logged in.
-        Cookie.set('todayMilesPerWeek', this.currentMileage);
-      }
-      else {
-        // Load from cookies if goal has not been set
-        this.currentMileage = this.loadFromCookie('todayMilesPerWeek');
-      }
-
-      this.render();
-    });
-
-    // Listen for changes to the goal
-    this.listenTo(Forrest.bus, 'user:change:goal', function(model, value) {
-      if (value > 0) {
-        this.goalMileage = value;
-      }
-      else {
-        // Load from cookies if goal has not been set
-        this.goalMileage = this.loadFromCookie('goalMilesPerWeek');
-      }
-
-      this.render();
-    });
-  },
-
-  events: {
-    'input #today': 'updateToday',
-    'input #goal': 'updateGoal',
-    'click .set_goal': 'setGoal'
-  },
-
-  template: _.template(
-    "<h2>Goal</h2>" +
-    "<p>Set a fitness goal</p>" +
-    "<div class='field row'>" +
-    "<label for='today'>I run</label>" +
-    "<output for='today' id='todayOutput'><%= currentMileage %></output>" +
-    "<small class='expand'>miles per week</small>" +
-    "<input type='range' id='today' name='today' min='0' max='100' value='<%= currentMileage %>'/>" +
-    "</div>" +
-    "<div class='field row'>" +
-    "<label for='goal'>My goal is</label>" +
-    "<output for='goal' id='goalOutput''><%= goalMileage %></output>" +
-    "<small class='expand'>miles per week</small>" +
-    "<input type='range' id='goal' name='goal' min='0' max='100' value='<%= goalMileage %>'/>" +
-    "</div>" +
-    "<div class='field row'>" +
-    "<label for='estimate'>I can meet my goal in</label>" +
-    "<output class='expand' id='estimate' name='estimate'><%= estimate %></output>" +
-    "</div>" +
-    "<button class='set_goal'>Set goal</button> "
-  ),
-
-  render: function() {
-
-    this.$el.html(this.template({
-      currentMileage: this.currentMileage,
-      goalMileage: this.goalMileage,
-      estimate: this.getEstimate()
-    }));
-
-    return this;
-  },
-
-  updateToday: function() {
-    this.currentMileage = parseInt(this.$('#today').val());
-    this.$('#todayOutput').val(this.currentMileage);
-    this.updateEstimate();
-  },
-
-  updateGoal: function() {
-    this.goalMileage = parseInt(this.$('#goal').val());
-    this.$('#goalOutput').val(this.goalMileage);
-    this.updateEstimate();
-  },
-
-  setGoal: function() {
-    // Update the backend
-    Forrest.bus.trigger('socket:send', 'goal:set', {
-      miles: this.goalMileage,
-      user: USER_ID,
-      token: USER_TOKEN
-    });
-
-    // Update cookies (so the landing page shows our current goals,
-    // even when not logged in)
-    Cookie.set('goalMilesPerWeek', this.goalMileage);
-  },
-
-  getEstimate: function() {
-    return Training.makeWeeksHuman(
-      Training.weeksToGoal(
-        this.currentMileage,
-        this.goalMileage
-      )
-    );
-  },
-
-  updateEstimate: function() {
-    this.$('#estimate').val(this.getEstimate());
-  },
-
-  loadFromCookie: function(str) {
-    var miles = Cookie.get(str);
-    return miles ? parseFloat(miles) : 0;
-  }
-});
-
-module.exports = View;
-
-},{"backbone":19,"base-building":20,"jquery":27,"tiny-cookie":31,"underscore":32}],18:[function(require,module,exports){
+},{"backbone":18,"underscore":30}],17:[function(require,module,exports){
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
-var Goal = require('./goal');
 
 var View = Backbone.View.extend({
   el: '.main',
 
   initialize: function() {
     this.securityCode = new SecurityCode();
-    this.goal = new Goal();
   },
 
   render: function() {
@@ -1353,15 +1340,11 @@ var View = Backbone.View.extend({
       "<img src='images/Download_on_the_App_Store_Badge_US-UK_135x40.svg' alt='Download on the App Store'/>" +
       "</div>" +
       "<div class='code'></div>" +
-      "<div class='goal'></div>" +
       "</div>"
     );
 
     this.securityCode.setElement(this.$('.code'));
     this.securityCode.render();
-
-    this.goal.setElement(this.$('.goal'));
-    this.goal.render();
 
     return this;
   },
@@ -1371,16 +1354,13 @@ var View = Backbone.View.extend({
     if (this.securityCode) {
       this.securityCode.remove();
     }
-    if (this.goal) {
-      this.goal.remove();
-    }
     this.$el.html('');
   }
 });
 
 module.exports = View;
 
-},{"./code":16,"./goal":17,"backbone":19}],19:[function(require,module,exports){
+},{"./code":16,"backbone":18}],18:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -3304,116 +3284,7 @@ module.exports = View;
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":27,"underscore":32}],20:[function(require,module,exports){
-// Convert weeks to a more appropriate timescale
-function makeWeeksHuman(weeks) {
-  if (Math.round(weeks) === 1) {
-    return '1 week';
-  }
-  if (weeks < 13.035) {
-    return Math.round(weeks) + ' weeks';
-  }
-  else if (weeks < 52) {
-    return Math.round(weeks / 4.345) + ' months';
-  }
-  else {
-    return Math.round(10 * weeks / 52) / 10 + ' years';
-  }
-}
-
-// Calculate the number of miles to run during a specific week of
-// a training level
-function mileageAtWeek(week, startingMileage) {
-
-  // Subtract one from the week to make it zero-based
-  var mod = (week - 1) % 5;
-
-  if (mod === 0) {
-    return startingMileage;
-  }
-  else if (mod === 1) {
-    return startingMileage * 0.90;
-  }
-  else if (mod === 2) {
-    return startingMileage * 0.85;
-  }
-  else if (mod === 3) {
-    return startingMileage * 0.90;
-  }
-  else if (mod === 4) {
-    return startingMileage;
-  }
-}
-
-// How many weeks to train at a given mileage before adding more?
-function weeksAtMileage(currentMileage) {
-  var func;
-
-  // Find the right training level for the current mileage
-  if (currentMileage < 3) { func = lessThan3; }
-  else if (currentMileage < 10) { func = lessThan10; }
-  else if (currentMileage < 20) { func = lessThan20; }
-  else { func = moreThan20; }
-
-  // Simulate the current training level
-  return func(currentMileage);
-}
-
-// Given a starting and ending mileage, calculate training time
-function weeksToGoal(currentMileage, goalMileage) {
-  var weekCount = 0;
-
-  while (currentMileage < goalMileage) {
-
-    // Simulate the current training level
-    var state = weeksAtMileage(currentMileage);
-    weekCount += state.weeksAtThisLevel;
-    currentMileage = state.milesAtNextLevel;
-  }
-
-  return weekCount;
-}
-
-// Never prescribe weekly mileage lower than 3 mpw
-function lessThan3(currentMileage) {
-  return {
-    milesAtNextLevel: 3,
-    weeksAtThisLevel: 1
-  };
-}
-
-// Increase weekly mileage by 1 until hitting 10 mpw
-function lessThan10(currentMileage) {
-  return {
-    milesAtNextLevel: currentMileage + 1,
-    weeksAtThisLevel: 1
-  };
-}
-
-// Increase weekly mileage by 10% per week until hitting 20 mpw
-function lessThan20(currentMileage) {
-  return {
-    milesAtNextLevel: currentMileage * 1.1,
-    weeksAtThisLevel: 1
-  };
-}
-
-// Increase weekly mileage at increasingly slow intervals after 20 mpw
-function moreThan20(currentMileage) {
-  return {
-    milesAtNextLevel: currentMileage * 1.1,
-    weeksAtThisLevel: 9.32002 * Math.log(0.0556632 * currentMileage)
-  };
-}
-
-module.exports = {
-  weeksToGoal: weeksToGoal,
-  mileageAtWeek: mileageAtWeek,
-  weeksAtMileage: weeksAtMileage,
-  makeWeeksHuman: makeWeeksHuman
-};
-
-},{}],21:[function(require,module,exports){
+},{"jquery":25,"underscore":30}],19:[function(require,module,exports){
 var sgeo = require('sgeo');
 
 // Smooth the run (e.g. ignore bouncing GPS tracks)
@@ -3483,7 +3354,7 @@ module.exports = {
   compute: computeDistance
 };
 
-},{"sgeo":30}],22:[function(require,module,exports){
+},{"sgeo":28}],20:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -3496,11 +3367,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],23:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":22}],24:[function(require,module,exports){
+},{"./en":20}],22:[function(require,module,exports){
 /**
  * Given an array of timeseries data ordered from oldest to
  * newest, predict when a future value is likely to be hit.
@@ -3569,7 +3440,7 @@ var predict = function(futureValue, series) {
 
 module.exports = predict;
 
-},{"regression":28}],25:[function(require,module,exports){
+},{"regression":26}],23:[function(require,module,exports){
 /**
  * Helpers to round dates to day, week, month, year boundaries.
  *
@@ -3738,7 +3609,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],26:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 /**
  * Credit: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
  */
@@ -3792,7 +3663,7 @@ module.exports = {
   }
 };
 
-},{}],27:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -13868,9 +13739,9 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],28:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":29}],29:[function(require,module,exports){
+},{"./src/regression":27}],27:[function(require,module,exports){
 /**
 * @license
 *
@@ -14120,7 +13991,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],30:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 
 //Original version of this module came from following website by Chris Veness
 //http://www.movable-type.co.uk/scripts/latlong.html
@@ -14795,7 +14666,7 @@ if (typeof String.prototype.trim == 'undefined') {
   }
 }
 
-},{}],31:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 /*!
  * tiny-cookie - A tiny cookie manipulation plugin
  * https://github.com/Alex1990/tiny-cookie
@@ -14941,7 +14812,7 @@ if (typeof String.prototype.trim == 'undefined') {
 
 }));
 
-},{}],32:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
