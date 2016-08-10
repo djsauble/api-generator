@@ -786,7 +786,7 @@ function computeWeeklyGoal(runs, user) {
   else if (rawData[0].timestamp.getTime() < startOfLastWeek) {
     // We have enough information to set the level
     trend = computeTrendingData(runs, 1);
-    plan = Training.weeksAtMileage(trend.runsByWeek[0].sum);
+    plan = Training.weeksAtMileage(trend.distanceByWeek[0].sum);
     user.level = plan.milesAtNextLevel;
     user.level_start = startOfThisWeek;
 
@@ -813,22 +813,30 @@ function computeWeeklyGoal(runs, user) {
 
 // Get trending data for the last number of weeks
 function computeTrendingData(runs, weeks) {
-  var rawData = runs.map(function(r) {
+  var rawDistanceData = runs.map(function(r) {
         return {
           timestamp: r.timestamp,
           value: r.distance
         };
       }),
+      rawPaceData = runs.map(function(r) {
+        return {
+          timestamp: r.timestamp,
+          value: r.pace
+        };
+      }),
       startOfToday = DateRound.floor(new Date()),
       startOfThisWeek = DateRound.floor(startOfToday, 'week'),
-      runsByWeek = DateAggregate.aggregate(startOfThisWeek, weeks, DateAggregate.WEEK_IN_MS, rawData);
+      distanceByWeek = DateAggregate.aggregate(startOfThisWeek, weeks, DateAggregate.WEEK_IN_MS, rawDistanceData);
+      paceByWeek = DateAggregate.aggregate(startOfThisWeek, weeks, DateAggregate.WEEK_IN_MS, rawPaceData);
 
   // Compile run data for the last few weeks
   return {
-    runsByWeek: runsByWeek.map(function(w) {
+    distanceByWeek: distanceByWeek.map(function(w) {
       w.sum = round(w.sum / 1609.344, 1);
       return w;
-    })
+    }),
+    paceByWeek: paceByWeek
   };
 }
 

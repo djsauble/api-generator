@@ -16,7 +16,7 @@ var View = Backbone.View.extend({
     this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goal', this.setModel);
-    this.listenTo(Forrest.bus, 'user:change:runsByWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.setModel);
   },
 
   events: {
@@ -30,22 +30,22 @@ var View = Backbone.View.extend({
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         runArray,
         goal = 0,
-        runsByWeek,
+        distanceByWeek,
         goalThisWeek,
         distanceThisWeek,
         goalString,
         goalDateString = '&mdash;',
         chartHtml = '';
 
-    if (this.model && this.model.get('runsByWeek').length > 0 && this.model.get('goalThisWeek')) {
+    if (this.model && this.model.get('distanceByWeek').length > 0 && this.model.get('goalThisWeek')) {
 
       goal = this.model.get('goal');
-      runsByWeek = this.model.get('runsByWeek');
+      distanceByWeek = this.model.get('distanceByWeek');
       goalThisWeek = this.model.get('goalThisWeek');
       distanceThisWeek = this.model.get('distanceThisWeek');
 
       // Copy the weekly summary
-      runArray = _.clone(runsByWeek);
+      runArray = _.clone(distanceByWeek);
 
       // Include this week's goal, if available
       runArray.push({
@@ -58,7 +58,7 @@ var View = Backbone.View.extend({
         goalString = this.getGoalString(goal);
         goalDateString = this.getGoalDate(
           goal,
-          runsByWeek,
+          distanceByWeek,
           startOfThisWeek
         );
       }
@@ -81,6 +81,7 @@ var View = Backbone.View.extend({
   },
 
   template: _.template(
+    "<h1>Trending data</h1>" +
     "<div class='graph row'><%= chartHtml %></div>" +
     "<% if (mode === 'view') { %>" +
     "<p><big><%= goalString %></big>" +
@@ -139,18 +140,18 @@ var View = Backbone.View.extend({
   },
 
   // Display run data for the last eight weeks
-  getChartHtml: function(runsByWeek, distanceThisWeek) {
+  getChartHtml: function(distanceByWeek, distanceThisWeek) {
     var chartHtml = "";
 
     maxDistance = _.max(
-      runsByWeek.map(function(w) {
+      distanceByWeek.map(function(w) {
         return w.sum;
       })
     );
-    for (var i = 0; i < runsByWeek.length; ++i) {
-      chartHtml += "<div class='bar' style='height: " + (runsByWeek[i].sum / maxDistance * 100) + "%;'>";
-      if (i == runsByWeek.length - 1) {
-        chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / runsByWeek[i].sum * 100) + "%;'></div>";
+    for (var i = 0; i < distanceByWeek.length; ++i) {
+      chartHtml += "<div class='bar' style='height: " + (distanceByWeek[i].sum / maxDistance * 100) + "%;'>";
+      if (i == distanceByWeek.length - 1) {
+        chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / distanceByWeek[i].sum * 100) + "%;'></div>";
       }
       chartHtml += "</div>";
     }
@@ -161,7 +162,7 @@ var View = Backbone.View.extend({
   // Get the select control for changing your goal
   getSelectHtml: function() {
     var startOfThisWeek = DateRound.floor(new Date(), 'week'),
-        runsByWeek = this.model ? this.model.get('runsByWeek') : [],
+        distanceByWeek = this.model ? this.model.get('distanceByWeek') : [],
         goal = this.model ? this.model.get('goal') : null,
         tag,
         estimate,
@@ -178,8 +179,8 @@ var View = Backbone.View.extend({
       }
 
       // Show predictions if available
-      if (runsByWeek.length > 0) {
-        estimate = this.getGoalDate(i, runsByWeek, startOfThisWeek);
+      if (distanceByWeek.length > 0) {
+        estimate = this.getGoalDate(i, distanceByWeek, startOfThisWeek);
       }
       else {
         estimate = '';
@@ -197,7 +198,7 @@ var View = Backbone.View.extend({
   },
 
   // Display the last day of the given week
-  getGoalDate: function(goalAmount, runsByWeek, startOfThisWeek) {
+  getGoalDate: function(goalAmount, distanceByWeek, startOfThisWeek) {
     var max, prediction, month, day;
 
     // Set the max horizon for the prediction (three years in the future)
@@ -205,7 +206,7 @@ var View = Backbone.View.extend({
     max.setYear(max.getYear() + 1900 + 3);
     
     // Get the prediction
-    prediction = predict(goalAmount, runsByWeek.map(function(r) {
+    prediction = predict(goalAmount, distanceByWeek.map(function(r) {
       return {
         timestamp: r.period,
         value: r.sum
@@ -213,7 +214,7 @@ var View = Backbone.View.extend({
     }));
 
     // Is the prediction after today?
-    if (goalAmount <= _.last(runsByWeek).sum) {
+    if (goalAmount <= _.last(distanceByWeek).sum) {
       return "today";
     }
 

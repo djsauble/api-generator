@@ -6,7 +6,8 @@ var User = Backbone.Model.extend({
     return {
       distanceThisWeek: 0,
       goalThisWeek: 0,
-      runsByWeek: [],
+      distanceByWeek: [],
+      paceByWeek: [],
       goal: 0
     };
   },
@@ -18,8 +19,11 @@ var User = Backbone.Model.extend({
     this.listenTo(this, 'change:goalThisWeek', function(model, value) {
       Forrest.bus.trigger('user:change:goalThisWeek', model, value);
     });
-    this.listenTo(this, 'change:runsByWeek', function(model, value) {
-      Forrest.bus.trigger('user:change:runsByWeek', model, value);
+    this.listenTo(this, 'change:distanceByWeek', function(model, value) {
+      Forrest.bus.trigger('user:change:distanceByWeek', model, value);
+    });
+    this.listenTo(this, 'change:paceByWeek', function(model, value) {
+      Forrest.bus.trigger('user:change:paceByWeek', model, value);
     });
     this.listenTo(this, 'change:goal', function(model, value) {
       Forrest.bus.trigger('user:change:goal', model, value);

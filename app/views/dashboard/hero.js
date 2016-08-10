@@ -1,6 +1,5 @@
 var _ = require('underscore');
 var Backbone = require('backbone');
-var DateNames = require('date-names');
 var DateRound = require('date-round');
 var round = require('float').round;
 
@@ -11,7 +10,7 @@ var View = Backbone.View.extend({
     // Data changed
     this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
-    this.listenTo(Forrest.bus, 'user:change:runsByWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.setModel);
   },
 
   render: function() {
@@ -23,29 +22,31 @@ var View = Backbone.View.extend({
         goalThisWeek = null,
         percentChange = 0,
         remainingThisWeek = 0,
-        runsByWeek = null,
+        distanceByWeek = null,
         trendPercentString = null,
-        trendDescriptionString = null;
+        trendDescriptionString = null,
+        milesPerDay = null;
 
     // Calculate trending information if we have the data
-    if (this.model && this.model.get('runsByWeek').length > 0 && this.model.get('goalThisWeek')) {
+    if (this.model && this.model.get('distanceByWeek').length > 0 && this.model.get('goalThisWeek')) {
 
       distanceThisWeek = this.model.get('distanceThisWeek');
       goalThisWeek = this.model.get('goalThisWeek');
-      runsByWeek = this.model.get('runsByWeek');
+      distanceByWeek = this.model.get('distanceByWeek');
 
-      distanceLastWeek = _.last(runsByWeek).sum;
+      distanceLastWeek = _.last(distanceByWeek).sum;
       percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100);
       remainingThisWeek = round(goalThisWeek - distanceThisWeek, 1);
 
       // WoW change
       if (percentChange < 10) {
         trendPercentString = remainingThisWeek;
+        milesPerDay = round(remainingThisWeek / daysLeftThisWeek, 1);
         trendDescriptionString = "miles to go this week";
       }
       else {
         trendPercentString = percentChange + "%";
-        trendDescriptionString = "more miles than last week.";
+        trendDescriptionString = "more miles than last week";
       }
     }
 
@@ -54,7 +55,8 @@ var View = Backbone.View.extend({
       this.template({
         daysLeftThisWeek: daysLeftThisWeek,
         trendPercentString: trendPercentString,
-        trendDescriptionString: trendDescriptionString
+        trendDescriptionString: trendDescriptionString,
+        milesPerDay: milesPerDay
       })
     );
     
@@ -62,15 +64,12 @@ var View = Backbone.View.extend({
   },
 
   template: _.template(
+    "<h1>Weekly goal</h1>" +
     "<p><big><%= daysLeftThisWeek %></big> days left this week</p>" +
-    "<p><big><%= trendPercentString %></big> <%= trendDescriptionString%></p>"+
-    "<p>" +
-    "5k <small>24:48</small> &middot; " +
-    "10k <small>52:42</small> &middot; " + 
-    "13.1mi <small>1:57:54</small> &middot; " +
-    "26.2mi <small>4:08:54</small> &middot; " +
-    "50k <small>5:10:00</small>" +
-    "</p>"
+    "<p><big><%= trendPercentString %></big> <%= trendDescriptionString%></p>" +
+    "<% if (milesPerDay) { %>" +
+    "<p><big><%= milesPerDay %></big> miles per day</p>" +
+    "<% } %>"
   ),
 
   // Set the model for this view if needed, and trigger a render

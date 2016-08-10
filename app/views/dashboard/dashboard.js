@@ -2,6 +2,7 @@ var _ = require('underscore');
 var Backbone = require('backbone');
 var HeroView = require('./hero');
 var TrendView = require('./trend');
+var RacesView = require('./races');
 var ViewerView = require('./viewer');
 
 var View = Backbone.View.extend({
@@ -11,6 +12,7 @@ var View = Backbone.View.extend({
     // Child components
     this.hero = new HeroView();
     this.trend = new TrendView();
+    this.races = new RacesView();
     this.viewer = new ViewerView();
   },
 
@@ -20,6 +22,9 @@ var View = Backbone.View.extend({
 
     // Show the trend component
     this.$el.append(this.trend.render().el);
+
+    // Show the races component
+    this.$el.append(this.races.render().el);
 
     // Show the viewer component
     this.$el.append(this.viewer.render().el);
@@ -34,6 +39,9 @@ var View = Backbone.View.extend({
     }
     if (this.trend) {
       this.trend.remove();
+    }
+    if (this.races) {
+      this.races.remove();
     }
     if (this.viewer) {
       this.viewer.remove();

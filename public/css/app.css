@@ -113,7 +113,7 @@ ul.list li:last-child {
 
 .trend .graph {
   align-items: flex-end;
-  height: 2em;
+  height: 4em;
 }
 
 .trend .bar {
@@ -130,6 +130,16 @@ ul.list li:last-child {
 .trend select.goal {
   border: 1px solid #a8a8a8;
   font-size: 1.4em;
+}
+
+/**
+ * Races section
+ */
+
+.races {
+  flex-shrink: 0;
+  background-color: #666666;
+  padding: 1em 2em 1em 2em;
 }
 
 /**
