@@ -76,10 +76,8 @@ ul.list {
 }
 
 ul.list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 2em;
+  padding: 1.5em 2em 0.5em 2em;
+  line-height: 0.5em;
   border-bottom: 1px solid #efefef;
 }
 
@@ -89,10 +87,6 @@ ul.list li.selected {
 
 ul.list li:last-child {
   border-bottom: none;
-}
-
-ul.list li *:last-child {
-  margin-left: 1em;
 }
 
 .map {

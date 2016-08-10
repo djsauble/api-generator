@@ -8,7 +8,7 @@ namespace('metadata', function() {
     var users = nano.db.use('users');
 
     users.get(user, function(err, body) {
-      Helpers.getRuns(body.run_database, function(runs) {
+      Helpers.getRuns(nano.db.use(body.run_database), function(runs) {
         var todo = {};
 
         console.log('Checking for gaps... ');

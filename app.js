@@ -550,7 +550,7 @@ function getWeeklyGoal(ws, data) {
     }
 
     // Fetch goal information
-    getRuns(body.run_database, function(runs) {
+    Helpers.getRuns(nano.db.use(body.run_database), function(runs) {
       ws.send(JSON.stringify({
         type: 'weekly_goal:get',
         data: computeWeeklyGoal(runs, body)
@@ -580,7 +580,7 @@ function listRuns(ws, data) {
     }
 
     // Fetch the run documents
-    getRuns(body.run_database, function(runs) {
+    Helpers.getRuns(nano.db.use(body.run_database), function(runs) {
       if (!runs) {
         ws.send(error);
         return;
@@ -639,7 +639,7 @@ function getTrend(ws, data) {
     }
 
     // Fetch the run documents
-    getRuns(body.run_database, function(runs) {
+    Helpers.getRuns(nano.db.use(body.run_database), function(runs) {
       if (!runs) {
         ws.send(error);
         return;
@@ -842,7 +842,7 @@ function analyzeDataFor(user) {
       return;
     }
 
-    getRuns(body.run_database, function(runs) {
+    Helpers.getRuns(nano.db.use(body.run_database), function(runs) {
       if (runs) {
 
         // Broadcast the list of runs

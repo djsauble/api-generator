@@ -1,10 +1,8 @@
-var nano = require('nano')(process.env.COUCHDB_DATABASE_URL);
 var Distance = require('compute-distance');
 
 // Get a list of runs from the given database
 var getRuns = function (db, callback) {
-  var runs = nano.db.use(db);
-  runs.list({include_docs: true}, function(err, body) {
+  db.list({include_docs: true}, function(err, body) {
     if (err) {
       callback(null);
       return;

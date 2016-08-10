@@ -31,6 +31,8 @@ var View = Backbone.View.extend({
         longerString = DateNames.months[month] + " " + dayOfMonth,
         longestString = longerString + ", " + year,
         mileage = this.model.getMileage(),
+        duration = this.model.getDuration(),
+        pace = this.model.getPace(),
         date;
 
     // Pick the right date format
@@ -50,7 +52,10 @@ var View = Backbone.View.extend({
       date = longestString;
     }
 
-    this.$el.html("<a href='#'>" + date + "</a><small>" + mileage + " mi</small>");
+    this.$el.html("<a href='#'>" + date + "</a>" +
+                  "<p><small>" + mileage + " mi</small> &middot; " +
+                  "<small>" + duration + "</small> &middot; " +
+                  "<small>" + pace + "</small></p>");
 
     return this;
   }
