@@ -143,35 +143,41 @@ ul.list li:last-child {
 }
 
 /**
- * Settings screen
+ * Settings page
  */
-.forrest-settings {
-  padding: 2em;
+
+.settings-back {
+  align-self: center;
 }
 
-.forrest-settings .sections {
-  padding-top: 2em;
+.settings-sections {
+  align-self: center;
+  padding: 2em 0;
 }
 
-.forrest-settings .sections > * {
-  flex: 0 0 16em;
-  border: 1px solid #d4d4d4;
-  background-color: #f4f4f4;
-  padding: 1em;
-}
-
-.forrest-settings .sections > * > h2 {
-  margin-top: 0;
-}
-
-.forrest-settings .code .security_code {
+.settings-sections > div {
+  margin: 0 2em;
+  padding: 4em;
+  border-radius: 18px;
   border: 1px solid #d8d8d8;
-  padding: 0.25em;
+  width: 14em;
+  text-align: center;
 }
 
-/**
- * Token request view
- */
+.settings-sections .get_passcode {
+  background-color: #a03fab;
+  color: #ffffff;
+  font-size: 1.2em;
+  border-radius: 20px;
+  border-width: 1px;
+  padding: 0.4em 1em;
+  border-style: solid;
+  border-color: #efefef #d8d8d8 #d8d8d8;
+}
+
+.settings-sections .get_passcode:hover {
+  opacity: 0.8;
+}
 
 .success {
   color: green;

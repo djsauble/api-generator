@@ -11,15 +11,14 @@ var View = Backbone.View.extend({
   render: function() {
 
     this.$el.html(
-      "<a href='#'><i class='fa fa-arrow-left'></i> Go back to the dashboard</a>" +
-      "<div class='sections row center'>" +
+      "<div class='settings-sections row center'>" +
       "<div class='download'>" +
       "<h2>Download</h2>" +
-      "<p>Get the app</p>" +
       "<img src='images/Download_on_the_App_Store_Badge_US-UK_135x40.svg' alt='Download on the App Store'/>" +
       "</div>" +
       "<div class='code'></div>" +
-      "</div>"
+      "</div>" +
+      "<a href='#' class='settings-back'><i class='fa fa-arrow-left'></i> Go back to the dashboard</a>"
     );
 
     this.securityCode.setElement(this.$('.code'));

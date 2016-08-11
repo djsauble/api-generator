@@ -38,12 +38,14 @@ var View = Backbone.View.extend({
       this.passcode = undefined;
       this.expires = undefined;
       this.render();
+
+      // Navigate to the dashboard
+      window.location.href = '#';
     }
   },
 
   template: _.template(
     "<h2>Connect</h2>" +
-    "<p>Provide the passcode below</p>" +
     "<% if (passcode) { %>" +
     "<h1><code class='security_code'><%= passcode %></code></h1>" +
     "<% } else { %>" +
