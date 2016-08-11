@@ -7,7 +7,7 @@ var Buffer = require('Buffer');
 var nano = require('nano')(process.env.COUCHDB_DATABASE_URL);
 var SocketServer = require('ws').Server;
 var sum = require('timeseries-sum');
-var DateAggregate = require('timeseries-aggregate');
+var Aggregate = require('timeseries-aggregate');
 var DateRound = require('date-round');
 var round = require('float').round;
 var Distance = require('compute-distance');
@@ -759,7 +759,7 @@ function computeWeeklyGoal(runs, user) {
     // Determine how many weeks have elapsed since we started this level
     i = new Date(startOfThisWeek);
     while (i.getTime() > (new Date(user.level_start)).getTime()) {
-      i = new Date(i.getTime() - DateAggregate.WEEK_IN_MS);
+      i = new Date(i.getTime() - Aggregate.WEEK_IN_MS);
       levelWeeks += 1;
     }
 
@@ -827,8 +827,8 @@ function computeTrendingData(runs, weeks) {
       }),
       startOfToday = DateRound.floor(new Date()),
       startOfThisWeek = DateRound.floor(startOfToday, 'week'),
-      distanceByWeek = DateAggregate.aggregate(startOfThisWeek, weeks, DateAggregate.WEEK_IN_MS, rawDistanceData);
-      paceByWeek = DateAggregate.aggregate(startOfThisWeek, weeks, DateAggregate.WEEK_IN_MS, rawPaceData);
+      distanceByWeek = Aggregate.sum(startOfThisWeek, weeks, Aggregate.WEEK_IN_MS, rawDistanceData);
+      paceByWeek = Aggregate.average(startOfThisWeek, weeks, Aggregate.WEEK_IN_MS, rawPaceData);
 
   // Compile run data for the last few weeks
   return {

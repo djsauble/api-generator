@@ -72,6 +72,27 @@ var getDistance = function (data) {
   return distance;
 };
 
+// Get the appropriate goal for a given weekly mileage
+var getGoalString = function(goal) {
+       if (goal >= 80) { return '100 mi';  }
+  else if (goal >= 70) { return '100 km';  }
+  else if (goal >= 60) { return '50 mi';   }
+  else if (goal >= 50) { return '50 km';   }
+  else if (goal >= 40) { return '26.2 mi'; }
+  else if (goal >= 30) { return '13.1 mi'; }
+  else if (goal >= 20) { return '10 km';   }
+  else if (goal >= 10) { return '5 km';    }
+  else                 { return '1 mi';    }
+};
+
+/**
+ * Date functions
+ */
+
+// Constants
+var DAY_IN_MS = 1000 * 60 * 60 * 24;
+var WEEK_IN_MS = 1000 * 60 * 60 * 24 * 7;
+
 // Calculate average pace represented by a run document
 var getPace = function (data) {
   var distance = getDistance(data) / 1609.344,
@@ -91,25 +112,47 @@ var getDuration = function (data) {
   return elapsed;
 };
 
-/**
- * Date functions
- */
+// Format a duration string
+var durationFromMinutes = function(value) {
+  var seconds = parseInt((value % 1) * 60),
+      minutes = parseInt(value % 60),
+      hours = parseInt((value - minutes) / 60),
+      str = '';
 
-// Constants
-var DAY_IN_MS = 1000 * 60 * 60 * 24;
-var WEEK_IN_MS = 1000 * 60 * 60 * 24 * 7;
+  // Hours
+  if (hours > 0) {
+    str += hours + ':';
+  }
+
+  // Minutes
+  if (minutes < 10) {
+    str += '0';
+  }
+  str += minutes + ':';
+
+  // Seconds
+  if (seconds < 10) {
+    str += '0';
+  }
+  str += seconds;
+
+  return str;
+};
 
 module.exports = {
+  DAY_IN_MS: DAY_IN_MS,
+  WEEK_IN_MS: WEEK_IN_MS,
   getRuns: getRuns,
   getDistance: getDistance,
   getPace: getPace,
   getDuration: getDuration,
-  DAY_IN_MS: DAY_IN_MS,
-  WEEK_IN_MS: WEEK_IN_MS
+  getGoalString: getGoalString,
+  durationFromMinutes: durationFromMinutes,
 };
 
 },{"compute-distance":20}],3:[function(require,module,exports){
 var Backbone = require('backbone');
+var Helpers = require('../helpers');
 
 var Run = Backbone.Model.extend({
   idAttribute: '_id',
@@ -128,41 +171,16 @@ var Run = Backbone.Model.extend({
     return Math.round(this.get('distance') / 1609.3 * 10) / 10;
   },
   getDuration: function() {
-    return this.durationFromMinutes(this.get('duration'));
+    return Helpers.durationFromMinutes(this.get('duration'));
   },
   getPace: function() {
-    return this.durationFromMinutes(this.get('pace')) + ' min/mi';
+    return Helpers.durationFromMinutes(this.get('pace')) + ' min/mi';
   },
-  durationFromMinutes: function(value) {
-    var seconds = parseInt((value % 1) * 60),
-        minutes = parseInt(value % 60),
-        hours = parseInt((value - minutes) / 60),
-        str = '';
-
-    // Hours
-    if (hours > 0) {
-      str += hours + ':';
-    }
-
-    // Minutes
-    if (minutes < 10) {
-      str += '0';
-    }
-    str += minutes + ':';
-
-    // Seconds
-    if (seconds < 10) {
-      str += '0';
-    }
-    str += seconds;
-
-    return str;
-  }
 });
 
 module.exports = Run;
 
-},{"backbone":19}],4:[function(require,module,exports){
+},{"../helpers":2,"backbone":19}],4:[function(require,module,exports){
 var Backbone = require('backbone');
 var Run = require('./run');
 
@@ -913,33 +931,134 @@ module.exports = View;
 },{"../../helpers":2,"backbone":19,"compute-distance":20,"jquery":26}],13:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
+var Helpers = require('../../helpers');
 
 var View = Backbone.View.extend({
   className: "races dark row",
 
+  initialize: function() {
+    // Events
+    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:paceByWeek', this.setModel);
+  },
+
   template: _.template(
     "<h1>Race estimates</h1>" +
-    "<p><big>5 km</big> 24:48</p>" +
-    "<p><big>10 km</big> 52:42</p>" + 
-    "<p><big>13.1 mi</big> 1:57:54</p>" +
-    "<p><big>26.2 mi</big> 4:08:54</p>" +
-    "<p><big>50 km</big> 5:10:00</p>" +
-    "</p>"
+    "<% data.forEach(function(e) { %>" +
+    "<p><big><%= e.name %></big> <%= e.duration %></p>" +
+    "<% }); %>"
   ),
 
   render: function() {
+    var distanceByWeek,
+        paceByWeek,
+        length,
+        distance = 0,
+        pace = 0,
+        avgDistance,
+        avgPace,
+        pace,
+        mileage,
+        raceName,
+        raceDuration,
+        count = 0,
+        data = [],
+        i;
+
+    // Must have at least two week's worth of data to extrapolate race times
+    if (!this.model || this.model.get('distanceByWeek').length < 2) {
+      // Should render something, instead of just quitting
+      return this;
+    }
+
+    // Set shorthand variables
+    distanceByWeek = this.model.get('distanceByWeek');
+    paceByWeek = this.model.get('paceByWeek');
+    length = paceByWeek.length;
+
+    // Calculate the average distance and pace over the last month
+    while (count < 4 && count < length) {
+      distance += distanceByWeek[length - count - 1].sum;
+      pace += paceByWeek[length - count - 1].average;
+      ++count;
+    }
+    avgDistance = distance / count;
+    avgPace = pace / count;
+
+    // Calculate race HTML
+    for (i = 10; i < avgDistance && i <= 80; i += 10) {
+      pace = this.getGoalPace(i, avgDistance, avgPace);
+      mileage = this.getGoalMileage(i);
+      raceName = Helpers.getGoalString(i);
+      raceDuration = Helpers.durationFromMinutes(pace * mileage);
+      data.push({
+        name: raceName,
+        duration: raceDuration
+      });
+    }
+
+    // Render it
     this.$el.html(
       this.template({
+        data: data
       })
     );
 
     return this;
+  },
+
+  // Set the model for this view if needed, and trigger a render
+  setModel: function(model) {
+    if (!this.model) {
+      this.model = model;
+    }
+    this.render();
+  },
+
+  // Calculate the predicted race pace at current training volume and pace
+  //
+  // 1. Assume race pace is 5% faster than training pace.
+  // 2. Assume race pace at each shorter race distance is 5% faster
+  //    than the previous distance
+  getGoalPace: function(goal, volume, pace) {
+    var currentMiles = Math.round(volume / 10) * 10,
+        currentPace = pace * 0.95,
+        hours,
+        minutes,
+        seconds,
+        str;
+
+    // Goal must be less than current volume
+    if (goal < currentMiles) {
+      return null;
+    }
+
+    // Find the target pace
+    while (currentMiles > goal) {
+      currentPace = currentPace * 0.95;
+      currentMiles -= 10;
+    }
+
+    return currentPace;
+  },
+
+  // Get the appropriate goal distance (in miles) for a given weekly mileage
+  getGoalMileage: function(goal) {
+         if (goal >= 80) { return 100;  }
+    else if (goal >= 70) { return 62.1371192;  }
+    else if (goal >= 60) { return 50;   }
+    else if (goal >= 50) { return 31.0685596;   }
+    else if (goal >= 40) { return 26.2; }
+    else if (goal >= 30) { return 13.1; }
+    else if (goal >= 20) { return 6.21371192;   }
+    else if (goal >= 10) { return 3.10685596;    }
+    else                 { return 1;    }
   }
 });
 
 module.exports = View;
 
-},{"backbone":19,"underscore":31}],14:[function(require,module,exports){
+},{"../../helpers":2,"backbone":19,"underscore":31}],14:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -1012,6 +1131,7 @@ var DateNames = require('date-names');
 var DateRound = require('date-round');
 var Cookie = require('tiny-cookie');
 var predict = require('date-prediction');
+var Helpers = require('../../helpers');
 
 var View = Backbone.View.extend({
   className: "trend dark row",
@@ -1063,7 +1183,7 @@ var View = Backbone.View.extend({
 
       // If a goal has been set, display our prediction
       if (goal) {
-        goalString = this.getGoalString(goal);
+        goalString = Helpers.getGoalString(goal);
         goalDateString = this.getGoalDate(
           goal,
           distanceByWeek,
@@ -1196,7 +1316,7 @@ var View = Backbone.View.extend({
 
       // Generate the HTML for each option
       html += "<option value='" + i + "' " + tag + ">" +
-              this.getGoalString(i) + (estimate ? ' by ' + estimate : '') +
+              Helpers.getGoalString(i) + (estimate ? ' by ' + estimate : '') +
               "</option>";
     }
 
@@ -1241,23 +1361,12 @@ var View = Backbone.View.extend({
     }
 
     return null;
-  },
-
-  getGoalString: function(goal) {
-         if (goal >= 80) { return '100 mi';  }
-    else if (goal >= 70) { return '100 km';  }
-    else if (goal >= 60) { return '50 mi';   }
-    else if (goal >= 50) { return '50 km';   }
-    else if (goal >= 40) { return '26.2 mi'; }
-    else if (goal >= 30) { return '13.1 mi'; }
-    else if (goal >= 20) { return '10 km';   }
-    else                 { return '5 km';    }
   }
 });
 
 module.exports = View;
 
-},{"backbone":19,"date-names":22,"date-prediction":23,"date-round":24,"tiny-cookie":30,"underscore":31}],16:[function(require,module,exports){
+},{"../../helpers":2,"backbone":19,"date-names":22,"date-prediction":23,"date-round":24,"tiny-cookie":30,"underscore":31}],16:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');

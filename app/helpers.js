@@ -29,6 +29,27 @@ var getDistance = function (data) {
   return distance;
 };
 
+// Get the appropriate goal for a given weekly mileage
+var getGoalString = function(goal) {
+       if (goal >= 80) { return '100 mi';  }
+  else if (goal >= 70) { return '100 km';  }
+  else if (goal >= 60) { return '50 mi';   }
+  else if (goal >= 50) { return '50 km';   }
+  else if (goal >= 40) { return '26.2 mi'; }
+  else if (goal >= 30) { return '13.1 mi'; }
+  else if (goal >= 20) { return '10 km';   }
+  else if (goal >= 10) { return '5 km';    }
+  else                 { return '1 mi';    }
+};
+
+/**
+ * Date functions
+ */
+
+// Constants
+var DAY_IN_MS = 1000 * 60 * 60 * 24;
+var WEEK_IN_MS = 1000 * 60 * 60 * 24 * 7;
+
 // Calculate average pace represented by a run document
 var getPace = function (data) {
   var distance = getDistance(data) / 1609.344,
@@ -48,19 +69,40 @@ var getDuration = function (data) {
   return elapsed;
 };
 
-/**
- * Date functions
- */
+// Format a duration string
+var durationFromMinutes = function(value) {
+  var seconds = parseInt((value % 1) * 60),
+      minutes = parseInt(value % 60),
+      hours = parseInt((value - minutes) / 60),
+      str = '';
 
-// Constants
-var DAY_IN_MS = 1000 * 60 * 60 * 24;
-var WEEK_IN_MS = 1000 * 60 * 60 * 24 * 7;
+  // Hours
+  if (hours > 0) {
+    str += hours + ':';
+  }
+
+  // Minutes
+  if (minutes < 10) {
+    str += '0';
+  }
+  str += minutes + ':';
+
+  // Seconds
+  if (seconds < 10) {
+    str += '0';
+  }
+  str += seconds;
+
+  return str;
+};
 
 module.exports = {
+  DAY_IN_MS: DAY_IN_MS,
+  WEEK_IN_MS: WEEK_IN_MS,
   getRuns: getRuns,
   getDistance: getDistance,
   getPace: getPace,
   getDuration: getDuration,
-  DAY_IN_MS: DAY_IN_MS,
-  WEEK_IN_MS: WEEK_IN_MS
+  getGoalString: getGoalString,
+  durationFromMinutes: durationFromMinutes,
 };

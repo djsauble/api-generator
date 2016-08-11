@@ -4,6 +4,7 @@ var DateNames = require('date-names');
 var DateRound = require('date-round');
 var Cookie = require('tiny-cookie');
 var predict = require('date-prediction');
+var Helpers = require('../../helpers');
 
 var View = Backbone.View.extend({
   className: "trend dark row",
@@ -55,7 +56,7 @@ var View = Backbone.View.extend({
 
       // If a goal has been set, display our prediction
       if (goal) {
-        goalString = this.getGoalString(goal);
+        goalString = Helpers.getGoalString(goal);
         goalDateString = this.getGoalDate(
           goal,
           distanceByWeek,
@@ -188,7 +189,7 @@ var View = Backbone.View.extend({
 
       // Generate the HTML for each option
       html += "<option value='" + i + "' " + tag + ">" +
-              this.getGoalString(i) + (estimate ? ' by ' + estimate : '') +
+              Helpers.getGoalString(i) + (estimate ? ' by ' + estimate : '') +
               "</option>";
     }
 
@@ -233,17 +234,6 @@ var View = Backbone.View.extend({
     }
 
     return null;
-  },
-
-  getGoalString: function(goal) {
-         if (goal >= 80) { return '100 mi';  }
-    else if (goal >= 70) { return '100 km';  }
-    else if (goal >= 60) { return '50 mi';   }
-    else if (goal >= 50) { return '50 km';   }
-    else if (goal >= 40) { return '26.2 mi'; }
-    else if (goal >= 30) { return '13.1 mi'; }
-    else if (goal >= 20) { return '10 km';   }
-    else                 { return '5 km';    }
   }
 });
 
