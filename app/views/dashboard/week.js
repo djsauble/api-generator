@@ -10,10 +10,7 @@ var View = Backbone.View.extend({
     // Data changed
     this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
-    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', function(model, value) {
-      this.checkState(value);
-      this.setModel(model);
-    });
+    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.setModel);
   },
 
   render: function() {
@@ -105,12 +102,6 @@ var View = Backbone.View.extend({
       this.model = model;
     }
     this.render();
-  },
-
-  // Expand this view if there are no runs
-  checkState: function(value) {
-    console.log(value.length === 0);
-    this.$el.toggleClass('expand', value.length === 0);
   }
 });
 

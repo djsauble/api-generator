@@ -539,6 +539,9 @@ var View = Backbone.View.extend({
     this.trend = new TrendView();
     this.races = new RacesView();
     this.viewer = new ViewerView();
+
+    // Data changed
+    this.listenTo(Forrest.bus, 'runs:sync', this.checkState);
   },
 
   render: function() {
@@ -571,6 +574,12 @@ var View = Backbone.View.extend({
     if (this.viewer) {
       this.viewer.remove();
     }
+  },
+
+  // Hide this view if there are no runs
+  checkState: function(runs) {
+    this.viewer.$el.toggleClass('expand', runs.length > 0);
+    this.week.render().$el.toggleClass('expand', runs.length === 0);
   }
 });
 
@@ -1302,9 +1311,6 @@ var View = Backbone.View.extend({
     // Child components
     this.map = new MapView();
     this.list = new ListView();
-
-    // Data changed
-    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.checkState);
   },
 
   render: function() {
@@ -1325,11 +1331,6 @@ var View = Backbone.View.extend({
     if (this.list) {
       this.list.remove();
     }
-  },
-
-  // Hide this view if there are no runs
-  checkState: function(model, value) {
-    this.$el.toggleClass('expand', value.length > 0);
   }
 });
 
@@ -1348,10 +1349,7 @@ var View = Backbone.View.extend({
     // Data changed
     this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
-    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', function(model, value) {
-      this.checkState(value);
-      this.setModel(model);
-    });
+    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.setModel);
   },
 
   render: function() {
@@ -1443,12 +1441,6 @@ var View = Backbone.View.extend({
       this.model = model;
     }
     this.render();
-  },
-
-  // Expand this view if there are no runs
-  checkState: function(value) {
-    console.log(value.length === 0);
-    this.$el.toggleClass('expand', value.length === 0);
   }
 });
 

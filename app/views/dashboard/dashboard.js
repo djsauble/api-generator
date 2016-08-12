@@ -14,6 +14,9 @@ var View = Backbone.View.extend({
     this.trend = new TrendView();
     this.races = new RacesView();
     this.viewer = new ViewerView();
+
+    // Data changed
+    this.listenTo(Forrest.bus, 'runs:sync', this.checkState);
   },
 
   render: function() {
@@ -46,6 +49,12 @@ var View = Backbone.View.extend({
     if (this.viewer) {
       this.viewer.remove();
     }
+  },
+
+  // Hide this view if there are no runs
+  checkState: function(runs) {
+    this.viewer.$el.toggleClass('expand', runs.length > 0);
+    this.week.render().$el.toggleClass('expand', runs.length === 0);
   }
 });
 

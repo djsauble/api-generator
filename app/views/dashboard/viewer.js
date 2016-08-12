@@ -10,9 +10,6 @@ var View = Backbone.View.extend({
     // Child components
     this.map = new MapView();
     this.list = new ListView();
-
-    // Data changed
-    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.checkState);
   },
 
   render: function() {
@@ -33,11 +30,6 @@ var View = Backbone.View.extend({
     if (this.list) {
       this.list.remove();
     }
-  },
-
-  // Hide this view if there are no runs
-  checkState: function(model, value) {
-    this.$el.toggleClass('expand', value.length > 0);
   }
 });
 
