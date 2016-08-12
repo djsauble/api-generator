@@ -1,6 +1,6 @@
 var _ = require('underscore');
 var Backbone = require('backbone');
-var HeroView = require('./hero');
+var WeekView = require('./week');
 var TrendView = require('./trend');
 var RacesView = require('./races');
 var ViewerView = require('./viewer');
@@ -10,15 +10,15 @@ var View = Backbone.View.extend({
 
   initialize: function() {
     // Child components
-    this.hero = new HeroView();
+    this.week = new WeekView();
     this.trend = new TrendView();
     this.races = new RacesView();
     this.viewer = new ViewerView();
   },
 
   render: function() {
-    // Show the hero component
-    this.$el.append(this.hero.render().el);
+    // Show the week component
+    this.$el.append(this.week.render().el);
 
     // Show the trend component
     this.$el.append(this.trend.render().el);
@@ -34,8 +34,8 @@ var View = Backbone.View.extend({
 
   remove: function() {
     this.undelegateEvents();
-    if (this.hero) {
-      this.hero.remove();
+    if (this.week) {
+      this.week.remove();
     }
     if (this.trend) {
       this.trend.remove();

@@ -783,7 +783,7 @@ function computeWeeklyGoal(runs, user) {
       goalThisWeek: round(Training.mileageAtWeek(levelWeeks, user.level), 1)
     };
   }
-  else if (rawData[0].timestamp.getTime() < startOfLastWeek) {
+  else if (rawData.length > 0 && rawData[0].timestamp.getTime() < startOfLastWeek) {
     // We have enough information to set the level
     trend = computeTrendingData(runs, 1);
     plan = Training.weeksAtMileage(trend.distanceByWeek[0].sum);

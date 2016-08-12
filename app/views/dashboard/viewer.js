@@ -4,12 +4,15 @@ var ListView = require('./list');
 var MapView = require('./map');
 
 var View = Backbone.View.extend({
-  className: "viewer row expand",
+  className: "viewer row",
 
   initialize: function() {
     // Child components
     this.map = new MapView();
     this.list = new ListView();
+
+    // Data changed
+    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.checkState);
   },
 
   render: function() {
@@ -30,6 +33,11 @@ var View = Backbone.View.extend({
     if (this.list) {
       this.list.remove();
     }
+  },
+
+  // Hide this view if there are no runs
+  checkState: function(model, value) {
+    this.$el.toggleClass('expand', value.length > 0);
   }
 });
 

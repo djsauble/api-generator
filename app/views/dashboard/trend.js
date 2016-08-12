@@ -31,7 +31,7 @@ var View = Backbone.View.extend({
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         runArray,
         goal = 0,
-        distanceByWeek,
+        distanceByWeek = [],
         goalThisWeek,
         distanceThisWeek,
         goalString,
@@ -70,6 +70,9 @@ var View = Backbone.View.extend({
 
     this.$el.html(
       this.template({
+        enoughData: distanceByWeek.length > 2,
+
+        // Show these when we have at least three weeks of data
         chartHtml: chartHtml,
         selectHtml: this.getSelectHtml(),
         goalString: goalString,
@@ -82,21 +85,23 @@ var View = Backbone.View.extend({
   },
 
   template: _.template(
-    "<h1>Trending data</h1>" +
-    "<div class='graph row'><%= chartHtml %></div>" +
-    "<% if (mode === 'view') { %>" +
-    "<p><big><%= goalString %></big>" +
-    "<% if (goalDateString) { %>" +
-    " by <%= goalDateString %>" +
-    "<% } else { %>" +
-    " goal" +
-    "<% } %>" +
-    "</p>" +
-    "<a href='#' class='change_goal'>Change goal</a>" +
-    "<% } else if (mode === 'change') { %>" +
-    "<%= selectHtml %>" +
-    "<a href='#' class='save_goal'>Save goal</a>" +
-    "<a href='#' class='cancel_change'>Cancel</a>" +
+    "<% if (enoughData) { %>" +
+      "<h1>Trending data</h1>" +
+      "<div class='graph row'><%= chartHtml %></div>" +
+      "<% if (mode === 'view') { %>" +
+      "<p><big><%= goalString %></big>" +
+      "<% if (goalDateString) { %>" +
+      " by <%= goalDateString %>" +
+      "<% } else { %>" +
+      " goal" +
+      "<% } %>" +
+      "</p>" +
+      "<a href='#' class='change_goal'>Change goal</a>" +
+      "<% } else if (mode === 'change') { %>" +
+      "<%= selectHtml %>" +
+      "<a href='#' class='save_goal'>Save goal</a>" +
+      "<a href='#' class='cancel_change'>Cancel</a>" +
+      "<% } %>" +
     "<% } %>"
   ),
 

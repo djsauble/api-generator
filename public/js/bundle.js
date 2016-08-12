@@ -519,7 +519,7 @@ module.exports = ConnectedView;
 },{"backbone":19,"jquery":26,"underscore":31}],9:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
-var HeroView = require('./hero');
+var WeekView = require('./week');
 var TrendView = require('./trend');
 var RacesView = require('./races');
 var ViewerView = require('./viewer');
@@ -529,15 +529,15 @@ var View = Backbone.View.extend({
 
   initialize: function() {
     // Child components
-    this.hero = new HeroView();
+    this.week = new WeekView();
     this.trend = new TrendView();
     this.races = new RacesView();
     this.viewer = new ViewerView();
   },
 
   render: function() {
-    // Show the hero component
-    this.$el.append(this.hero.render().el);
+    // Show the week component
+    this.$el.append(this.week.render().el);
 
     // Show the trend component
     this.$el.append(this.trend.render().el);
@@ -553,8 +553,8 @@ var View = Backbone.View.extend({
 
   remove: function() {
     this.undelegateEvents();
-    if (this.hero) {
-      this.hero.remove();
+    if (this.week) {
+      this.week.remove();
     }
     if (this.trend) {
       this.trend.remove();
@@ -570,94 +570,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./hero":10,"./races":13,"./trend":15,"./viewer":16,"backbone":19,"underscore":31}],10:[function(require,module,exports){
-var _ = require('underscore');
-var Backbone = require('backbone');
-var DateRound = require('date-round');
-var round = require('float').round;
-
-var View = Backbone.View.extend({
-  className: "hero dark row",
-
-  initialize: function() {
-    // Data changed
-    this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
-    this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
-    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.setModel);
-  },
-
-  render: function() {
-    var startOfToday = DateRound.floor(new Date()),
-        startOfNextWeek = DateRound.ceil(startOfToday, 'week'),
-        daysLeftThisWeek = Math.floor((startOfNextWeek.getTime() - startOfToday.getTime()) / DateRound.DAY_IN_MS),
-        distanceThisWeek = null,
-        distanceLastWeek = 0,
-        goalThisWeek = null,
-        percentChange = 0,
-        remainingThisWeek = 0,
-        distanceByWeek = null,
-        trendPercentString = null,
-        trendDescriptionString = null,
-        milesPerDay = null;
-
-    // Calculate trending information if we have the data
-    if (this.model && this.model.get('distanceByWeek').length > 0 && this.model.get('goalThisWeek')) {
-
-      distanceThisWeek = this.model.get('distanceThisWeek');
-      goalThisWeek = this.model.get('goalThisWeek');
-      distanceByWeek = this.model.get('distanceByWeek');
-
-      distanceLastWeek = _.last(distanceByWeek).sum;
-      percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100);
-      remainingThisWeek = round(goalThisWeek - distanceThisWeek, 1);
-
-      // WoW change
-      if (percentChange < 10) {
-        trendPercentString = remainingThisWeek;
-        milesPerDay = round(remainingThisWeek / daysLeftThisWeek, 1);
-        trendDescriptionString = "miles to go this week";
-      }
-      else {
-        trendPercentString = percentChange + "%";
-        trendDescriptionString = "more miles than last week";
-      }
-    }
-
-    // Render stuff (including trending data, if we have it)
-    this.$el.html(
-      this.template({
-        daysLeftThisWeek: daysLeftThisWeek,
-        trendPercentString: trendPercentString,
-        trendDescriptionString: trendDescriptionString,
-        milesPerDay: milesPerDay
-      })
-    );
-    
-    return this;
-  },
-
-  template: _.template(
-    "<h1>Weekly goal</h1>" +
-    "<p><big><%= daysLeftThisWeek %></big> days left this week</p>" +
-    "<p><big><%= trendPercentString %></big> <%= trendDescriptionString%></p>" +
-    "<% if (milesPerDay) { %>" +
-    "<p><big><%= milesPerDay %></big> miles per day</p>" +
-    "<% } %>"
-  ),
-
-  // Set the model for this view if needed, and trigger a render
-  setModel: function(model) {
-    if (!this.model) {
-      this.model = model;
-    }
-    this.render();
-  }
-
-});
-
-module.exports = View;
-
-},{"backbone":19,"date-round":24,"float":25,"underscore":31}],11:[function(require,module,exports){
+},{"./races":12,"./trend":14,"./viewer":15,"./week":16,"backbone":19,"underscore":31}],10:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 
@@ -732,7 +645,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":14,"backbone":19}],12:[function(require,module,exports){
+},{"./run":13,"backbone":19}],11:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -928,7 +841,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":19,"compute-distance":20,"jquery":26}],13:[function(require,module,exports){
+},{"../../helpers":2,"backbone":19,"compute-distance":20,"jquery":26}],12:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -1057,7 +970,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":19,"underscore":31}],14:[function(require,module,exports){
+},{"../../helpers":2,"backbone":19,"underscore":31}],13:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -1123,7 +1036,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":19,"date-names":22,"date-round":24}],15:[function(require,module,exports){
+},{"../../helpers":2,"backbone":19,"date-names":22,"date-round":24}],14:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var DateNames = require('date-names');
@@ -1157,7 +1070,7 @@ var View = Backbone.View.extend({
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         runArray,
         goal = 0,
-        distanceByWeek,
+        distanceByWeek = [],
         goalThisWeek,
         distanceThisWeek,
         goalString,
@@ -1196,6 +1109,9 @@ var View = Backbone.View.extend({
 
     this.$el.html(
       this.template({
+        enoughData: distanceByWeek.length > 2,
+
+        // Show these when we have at least three weeks of data
         chartHtml: chartHtml,
         selectHtml: this.getSelectHtml(),
         goalString: goalString,
@@ -1208,21 +1124,23 @@ var View = Backbone.View.extend({
   },
 
   template: _.template(
-    "<h1>Trending data</h1>" +
-    "<div class='graph row'><%= chartHtml %></div>" +
-    "<% if (mode === 'view') { %>" +
-    "<p><big><%= goalString %></big>" +
-    "<% if (goalDateString) { %>" +
-    " by <%= goalDateString %>" +
-    "<% } else { %>" +
-    " goal" +
-    "<% } %>" +
-    "</p>" +
-    "<a href='#' class='change_goal'>Change goal</a>" +
-    "<% } else if (mode === 'change') { %>" +
-    "<%= selectHtml %>" +
-    "<a href='#' class='save_goal'>Save goal</a>" +
-    "<a href='#' class='cancel_change'>Cancel</a>" +
+    "<% if (enoughData) { %>" +
+      "<h1>Trending data</h1>" +
+      "<div class='graph row'><%= chartHtml %></div>" +
+      "<% if (mode === 'view') { %>" +
+      "<p><big><%= goalString %></big>" +
+      "<% if (goalDateString) { %>" +
+      " by <%= goalDateString %>" +
+      "<% } else { %>" +
+      " goal" +
+      "<% } %>" +
+      "</p>" +
+      "<a href='#' class='change_goal'>Change goal</a>" +
+      "<% } else if (mode === 'change') { %>" +
+      "<%= selectHtml %>" +
+      "<a href='#' class='save_goal'>Save goal</a>" +
+      "<a href='#' class='cancel_change'>Cancel</a>" +
+      "<% } %>" +
     "<% } %>"
   ),
 
@@ -1365,19 +1283,22 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":19,"date-names":22,"date-prediction":23,"date-round":24,"tiny-cookie":30,"underscore":31}],16:[function(require,module,exports){
+},{"../../helpers":2,"backbone":19,"date-names":22,"date-prediction":23,"date-round":24,"tiny-cookie":30,"underscore":31}],15:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
 var MapView = require('./map');
 
 var View = Backbone.View.extend({
-  className: "viewer row expand",
+  className: "viewer row",
 
   initialize: function() {
     // Child components
     this.map = new MapView();
     this.list = new ListView();
+
+    // Data changed
+    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.checkState);
   },
 
   render: function() {
@@ -1398,12 +1319,136 @@ var View = Backbone.View.extend({
     if (this.list) {
       this.list.remove();
     }
+  },
+
+  // Hide this view if there are no runs
+  checkState: function(model, value) {
+    this.$el.toggleClass('expand', value.length > 0);
   }
 });
 
 module.exports = View;
 
-},{"./list":11,"./map":12,"backbone":19,"underscore":31}],17:[function(require,module,exports){
+},{"./list":10,"./map":11,"backbone":19,"underscore":31}],16:[function(require,module,exports){
+var _ = require('underscore');
+var Backbone = require('backbone');
+var DateRound = require('date-round');
+var round = require('float').round;
+
+var View = Backbone.View.extend({
+  className: "hero dark row expand",
+
+  initialize: function() {
+    // Data changed
+    this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'user:change:distanceByWeek', function(model, value) {
+      this.checkState(value);
+      this.setModel(model);
+    });
+  },
+
+  render: function() {
+    var startOfToday = DateRound.floor(new Date()),
+        startOfNextWeek = DateRound.ceil(startOfToday, 'week'),
+        daysLeftThisWeek = Math.floor((startOfNextWeek.getTime() - startOfToday.getTime()) / DateRound.DAY_IN_MS),
+        daysLeftInLearningPeriod = null,
+        distanceThisWeek = 0,
+        distanceLastWeek = 0,
+        goalThisWeek = null,
+        percentChange = 0,
+        remainingThisWeek = 0,
+        distanceByWeek = [],
+        trendPercentString = null,
+        trendDescriptionString = null,
+        milesPerDay = null;
+
+    // Calculate trending information if we have the data
+    if (this.model && this.model.get('distanceByWeek').length > 0 && this.model.get('goalThisWeek')) {
+
+      distanceThisWeek = this.model.get('distanceThisWeek');
+      goalThisWeek = this.model.get('goalThisWeek');
+      distanceByWeek = this.model.get('distanceByWeek');
+
+      distanceLastWeek = _.last(distanceByWeek).sum;
+      percentChange = Math.round(((distanceThisWeek / distanceLastWeek) - 1) * 100);
+      remainingThisWeek = round(goalThisWeek - distanceThisWeek, 1);
+
+      // WoW change
+      if (percentChange < 10) {
+        trendPercentString = remainingThisWeek;
+        milesPerDay = round(remainingThisWeek / daysLeftThisWeek, 1);
+        trendDescriptionString = "miles to go this week";
+      }
+      else {
+        trendPercentString = percentChange + "%";
+        trendDescriptionString = "more miles than last week";
+      }
+    }
+    else if (this.model) {
+      distanceByWeek = this.model.get('distanceByWeek');
+      daysLeftInLearningPeriod = 14 - startOfToday.getDay() - (distanceByWeek.length * 7);
+    }
+
+    // Render stuff (including trending data, if we have it)
+    this.$el.html(
+      this.template({
+        noData: distanceByWeek.length === 0,
+        enoughData: distanceByWeek.length > 1,
+
+        // Show these when there isn't enough data
+        daysLeftInLearningPeriod: daysLeftInLearningPeriod,
+        distanceThisWeek: distanceThisWeek,
+
+        // Show these when we have at least two weeks of data
+        trendPercentString: trendPercentString,
+        trendDescriptionString: trendDescriptionString,
+        milesPerDay: milesPerDay,
+
+        // Show these in both cases
+        daysLeftThisWeek: daysLeftThisWeek
+      })
+    );
+    
+    return this;
+  },
+
+  template: _.template(
+    "<% if (noData) { %>" +
+      "<h1>Waiting for your first run...</h1>" +
+    "<% } else if (enoughData) { %>" +
+      "<h1>Weekly goal</h1>" +
+      "<p><big><%= daysLeftThisWeek %></big> days left this week</p>" +
+      "<p><big><%= trendPercentString %></big> <%= trendDescriptionString%></p>" +
+      "<% if (milesPerDay) { %>" +
+      "<p><big><%= milesPerDay %></big> miles per day</p>" +
+      "<% } %>" +
+    "<% } else { %>" +
+      "<h1>Learning habits</h1>" +
+      "<p><big><%= daysLeftInLearningPeriod %></big> days left in the learning period</p>" +
+      "<p><big><%= daysLeftThisWeek %></big> days left this week</p>" +
+      "<p><big><%= distanceThisWeek %></big> miles this week</p>" +
+    "<% } %>"
+  ),
+
+  // Set the model for this view if needed, and trigger a render
+  setModel: function(model) {
+    if (!this.model) {
+      this.model = model;
+    }
+    this.render();
+  },
+
+  // Expand this view if there are no runs
+  checkState: function(value) {
+    console.log(value.length === 0);
+    this.$el.toggleClass('expand', value.length === 0);
+  }
+});
+
+module.exports = View;
+
+},{"backbone":19,"date-round":24,"float":25,"underscore":31}],17:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 

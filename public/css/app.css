@@ -68,6 +68,11 @@ body {
   flex-shrink: 0;
 }
 
+.hero.expand {
+  align-items: center;
+  justify-content: center;
+}
+
 ul.list {
   overflow: scroll;
   list-style: none;
@@ -102,9 +107,13 @@ ul.list li:last-child {
 .trend {
   flex-shrink: 0;
   background-color: #2f2fb7;
-  padding: 1em 2em 1em 2em;
   align-items: flex-end;
   line-height: 9px;
+  padding: 0 2em 0 2em;
+}
+
+.trend > * {
+  padding: 1em 0 1em 0;
 }
 
 .trend p {
@@ -139,7 +148,11 @@ ul.list li:last-child {
 .races {
   flex-shrink: 0;
   background-color: #666666;
-  padding: 1em 2em 1em 2em;
+  padding: 0 2em 0 2em;
+}
+
+.races > * {
+  padding: 1em 0 1em 0;
 }
 
 /**
