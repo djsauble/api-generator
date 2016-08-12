@@ -3,7 +3,8 @@ var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 
 var View = Backbone.View.extend({
-  className: "races dark row",
+  className: "races dark",
+  tagName: "li",
 
   initialize: function() {
     // Events
@@ -12,9 +13,13 @@ var View = Backbone.View.extend({
   },
 
   template: _.template(
-    "<h1>Race estimates</h1>" +
     "<% data.forEach(function(e) { %>" +
-    "<p><big><%= e.name %></big> <%= e.duration %></p>" +
+    "<p><strong>Estimated times</strong></p>" +
+    "<p><small>" +
+      "<%= e.name %> &middot; " +
+      "<%= e.duration %> &middot; " +
+      "<%= e.pace %>" +
+    "</small></p>" +
     "<% }); %>"
   ),
 
@@ -61,7 +66,8 @@ var View = Backbone.View.extend({
       raceDuration = Helpers.durationFromMinutes(pace * mileage);
       data.push({
         name: raceName,
-        duration: raceDuration
+        duration: raceDuration,
+        pace: Helpers.durationFromMinutes(pace) + ' min/mi'
       });
     }
 

@@ -527,7 +527,6 @@ var _ = require('underscore');
 var Backbone = require('backbone');
 var WeekView = require('./week');
 var TrendView = require('./trend');
-var RacesView = require('./races');
 var ViewerView = require('./viewer');
 
 var View = Backbone.View.extend({
@@ -537,7 +536,6 @@ var View = Backbone.View.extend({
     // Child components
     this.week = new WeekView();
     this.trend = new TrendView();
-    this.races = new RacesView();
     this.viewer = new ViewerView();
 
     // Data changed
@@ -550,9 +548,6 @@ var View = Backbone.View.extend({
 
     // Show the trend component
     this.$el.append(this.trend.render().el);
-
-    // Show the races component
-    this.$el.append(this.races.render().el);
 
     // Show the viewer component
     this.$el.append(this.viewer.render().el);
@@ -568,9 +563,6 @@ var View = Backbone.View.extend({
     if (this.trend) {
       this.trend.remove();
     }
-    if (this.races) {
-      this.races.remove();
-    }
     if (this.viewer) {
       this.viewer.remove();
     }
@@ -585,9 +577,10 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./races":12,"./trend":14,"./viewer":15,"./week":16,"backbone":19,"underscore":31}],10:[function(require,module,exports){
+},{"./trend":14,"./viewer":15,"./week":16,"backbone":19,"underscore":31}],10:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
+var RacesView = require('./races');
 
 var View = Backbone.View.extend({
   tagName: "ul",
@@ -600,6 +593,7 @@ var View = Backbone.View.extend({
 
     // Children
     this.runs = [];
+    this.races = null;
 
     // Data changed
     this.listenTo(Forrest.bus, 'runs:sync', function(runs) {
@@ -633,6 +627,12 @@ var View = Backbone.View.extend({
       });
     }).reverse();
 
+    // Show the races component
+    if (!this.races) {
+      this.races = new RacesView();
+      this.$el.append(this.races.render().el);
+    }
+
     // Add the views to the DOM
     this.runs.forEach(function(r) {
       me.$el.append(r.render().el);
@@ -660,7 +660,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./run":13,"backbone":19}],11:[function(require,module,exports){
+},{"./races":12,"./run":13,"backbone":19}],11:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -862,7 +862,8 @@ var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 
 var View = Backbone.View.extend({
-  className: "races dark row",
+  className: "races dark",
+  tagName: "li",
 
   initialize: function() {
     // Events
@@ -871,9 +872,13 @@ var View = Backbone.View.extend({
   },
 
   template: _.template(
-    "<h1>Race estimates</h1>" +
     "<% data.forEach(function(e) { %>" +
-    "<p><big><%= e.name %></big> <%= e.duration %></p>" +
+    "<p><strong>Estimated times</strong></p>" +
+    "<p><small>" +
+      "<%= e.name %> &middot; " +
+      "<%= e.duration %> &middot; " +
+      "<%= e.pace %>" +
+    "</small></p>" +
     "<% }); %>"
   ),
 
@@ -920,7 +925,8 @@ var View = Backbone.View.extend({
       raceDuration = Helpers.durationFromMinutes(pace * mileage);
       data.push({
         name: raceName,
-        duration: raceDuration
+        duration: raceDuration,
+        pace: Helpers.durationFromMinutes(pace) + ' min/mi'
       });
     }
 
@@ -1343,7 +1349,7 @@ var DateRound = require('date-round');
 var round = require('float').round;
 
 var View = Backbone.View.extend({
-  className: "hero dark row expand",
+  className: "week dark row expand",
 
   initialize: function() {
     // Data changed

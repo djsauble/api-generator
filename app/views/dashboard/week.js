@@ -4,7 +4,7 @@ var DateRound = require('date-round');
 var round = require('float').round;
 
 var View = Backbone.View.extend({
-  className: "hero dark row expand",
+  className: "week dark row expand",
 
   initialize: function() {
     // Data changed

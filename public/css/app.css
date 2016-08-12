@@ -59,25 +59,85 @@ body {
 }
 
 /**
- * Block of highlighted information
+ * Weekly goal
  */
 
-.hero {
+.week {
   background-color: #963896;
   padding: 1em 2em 1em 2em;
   flex-shrink: 0;
+  align-items: baseline;
 }
 
-.hero.expand {
+.week.expand {
   align-items: center;
   justify-content: center;
 }
+
+.week h1 {
+  margin: 0;
+}
+
+/**
+ * Trending graph
+ */
+
+.trend {
+  flex-shrink: 0;
+  background-color: #2f2fb7;
+  align-items: baseline;
+  line-height: 9px;
+  padding: 0 2em 0 2em;
+}
+
+.trend > * {
+  padding: 1em 0 1em 0;
+}
+
+.trend h1 {
+  margin: 0.7em 0 0.3em 0;
+}
+
+.trend p {
+  margin-bottom: 0;
+}
+
+.trend .graph {
+  align-items: flex-end;
+  height: 3em;
+}
+
+.trend .bar {
+  background-color: rgba(255, 255, 255, 0.6);
+  width: 1em;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.trend .progress {
+  background-color: #ffffff;
+}
+
+.trend select.goal {
+  border: 1px solid #a8a8a8;
+  font-size: 1.4em;
+}
+
+/**
+ * List and map
+ */
 
 ul.list {
   overflow: scroll;
   list-style: none;
   padding: 0;
   margin: 0;
+}
+
+ul.list li.races {
+  background-color: #666666;
+  line-height: 1em;
+  padding-top: 0.5em;
 }
 
 ul.list li {
@@ -98,61 +158,6 @@ ul.list li:last-child {
   flex: 1 1 auto;
   margin: 0;
   position: relative;
-}
-
-/**
- * Trending graph
- */
-
-.trend {
-  flex-shrink: 0;
-  background-color: #2f2fb7;
-  align-items: flex-end;
-  line-height: 9px;
-  padding: 0 2em 0 2em;
-}
-
-.trend > * {
-  padding: 1em 0 1em 0;
-}
-
-.trend p {
-  margin-bottom: 0;
-}
-
-.trend .graph {
-  align-items: flex-end;
-  height: 4em;
-}
-
-.trend .bar {
-  background-color: rgba(255, 255, 255, 0.6);
-  width: 1em;
-  display: flex;
-  flex-direction: column-reverse;
-}
-
-.trend .progress {
-  background-color: #ffffff;
-}
-
-.trend select.goal {
-  border: 1px solid #a8a8a8;
-  font-size: 1.4em;
-}
-
-/**
- * Races section
- */
-
-.races {
-  flex-shrink: 0;
-  background-color: #666666;
-  padding: 0 2em 0 2em;
-}
-
-.races > * {
-  padding: 1em 0 1em 0;
 }
 
 /**

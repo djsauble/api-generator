@@ -1,5 +1,6 @@
 var Backbone = require('backbone');
 var RunView = require('./run');
+var RacesView = require('./races');
 
 var View = Backbone.View.extend({
   tagName: "ul",
@@ -12,6 +13,7 @@ var View = Backbone.View.extend({
 
     // Children
     this.runs = [];
+    this.races = null;
 
     // Data changed
     this.listenTo(Forrest.bus, 'runs:sync', function(runs) {
@@ -44,6 +46,12 @@ var View = Backbone.View.extend({
         }
       });
     }).reverse();
+
+    // Show the races component
+    if (!this.races) {
+      this.races = new RacesView();
+      this.$el.append(this.races.render().el);
+    }
 
     // Add the views to the DOM
     this.runs.forEach(function(r) {
