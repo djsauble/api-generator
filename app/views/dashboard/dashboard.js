@@ -54,7 +54,7 @@ var View = Backbone.View.extend({
   // Hide this view if there are no runs
   checkState: function(runs) {
     this.viewer.$el.toggleClass('expand', runs.length > 0);
-    this.week.render().$el.toggleClass('expand', runs.length === 0);
+    this.week.$el.toggleClass('expand', runs.length === 0);
   }
 });
 
