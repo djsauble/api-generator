@@ -5,19 +5,25 @@ var DateRound = require('date-round');
 var Cookie = require('tiny-cookie');
 var predict = require('date-prediction');
 var Helpers = require('../../helpers');
+var BarView = require('./bar');
 
 var View = Backbone.View.extend({
   className: "trend dark row",
 
   initialize: function() {
-    // Mode
+    // Backing data
     this.mode = 'view';
+    this.selected = null;
+
+    // Children
+    this.bars = [];
 
     // Events
     this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goal', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'runs:filter', this.selectBar);
   },
 
   events: {
@@ -27,7 +33,8 @@ var View = Backbone.View.extend({
   },
 
   render: function() {
-    var startOfToday = DateRound.floor(new Date()),
+    var me = this,
+        startOfToday = DateRound.floor(new Date()),
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         runArray,
         goal = 0,
@@ -35,8 +42,13 @@ var View = Backbone.View.extend({
         goalThisWeek,
         distanceThisWeek,
         goalString,
-        goalDateString = '&mdash;',
-        chartHtml = '';
+        goalDateString = '&mdash;';
+
+    // Remove any existing bars
+    this.bars.forEach(function(b) {
+      b.remove();
+    });
+    this.bars = [];
 
     if (this.model && this.model.get('distanceByWeek').length > 0 && this.model.get('goalThisWeek')) {
 
@@ -65,15 +77,15 @@ var View = Backbone.View.extend({
       }
 
       // Get the chart HTML
-      chartHtml = this.getChartHtml(runArray, distanceThisWeek);
+      this.bars = this.getBars(runArray, distanceThisWeek);
     }
 
+    // Render the template
     this.$el.html(
       this.template({
         enoughData: distanceByWeek.length > 2,
 
         // Show these when we have at least three weeks of data
-        chartHtml: chartHtml,
         selectHtml: this.getSelectHtml(),
         goalString: goalString,
         goalDateString: goalDateString,
@@ -81,13 +93,25 @@ var View = Backbone.View.extend({
       })
     );
 
+    // Add the bars to the DOM
+    if (distanceByWeek.length > 2) {
+      this.bars.forEach(function(r) {
+        me.$('.graph').append(r.render().el);
+      });
+    }
+
+    // Highlight the selected bar, if any
+    if (this.selected) {
+      this.$('#' + this.selected).addClass('selected');
+    }
+
     return this;
   },
 
   template: _.template(
     "<% if (enoughData) { %>" +
       "<h1>Trending data</h1>" +
-      "<div class='graph row'><%= chartHtml %></div>" +
+      "<div class='graph row'></div>" +
       "<% if (mode === 'view') { %>" +
       "<p><big><%= goalString %></big>" +
       "<% if (goalDateString) { %>" +
@@ -146,8 +170,13 @@ var View = Backbone.View.extend({
   },
 
   // Display run data for the last eight weeks
-  getChartHtml: function(distanceByWeek, distanceThisWeek) {
-    var chartHtml = "";
+  getBars: function(distanceByWeek, distanceThisWeek) {
+    var bars = [],
+        start,
+        end,
+        actual,
+        height,
+        maxDistance;
 
     maxDistance = _.max(
       distanceByWeek.map(function(w) {
@@ -155,14 +184,27 @@ var View = Backbone.View.extend({
       })
     );
     for (var i = 0; i < distanceByWeek.length; ++i) {
-      chartHtml += "<div class='bar' style='height: " + (distanceByWeek[i].sum / maxDistance * 100) + "%;'>";
+      actual = undefined;
+      start = (new Date(distanceByWeek[i].period)).getTime();
+      end = start + DateRound.WEEK_IN_MS;
+      height = distanceByWeek[i].sum / maxDistance * 100;
       if (i == distanceByWeek.length - 1) {
-        chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / distanceByWeek[i].sum * 100) + "%;'></div>";
+        actual = distanceThisWeek / distanceByWeek[i].sum * 100;
       }
-      chartHtml += "</div>";
+      bars.push(new BarView({
+        model: new Backbone.Model({
+          actual: actual,
+          startTime: start,
+          endTime: end
+        }),
+        attributes: {
+          'id': start,
+          'style': 'height: ' + height + '%'
+        }
+      }));
     }
 
-    return chartHtml;
+    return bars;
   },
 
   // Get the select control for changing your goal
@@ -239,6 +281,10 @@ var View = Backbone.View.extend({
     }
 
     return null;
+  },
+  selectBar: function(id) {
+    this.selected = id;
+    this.render();
   }
 });
 

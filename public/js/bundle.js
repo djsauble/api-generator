@@ -40,7 +40,7 @@ $(function() {
   Forrest.socket = new Socket();
 });
 
-},{"./models/runs":4,"./models/user":5,"./router":6,"./socket":7,"backbone":19,"jquery":26,"underscore":31}],2:[function(require,module,exports){
+},{"./models/runs":4,"./models/user":5,"./router":6,"./socket":7,"backbone":20,"jquery":27,"underscore":32}],2:[function(require,module,exports){
 var Distance = require('compute-distance');
 
 // Get a list of runs from the given database
@@ -150,7 +150,7 @@ module.exports = {
   durationFromMinutes: durationFromMinutes,
 };
 
-},{"compute-distance":20}],3:[function(require,module,exports){
+},{"compute-distance":21}],3:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../helpers');
 
@@ -180,7 +180,7 @@ var Run = Backbone.Model.extend({
 
 module.exports = Run;
 
-},{"../helpers":2,"backbone":19}],4:[function(require,module,exports){
+},{"../helpers":2,"backbone":20}],4:[function(require,module,exports){
 var Backbone = require('backbone');
 var Run = require('./run');
 
@@ -218,7 +218,7 @@ var Runs = Backbone.Collection.extend({
 
 module.exports = Runs;
 
-},{"./run":3,"backbone":19}],5:[function(require,module,exports){
+},{"./run":3,"backbone":20}],5:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -295,7 +295,7 @@ var User = Backbone.Model.extend({
 
 module.exports = User;
 
-},{"backbone":19,"underscore":31}],6:[function(require,module,exports){
+},{"backbone":20,"underscore":32}],6:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var DashboardView = require('./views/dashboard/dashboard');
@@ -359,7 +359,7 @@ var Router = Backbone.Router.extend({
 
 module.exports = Router;
 
-},{"./views/connected":8,"./views/dashboard/dashboard":9,"./views/settings/settings":18,"backbone":19,"jquery":26}],7:[function(require,module,exports){
+},{"./views/connected":8,"./views/dashboard/dashboard":10,"./views/settings/settings":19,"backbone":20,"jquery":27}],7:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -452,7 +452,7 @@ var Socket = Backbone.Model.extend({
 
 module.exports = Socket;
 
-},{"backbone":19,"underscore":31}],8:[function(require,module,exports){
+},{"backbone":20,"underscore":32}],8:[function(require,module,exports){
 var _ = require('underscore');
 var $ = require('jquery');
 var Backbone = require('backbone');
@@ -522,7 +522,45 @@ var ConnectedView = Backbone.View.extend({
 
 module.exports = ConnectedView;
 
-},{"backbone":19,"jquery":26,"underscore":31}],9:[function(require,module,exports){
+},{"backbone":20,"jquery":27,"underscore":32}],9:[function(require,module,exports){
+var _ = require('underscore');
+var Backbone = require('backbone');
+
+var View = Backbone.View.extend({
+  className: 'bar',
+  events: {
+    'click': 'onClick'
+  },
+  template: _.template(
+    "<% if (actual) { %>" +
+    "<div class='bar progress' style='height: <%= actual %>%;'></div>" +
+    "<% } %>"
+  ),
+  render: function() {
+    this.$el.html(this.template({
+      actual: this.model.get('actual')
+    }));
+
+    return this;
+  },
+  onClick: function() {
+    var start = this.model.get('startTime'),
+        end = this.model.get('endTime');
+
+    if (this.$el.hasClass('selected')) {
+      // Reset the filter
+      Forrest.bus.trigger('runs:filter');
+    }
+    else {
+      // Set the filter
+      Forrest.bus.trigger('runs:filter', start, end);
+    }
+  }
+});
+
+module.exports = View;
+
+},{"backbone":20,"underscore":32}],10:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var WeekView = require('./week');
@@ -577,7 +615,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./trend":14,"./viewer":15,"./week":16,"backbone":19,"underscore":31}],10:[function(require,module,exports){
+},{"./trend":15,"./viewer":16,"./week":17,"backbone":20,"underscore":32}],11:[function(require,module,exports){
 var Backbone = require('backbone');
 var RunView = require('./run');
 var RacesView = require('./races');
@@ -589,6 +627,7 @@ var View = Backbone.View.extend({
   initialize: function() {
     // Backing data
     this.models = [];
+    this.filter = null;
     this.selected = undefined;
 
     // Children
@@ -606,6 +645,20 @@ var View = Backbone.View.extend({
       this.selected = model;
       this.render();
     });
+
+    // Filter runs if a time period is selected
+    this.listenTo(Forrest.bus, 'runs:filter', function(start, end) {
+      if (start && end) {
+        this.filter = {
+          start: (new Date(start)).getTime(),
+          end: (new Date(end)).getTime()
+        };
+      }
+      else {
+        this.filter = null;
+      }
+      this.render();
+    });
   },
 
   render: function() {
@@ -617,8 +670,11 @@ var View = Backbone.View.extend({
       this.runs[i] = undefined;
     }
 
-    // Create new views
-    this.runs = this.models.map(function (r) {
+    // Filter the list of models to only those we will display
+    this.runs = this.models.filter(function(m) {
+      var ts = m.get('timestamp').getTime();
+      return !me.filter || (ts >= me.filter.start && ts < me.filter.end);
+    }).map(function (r) {
       return new RunView({
         model: r,
         attributes: {
@@ -639,12 +695,12 @@ var View = Backbone.View.extend({
     });
 
     // Select an item in the list
-    if (this.selected) {
+    if (this.selected && this.$('#' + this.selected.id).is(':visible')) {
       this.$('#' + this.selected.id).addClass('selected');
     }
     // If no item has been selected, show the first by default
-    else if (this.models.length > 0) {
-      Forrest.bus.trigger('runs:selected', this.models.last());
+    else if (this.runs.length > 0) {
+      Forrest.bus.trigger('runs:selected', this.runs[0].model);
     }
 
     return this;
@@ -660,7 +716,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./races":12,"./run":13,"backbone":19}],11:[function(require,module,exports){
+},{"./races":13,"./run":14,"backbone":20}],12:[function(require,module,exports){
 var $ = require('jquery');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -856,7 +912,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":19,"compute-distance":20,"jquery":26}],12:[function(require,module,exports){
+},{"../../helpers":2,"backbone":20,"compute-distance":21,"jquery":27}],13:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
@@ -991,7 +1047,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":19,"underscore":31}],13:[function(require,module,exports){
+},{"../../helpers":2,"backbone":20,"underscore":32}],14:[function(require,module,exports){
 var Backbone = require('backbone');
 var Helpers = require('../../helpers');
 var DateNames = require('date-names');
@@ -1057,7 +1113,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":19,"date-names":22,"date-round":24}],14:[function(require,module,exports){
+},{"../../helpers":2,"backbone":20,"date-names":23,"date-round":25}],15:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var DateNames = require('date-names');
@@ -1065,19 +1121,25 @@ var DateRound = require('date-round');
 var Cookie = require('tiny-cookie');
 var predict = require('date-prediction');
 var Helpers = require('../../helpers');
+var BarView = require('./bar');
 
 var View = Backbone.View.extend({
   className: "trend dark row",
 
   initialize: function() {
-    // Mode
+    // Backing data
     this.mode = 'view';
+    this.selected = null;
+
+    // Children
+    this.bars = [];
 
     // Events
     this.listenTo(Forrest.bus, 'user:change:distanceThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goalThisWeek', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:goal', this.setModel);
     this.listenTo(Forrest.bus, 'user:change:distanceByWeek', this.setModel);
+    this.listenTo(Forrest.bus, 'runs:filter', this.selectBar);
   },
 
   events: {
@@ -1087,7 +1149,8 @@ var View = Backbone.View.extend({
   },
 
   render: function() {
-    var startOfToday = DateRound.floor(new Date()),
+    var me = this,
+        startOfToday = DateRound.floor(new Date()),
         startOfThisWeek = DateRound.floor(startOfToday, 'week'),
         runArray,
         goal = 0,
@@ -1095,8 +1158,13 @@ var View = Backbone.View.extend({
         goalThisWeek,
         distanceThisWeek,
         goalString,
-        goalDateString = '&mdash;',
-        chartHtml = '';
+        goalDateString = '&mdash;';
+
+    // Remove any existing bars
+    this.bars.forEach(function(b) {
+      b.remove();
+    });
+    this.bars = [];
 
     if (this.model && this.model.get('distanceByWeek').length > 0 && this.model.get('goalThisWeek')) {
 
@@ -1125,15 +1193,15 @@ var View = Backbone.View.extend({
       }
 
       // Get the chart HTML
-      chartHtml = this.getChartHtml(runArray, distanceThisWeek);
+      this.bars = this.getBars(runArray, distanceThisWeek);
     }
 
+    // Render the template
     this.$el.html(
       this.template({
         enoughData: distanceByWeek.length > 2,
 
         // Show these when we have at least three weeks of data
-        chartHtml: chartHtml,
         selectHtml: this.getSelectHtml(),
         goalString: goalString,
         goalDateString: goalDateString,
@@ -1141,13 +1209,25 @@ var View = Backbone.View.extend({
       })
     );
 
+    // Add the bars to the DOM
+    if (distanceByWeek.length > 2) {
+      this.bars.forEach(function(r) {
+        me.$('.graph').append(r.render().el);
+      });
+    }
+
+    // Highlight the selected bar, if any
+    if (this.selected) {
+      this.$('#' + this.selected).addClass('selected');
+    }
+
     return this;
   },
 
   template: _.template(
     "<% if (enoughData) { %>" +
       "<h1>Trending data</h1>" +
-      "<div class='graph row'><%= chartHtml %></div>" +
+      "<div class='graph row'></div>" +
       "<% if (mode === 'view') { %>" +
       "<p><big><%= goalString %></big>" +
       "<% if (goalDateString) { %>" +
@@ -1206,8 +1286,13 @@ var View = Backbone.View.extend({
   },
 
   // Display run data for the last eight weeks
-  getChartHtml: function(distanceByWeek, distanceThisWeek) {
-    var chartHtml = "";
+  getBars: function(distanceByWeek, distanceThisWeek) {
+    var bars = [],
+        start,
+        end,
+        actual,
+        height,
+        maxDistance;
 
     maxDistance = _.max(
       distanceByWeek.map(function(w) {
@@ -1215,14 +1300,27 @@ var View = Backbone.View.extend({
       })
     );
     for (var i = 0; i < distanceByWeek.length; ++i) {
-      chartHtml += "<div class='bar' style='height: " + (distanceByWeek[i].sum / maxDistance * 100) + "%;'>";
+      actual = undefined;
+      start = (new Date(distanceByWeek[i].period)).getTime();
+      end = start + DateRound.WEEK_IN_MS;
+      height = distanceByWeek[i].sum / maxDistance * 100;
       if (i == distanceByWeek.length - 1) {
-        chartHtml += "<div class='bar progress' style='height: " + (distanceThisWeek / distanceByWeek[i].sum * 100) + "%;'></div>";
+        actual = distanceThisWeek / distanceByWeek[i].sum * 100;
       }
-      chartHtml += "</div>";
+      bars.push(new BarView({
+        model: new Backbone.Model({
+          actual: actual,
+          startTime: start,
+          endTime: end
+        }),
+        attributes: {
+          'id': start,
+          'style': 'height: ' + height + '%'
+        }
+      }));
     }
 
-    return chartHtml;
+    return bars;
   },
 
   // Get the select control for changing your goal
@@ -1299,12 +1397,16 @@ var View = Backbone.View.extend({
     }
 
     return null;
+  },
+  selectBar: function(id) {
+    this.selected = id;
+    this.render();
   }
 });
 
 module.exports = View;
 
-},{"../../helpers":2,"backbone":19,"date-names":22,"date-prediction":23,"date-round":24,"tiny-cookie":30,"underscore":31}],15:[function(require,module,exports){
+},{"../../helpers":2,"./bar":9,"backbone":20,"date-names":23,"date-prediction":24,"date-round":25,"tiny-cookie":31,"underscore":32}],16:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var ListView = require('./list');
@@ -1342,7 +1444,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./list":10,"./map":11,"backbone":19,"underscore":31}],16:[function(require,module,exports){
+},{"./list":11,"./map":12,"backbone":20,"underscore":32}],17:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 var DateRound = require('date-round');
@@ -1452,7 +1554,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":19,"date-round":24,"float":25,"underscore":31}],17:[function(require,module,exports){
+},{"backbone":20,"date-round":25,"float":26,"underscore":32}],18:[function(require,module,exports){
 var _ = require('underscore');
 var Backbone = require('backbone');
 
@@ -1525,7 +1627,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"backbone":19,"underscore":31}],18:[function(require,module,exports){
+},{"backbone":20,"underscore":32}],19:[function(require,module,exports){
 var Backbone = require('backbone');
 var SecurityCode = require('./code');
 
@@ -1566,7 +1668,7 @@ var View = Backbone.View.extend({
 
 module.exports = View;
 
-},{"./code":17,"backbone":19}],19:[function(require,module,exports){
+},{"./code":18,"backbone":20}],20:[function(require,module,exports){
 (function (global){
 //     Backbone.js 1.3.3
 
@@ -3490,7 +3592,7 @@ module.exports = View;
 });
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"jquery":26,"underscore":31}],20:[function(require,module,exports){
+},{"jquery":27,"underscore":32}],21:[function(require,module,exports){
 var sgeo = require('sgeo');
 
 // Smooth the run (e.g. ignore bouncing GPS tracks)
@@ -3560,7 +3662,7 @@ module.exports = {
   compute: computeDistance
 };
 
-},{"sgeo":29}],21:[function(require,module,exports){
+},{"sgeo":30}],22:[function(require,module,exports){
 "use strict";
 
 module.exports = {
@@ -3573,11 +3675,11 @@ module.exports = {
   pm: 'PM'
 };
 
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 "use strict";
 module.exports = require('./en');
 
-},{"./en":21}],23:[function(require,module,exports){
+},{"./en":22}],24:[function(require,module,exports){
 /**
  * Given an array of timeseries data ordered from oldest to
  * newest, predict when a future value is likely to be hit.
@@ -3646,7 +3748,7 @@ var predict = function(futureValue, series) {
 
 module.exports = predict;
 
-},{"regression":27}],24:[function(require,module,exports){
+},{"regression":28}],25:[function(require,module,exports){
 /**
  * Helpers to round dates to day, week, month, year boundaries.
  *
@@ -3815,7 +3917,7 @@ module.exports = {
   WEEK_IN_MS: WEEK_IN_MS
 };
 
-},{}],25:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 /**
  * Credit: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/round
  */
@@ -3869,7 +3971,7 @@ module.exports = {
   }
 };
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 /*eslint-disable no-unused-vars*/
 /*!
  * jQuery JavaScript Library v3.1.0
@@ -13945,9 +14047,9 @@ if ( !noGlobal ) {
 return jQuery;
 } );
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 module.exports = require('./src/regression');
-},{"./src/regression":28}],28:[function(require,module,exports){
+},{"./src/regression":29}],29:[function(require,module,exports){
 /**
 * @license
 *
@@ -14197,7 +14299,7 @@ if (typeof exports !== 'undefined') {
 
 }());
 
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 
 //Original version of this module came from following website by Chris Veness
 //http://www.movable-type.co.uk/scripts/latlong.html
@@ -14872,7 +14974,7 @@ if (typeof String.prototype.trim == 'undefined') {
   }
 }
 
-},{}],30:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 /*!
  * tiny-cookie - A tiny cookie manipulation plugin
  * https://github.com/Alex1990/tiny-cookie
@@ -15018,7 +15120,7 @@ if (typeof String.prototype.trim == 'undefined') {
 
 }));
 
-},{}],31:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors

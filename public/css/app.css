@@ -114,8 +114,12 @@ body {
   flex-direction: column-reverse;
 }
 
+.trend .bar.selected {
+  background-color: rgb(239, 239, 153);
+}
+
 .trend .progress {
-  background-color: #ffffff;
+  background-color: rgb(255, 255, 255, 0.8);
 }
 
 .trend select.goal {

@@ -9,6 +9,7 @@ var View = Backbone.View.extend({
   initialize: function() {
     // Backing data
     this.models = [];
+    this.filter = null;
     this.selected = undefined;
 
     // Children
@@ -26,6 +27,20 @@ var View = Backbone.View.extend({
       this.selected = model;
       this.render();
     });
+
+    // Filter runs if a time period is selected
+    this.listenTo(Forrest.bus, 'runs:filter', function(start, end) {
+      if (start && end) {
+        this.filter = {
+          start: (new Date(start)).getTime(),
+          end: (new Date(end)).getTime()
+        };
+      }
+      else {
+        this.filter = null;
+      }
+      this.render();
+    });
   },
 
   render: function() {
@@ -37,8 +52,11 @@ var View = Backbone.View.extend({
       this.runs[i] = undefined;
     }
 
-    // Create new views
-    this.runs = this.models.map(function (r) {
+    // Filter the list of models to only those we will display
+    this.runs = this.models.filter(function(m) {
+      var ts = m.get('timestamp').getTime();
+      return !me.filter || (ts >= me.filter.start && ts < me.filter.end);
+    }).map(function (r) {
       return new RunView({
         model: r,
         attributes: {
@@ -59,12 +77,12 @@ var View = Backbone.View.extend({
     });
 
     // Select an item in the list
-    if (this.selected) {
+    if (this.selected && this.$('#' + this.selected.id).is(':visible')) {
       this.$('#' + this.selected.id).addClass('selected');
     }
     // If no item has been selected, show the first by default
-    else if (this.models.length > 0) {
-      Forrest.bus.trigger('runs:selected', this.models.last());
+    else if (this.runs.length > 0) {
+      Forrest.bus.trigger('runs:selected', this.runs[0].model);
     }
 
     return this;
