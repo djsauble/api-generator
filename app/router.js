@@ -16,6 +16,12 @@ var Router = Backbone.Router.extend({
     this.listenToOnce(Forrest.bus, "runs:sync", function(runs) {
       // Remove the loading indicator
       $(".loading").remove();
+
+      // If no runs exist, show the settings page by default
+      if (runs.length === 0) {
+        this.navigate("settings");
+        this.switchView(this.settingsView);
+      }
     });
   },
 
