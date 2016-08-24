@@ -574,7 +574,7 @@ function listRuns(ws, data) {
 
   // Is this a valid request?
   users.get(data.user, function(err, body) {
-    if (body.user_token != data.token || body.run_database != data.database) {
+    if (body.user_token != data.token) {
       ws.send(error);
       return;
     }

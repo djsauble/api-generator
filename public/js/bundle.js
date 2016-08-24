@@ -194,8 +194,7 @@ var Runs = Backbone.Collection.extend({
   fetchRunList: function(socket) {
     Forrest.bus.trigger('socket:send', 'run:list', {
       user: USER_ID,
-      token: USER_TOKEN,
-      database: DATABASE
+      token: USER_TOKEN
     });
   },
   processMessage: function(socket, message) {
