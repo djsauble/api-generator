@@ -694,7 +694,7 @@ var View = Backbone.View.extend({
     });
 
     // Select an item in the list
-    if (this.selected && this.$('#' + this.selected.id).is(':visible')) {
+    if (this.selected && this.$('#' + this.selected.id).length) {
       this.$('#' + this.selected.id).addClass('selected');
     }
     // If no item has been selected, show the first by default
