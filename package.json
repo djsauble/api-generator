@@ -15,7 +15,7 @@
     "test": "grunt test"
   },
   "engines": {
-    "node": "4.4.7"
+    "node": "4.8.4"
   },
   "devDependencies": {
     "browserify": "13.0.1",
