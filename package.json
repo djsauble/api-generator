@@ -39,7 +39,7 @@
     "date-names": "0.1.6",
     "date-prediction": "0.0.5",
     "date-round": "0.0.1",
-    "ejs": "2.4.2",
+    "ejs": "3.0.1",
     "engine.io": "^1.6.11",
     "engine.io-client": "^1.6.11",
     "express": "4.14.0",
