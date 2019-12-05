@@ -48,7 +48,7 @@
     "float": "^1.0.2",
     "gps-to-gpx": "^1.0.5",
     "http": "0.0.0",
-    "jquery": "3.1.0",
+    "jquery": "3.4.1",
     "nano": "6.2.0",
     "passport": "0.3.2",
     "passport-strava-oauth2": "0.1.3",
